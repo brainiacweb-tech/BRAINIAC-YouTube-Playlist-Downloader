@@ -16,6 +16,7 @@ dist/
 
 # Downloads folder (user data)
 downloads/
+web_downloads/
 
 # OS
 .DS_Store

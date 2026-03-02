@@ -1,2 +1,5 @@
 flask>=3.0.0
 yt-dlp>=2024.1.1
+gunicorn>=21.2.0
+Pillow>=10.0.0
+requests>=2.31.0
