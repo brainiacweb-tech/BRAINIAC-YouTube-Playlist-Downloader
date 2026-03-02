@@ -1,12 +1,38 @@
-import os, uuid, threading, queue, json, time, zipfile, shutil
+import os, uuid, threading, queue, json, time, zipfile, shutil, base64
 import yt_dlp
 from flask import Flask, render_template, request, jsonify, Response, send_file
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 DOWNLOAD_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_downloads")
 os.makedirs(DOWNLOAD_BASE, exist_ok=True)
+
+# ── Cookie file ───────────────────────────────────────────────────────────────
+COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yt_cookies.txt")
+
+# Bootstrap from environment variable on startup (Railway-friendly):
+# Set YT_COOKIES in Railway env vars to the base64-encoded content of cookies.txt
+_env_cookies = os.environ.get("YT_COOKIES", "")
+if _env_cookies and not os.path.exists(COOKIES_FILE):
+    try:
+        with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
+            _f.write(base64.b64decode(_env_cookies).decode("utf-8"))
+        print("[cookies] Loaded cookies from YT_COOKIES environment variable")
+    except Exception as _e:
+        print(f"[cookies] Failed to load YT_COOKIES env var: {_e}")
+
+
+def _cookies_active() -> bool:
+    return os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0
+
+
+def _inject_cookies(opts: dict) -> dict:
+    """Add cookiefile to yt-dlp opts if a cookie file exists."""
+    if _cookies_active():
+        opts["cookiefile"] = COOKIES_FILE
+    return opts
 
 # ── Per-task state ────────────────────────────────────────────────────────────
 _tasks: dict = {}
@@ -66,6 +92,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         "outtmpl":         os.path.join(task_dir, "%(title)s.%(ext)s"),
         "noplaylist":      False,
     }
+    _inject_cookies(opts)
     if mode == "music" or quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio/best"
         opts["postprocessors"] = [{
@@ -158,8 +185,10 @@ def search():
               "Dailymotion": "dmsearch10:"}.get(source, "ytsearch10:")
 
     try:
-        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
-                                "extract_flat": True, "skip_download": True}) as ydl:
+        search_opts = {"quiet": True, "no_warnings": True,
+                       "extract_flat": True, "skip_download": True}
+        _inject_cookies(search_opts)
+        with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
 
         results = []
@@ -185,8 +214,10 @@ def prefetch():
     if not url:
         return jsonify({"error": "No URL"}), 400
     try:
-        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
-                                "extract_flat": True, "skip_download": True}) as ydl:
+        prefetch_opts = {"quiet": True, "no_warnings": True,
+                         "extract_flat": True, "skip_download": True}
+        _inject_cookies(prefetch_opts)
+        with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         entries = info.get("entries") or []
         return jsonify({
@@ -248,6 +279,46 @@ def download_file(task_id):
     filename = os.path.basename(fpath)
     _schedule_cleanup(task_dir, task_id, delay=120)
     return send_file(fpath, as_attachment=True, download_name=filename)
+
+
+# ── Cookie management routes ─────────────────────────────────────────────────
+@app.route("/api/cookies", methods=["GET"])
+def cookies_status():
+    if _cookies_active():
+        size = os.path.getsize(COOKIES_FILE)
+        return jsonify({"active": True, "size": size})
+    return jsonify({"active": False})
+
+
+@app.route("/api/cookies", methods=["POST"])
+def upload_cookies():
+    """Accept either a file upload (multipart) or a plain-text body."""
+    # Multipart file upload
+    if "file" in request.files:
+        f = request.files["file"]
+        if not f.filename:
+            return jsonify({"error": "No file selected"}), 400
+        content = f.read().decode("utf-8", errors="replace")
+    else:
+        # Raw text body (paste)
+        content = request.get_data(as_text=True).strip()
+
+    if not content:
+        return jsonify({"error": "Empty cookies content"}), 400
+
+    with open(COOKIES_FILE, "w", encoding="utf-8") as fh:
+        fh.write(content)
+
+    return jsonify({"ok": True, "size": len(content)})
+
+
+@app.route("/api/cookies", methods=["DELETE"])
+def clear_cookies():
+    try:
+        os.remove(COOKIES_FILE)
+    except FileNotFoundError:
+        pass
+    return jsonify({"ok": True})
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
