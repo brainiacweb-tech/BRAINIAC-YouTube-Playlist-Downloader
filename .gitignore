@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Downloads folder (user data)
+downloads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
