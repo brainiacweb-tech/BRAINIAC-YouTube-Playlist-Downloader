@@ -1,4 +1,6 @@
 import os, uuid, threading, queue, json, time, zipfile, shutil, base64
+import static_ffmpeg
+static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from werkzeug.utils import secure_filename
