@@ -286,10 +286,79 @@ select option { background: var(--card2); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-  .toolbar { flex-direction: column; height: auto; padding: 10px; gap: 8px; }
-  .tabs { flex-wrap: wrap; justify-content: center; }
+@media (max-width: 640px) {
+  /* Viewport base */
+  html { font-size: 15px; }
+
+  /* Toolbar */
+  .toolbar {
+    flex-direction: column;
+    height: auto;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .logo { font-size: 14px; }
+  .tabs { flex-wrap: wrap; justify-content: center; gap: 5px; }
   .tab-btn { font-size: 11px; padding: 6px 10px; }
+
+  /* Content */
+  .content { padding: 14px 10px 50px; }
+  .sec-label { margin-top: 18px; }
+
+  /* Input rows — stack input above button */
+  .input-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .input-row input[type=text] { width: 100%; }
+  .input-row .btn { width: 100%; justify-content: center; }
+
+  /* Prevent iOS auto-zoom on focus */
+  input[type=text], select { font-size: 16px; }
+
+  /* Buttons — full width in certain contexts */
+  .cookie-upload-row { flex-direction: column; align-items: stretch; }
+  .cookie-upload-row .btn,
+  .cookie-file-label { width: 100%; justify-content: center; text-align: center; }
+
+  /* Quality row */
+  .quality-row { padding: 0 12px 12px; gap: 8px; }
+  .quality-row select { width: 100%; }
+
+  /* Search source row */
+  .src-row { padding: 0 12px 12px; gap: 6px; }
+
+  /* Result items */
+  .results-list { max-height: 260px; }
+  .result-thumb,
+  .result-thumb-placeholder { width: 56px; height: 34px; }
+  .result-title { font-size: 12px; }
+  .result-meta  { font-size: 10px; }
+  .results-action { padding: 8px 12px; }
+
+  /* Progress */
+  .pbar-stats { flex-wrap: wrap; gap: 8px; font-size: 11px; }
+  .file-lbl { font-size: 12px; }
+
+  /* Log */
+  .log-body { font-size: 11px; max-height: 160px; }
+
+  /* Cookie card */
+  .cookie-instructions { font-size: 11px; padding: 8px 10px; }
+  .cookie-instructions ol { padding-left: 14px; }
+
+  /* Download button rows */
+  .results-action { flex-direction: column; }
+  .results-action-left { width: 100%; }
+  .results-action-left .btn { flex: 1; }
+  .results-action > .btn { width: 100%; }
+
+  /* Hint text */
+  .hint { padding: 0 12px 10px; font-size: 11px; }
+
+  /* Card body */
+  .card-body { padding: 12px; }
 }
 
 /* ── Cookie Management ── */
