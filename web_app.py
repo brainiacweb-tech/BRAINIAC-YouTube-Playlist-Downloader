@@ -91,6 +91,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         "progress_hooks":  [_make_hook(task_id)],
         "outtmpl":         os.path.join(task_dir, "%(title)s.%(ext)s"),
         "noplaylist":      False,
+        # Use iOS/Android client — bypasses YouTube bot-detection on cloud IPs
+        "extractor_args":  {"youtube": {"player_client": ["ios", "android"]}},
     }
     _inject_cookies(opts)
     if mode == "music" or quality == "Audio Only (MP3)":
@@ -186,7 +188,8 @@ def search():
 
     try:
         search_opts = {"quiet": True, "no_warnings": True,
-                       "extract_flat": True, "skip_download": True}
+                       "extract_flat": True, "skip_download": True,
+                       "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
@@ -215,7 +218,8 @@ def prefetch():
         return jsonify({"error": "No URL"}), 400
     try:
         prefetch_opts = {"quiet": True, "no_warnings": True,
-                         "extract_flat": True, "skip_download": True}
+                         "extract_flat": True, "skip_download": True,
+                         "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
