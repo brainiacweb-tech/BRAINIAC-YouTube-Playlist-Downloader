@@ -161,7 +161,7 @@ body::before {
 
 .form-input {
   width: 100%;
-  padding: 11px 14px 11px 40px;
+  padding: 11px 42px 11px 40px;
   background: rgba(255,255,255,0.80);
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -179,6 +179,24 @@ body::before {
 }
 
 .form-input::placeholder { color: var(--muted); }
+
+.eye-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+  line-height: 1;
+  font-size: 1.1rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+}
+.eye-toggle:hover { color: var(--red); }
 
 .hint {
   font-size: 10px;
@@ -353,7 +371,19 @@ body::before {
       Already have an account? <a href="/login">Sign in</a>
     </div>
   </div>
-<style>.eye-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#8892a4;padding:0;line-height:1;font-size:1.1rem;}.eye-toggle:hover{color:#c9d1d9;}.input-wrap{position:relative;}</style>
-<script>function togglePw(id,btn){var inp=document.getElementById(id);var ico=btn.querySelector('i');if(inp.type==='password'){inp.type='text';ico.className='ri-eye-line';}else{inp.type='password';ico.className='ri-eye-off-line';}}</script>
+
+<script>
+function togglePw(id, btn) {
+  var inp = document.getElementById(id);
+  var ico = btn.querySelector('i');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    ico.className = 'ri-eye-line';
+  } else {
+    inp.type = 'password';
+    ico.className = 'ri-eye-off-line';
+  }
+}
+</script>
 </body>
 </html>
