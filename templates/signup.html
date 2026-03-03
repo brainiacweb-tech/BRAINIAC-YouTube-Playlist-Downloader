@@ -329,6 +329,7 @@ body::before {
           <i class="ri-lock-2-line"></i>
           <input class="form-input" type="password" id="password" name="password"
                  placeholder="Create a password" autocomplete="new-password" required>
+          <button type="button" class="eye-toggle" onclick="togglePw('password',this)" tabindex="-1" aria-label="Show password"><i class="ri-eye-off-line"></i></button>
         </div>
         <p class="hint">At least 6 characters</p>
       </div>
@@ -339,6 +340,7 @@ body::before {
           <i class="ri-lock-password-line"></i>
           <input class="form-input" type="password" id="confirm" name="confirm"
                  placeholder="Repeat your password" autocomplete="new-password" required>
+          <button type="button" class="eye-toggle" onclick="togglePw('confirm',this)" tabindex="-1" aria-label="Show password"><i class="ri-eye-off-line"></i></button>
         </div>
       </div>
 
@@ -351,5 +353,7 @@ body::before {
       Already have an account? <a href="/login">Sign in</a>
     </div>
   </div>
+<style>.eye-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#8892a4;padding:0;line-height:1;font-size:1.1rem;}.eye-toggle:hover{color:#c9d1d9;}.input-wrap{position:relative;}</style>
+<script>function togglePw(id,btn){var inp=document.getElementById(id);var ico=btn.querySelector('i');if(inp.type==='password'){inp.type='text';ico.className='ri-eye-line';}else{inp.type='password';ico.className='ri-eye-off-line';}}</script>
 </body>
 </html>
