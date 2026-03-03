@@ -248,7 +248,12 @@ select option { background: var(--card2); }
   transition: width .3s;
 }
 .pbar-stats { display: flex; gap: 20px; font-size: 12px; font-weight: 600; color: var(--muted); }
-.dl-btn-row { margin-top: 14px; display: none; }
+.dl-btn-row { margin-top: 14px; display: none; gap: 8px; flex-wrap: wrap; }
+.btn-gdrive  { background: #fff; color: #202124; border: 1.5px solid #dadce0; }
+.btn-gdrive:hover { background: #f8f9fa; }
+.btn-onedrive { background: #0078d4; color: #fff; border: none; }
+.btn-onedrive:hover { background: #106ebe; }
+.size-badge { font-size: 10px; background: var(--card2); color: var(--muted); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
 
 /* ── Log ── */
 .log-card { display: block; }
@@ -600,6 +605,14 @@ function log(msg, level = 'info') {
   body.appendChild(p);
   body.scrollTop = body.scrollHeight;
 }
+function logHtml(html, level = 'info') {
+  const body = document.getElementById('log-body');
+  const p    = document.createElement('p');
+  p.className = 'log-' + level;
+  p.innerHTML  = html;
+  body.appendChild(p);
+  body.scrollTop = body.scrollHeight;
+}
 function clearLog() {
   document.getElementById('log-body').innerHTML = '';
 }
@@ -641,11 +654,12 @@ function subscribeProgress(taskId, onDone) {
       isDownloading = false;
       // Show download button
       const row = document.getElementById('dl-btn-row');
-      row.style.display = 'block';
-      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green" style="background:var(--green);color:#0a0e14;text-decoration:none;display:inline-block">
-        💾 Save File${d.count > 1 ? 's (' + d.count + ' as .zip)' : ''}
-      </a>`;
+      row.style.display = 'flex';
+      const saveLabel = `💾 Save File${d.count > 1 ? 's (' + d.count + ' as .zip)' : ''}`;
+      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green" style="background:var(--green);color:#0a0e14;text-decoration:none;display:inline-flex;align-items:center">${saveLabel}</a>`;
       log(`🎉 Done! ${d.count} file(s) ready. Click "Save File" to download.`, 'ok');
+      // Show cloud upload buttons if configured
+      showCloudButtons(row, taskId);
       if (onDone) onDone();
     } else if (d.type === 'error') {
       es.close();
@@ -694,7 +708,9 @@ async function ytFetch() {
     if (data.error) { log('✘  ' + data.error, 'err'); return; }
     document.getElementById('yt-info').style.display  = 'block';
     document.getElementById('yt-pl-title').textContent = data.title;
-    document.getElementById('yt-pl-meta').textContent  = `${data.count} video(s)${data.uploader ? '  ·  ' + data.uploader : ''}`;
+    const dur  = data.duration  ? '  ·  ' + fmtDur(data.duration)  : '';
+    const size = data.filesize  ? '  ·  ' + fmtSize(data.filesize) : '';
+    document.getElementById('yt-pl-meta').textContent  = `${data.count} video(s)${data.uploader ? '  ·  ' + data.uploader : ''}${dur}${size}`;
     log(`✔  Found: "${data.title}" — ${data.count} videos`, 'ok');
   } finally {
     btn.disabled = false; btn.textContent = '🔍 Check';
@@ -744,7 +760,7 @@ function renderResults(mode, results) {
       ${thumb}
       <div class="result-info">
         <div class="result-title">${escHtml(r.title)}</div>
-        <div class="result-meta">${escHtml(r.uploader)}${r.duration ? ' · ' + r.duration : ''}</div>
+        <div class="result-meta">${escHtml(r.uploader)}${r.duration ? ' · ' + r.duration : ''}${r.filesize > 0 ? '<span class="size-badge">' + fmtSize(r.filesize) + '</span>' : ''}</div>
       </div>
       <span class="result-check">☐</span>
     `;
@@ -816,6 +832,119 @@ function directDownload() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtSize(bytes) {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes >= 1e9)  return (bytes / 1e9).toFixed(1) + ' GB';
+  if (bytes >= 1e6)  return (bytes / 1e6).toFixed(1) + ' MB';
+  if (bytes >= 1e3)  return (bytes / 1e3).toFixed(0) + ' KB';
+  return bytes + ' B';
+}
+
+function fmtDur(secs) {
+  if (!secs) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// ── Cloud Upload ─────────────────────────────────────────────────────────────
+let _cloudStatus = null;   // cached {gdrive:{configured,authed}, onedrive:{configured,authed}}
+
+async function showCloudButtons(row, taskId) {
+  if (!_cloudStatus) {
+    const [gd, od] = await Promise.all([
+      fetch('/api/gdrive/status').then(r => r.json()).catch(() => ({configured:false})),
+      fetch('/api/onedrive/status').then(r => r.json()).catch(() => ({configured:false})),
+    ]);
+    _cloudStatus = { gdrive: gd, onedrive: od };
+  }
+  if (_cloudStatus.gdrive.configured) {
+    const btn = document.createElement('button');
+    btn.id = 'gdrive-btn-' + taskId;
+    btn.className = 'btn btn-gdrive';
+    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/24px-Google_Drive_icon_%282020%29.svg.png" style="height:16px;vertical-align:middle;margin-right:5px"> Google Drive';
+    btn.onclick = () => uploadToCloud('gdrive', taskId);
+    row.appendChild(btn);
+  }
+  if (_cloudStatus.onedrive.configured) {
+    const btn = document.createElement('button');
+    btn.id = 'onedrive-btn-' + taskId;
+    btn.className = 'btn btn-onedrive';
+    btn.innerHTML = '☁ OneDrive';
+    btn.onclick = () => uploadToCloud('onedrive', taskId);
+    row.appendChild(btn);
+  }
+}
+
+function openOAuthPopup(service, taskId) {
+  return new Promise((resolve, reject) => {
+    const url = `/api/${service}/auth?task_id=${taskId}`;
+    const popup = window.open(url, `${service}_auth`, 'width=520,height=640,resizable=yes');
+    const evtType = service === 'gdrive' ? 'gdrive_authed' : 'od_authed';
+    const errType = service === 'gdrive' ? 'gdrive_error'  : 'od_error';
+    function onMsg(e) {
+      if (e.data?.type === evtType) {
+        window.removeEventListener('message', onMsg);
+        popup?.close();
+        _cloudStatus = null; // invalidate cache so it re-checks authed state
+        resolve();
+      } else if (e.data?.type === errType) {
+        window.removeEventListener('message', onMsg);
+        popup?.close();
+        reject(new Error(e.data.msg || 'OAuth failed'));
+      }
+    }
+    window.addEventListener('message', onMsg);
+    // If popup is closed without completing, reject after a timeout check
+    const timer = setInterval(() => {
+      if (popup && popup.closed) {
+        clearInterval(timer);
+        window.removeEventListener('message', onMsg);
+        reject(new Error('Popup was closed'));
+      }
+    }, 500);
+  });
+}
+
+async function uploadToCloud(service, taskId) {
+  const btn = document.getElementById(`${service}-btn-${taskId}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Uploading…'; }
+
+  // Try upload — if 401, open OAuth popup then retry once
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res  = await fetch(`/api/${service}/upload/${taskId}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 401 || data.error === 'not_authed') {
+        if (attempt === 0) {
+          if (btn) btn.textContent = '🔐 Sign in…';
+          await openOAuthPopup(service, taskId);
+          if (btn) btn.textContent = '⏳ Uploading…';
+          continue; // retry
+        }
+        throw new Error('Authentication failed');
+      }
+      if (data.ok) {
+        const label = service === 'gdrive' ? 'Google Drive' : 'OneDrive';
+        if (btn) { btn.disabled = false; btn.textContent = `✔ Saved to ${label}`; }
+        const linkHtml = data.url ? ` <a href="${escHtml(data.url)}" target="_blank" style="color:var(--accent);text-decoration:underline">Open ↗</a>` : '';
+        logHtml(`✔ File uploaded to ${label}.${linkHtml}`, 'ok');
+        return;
+      }
+      throw new Error(data.error || 'Upload failed');
+    } catch (err) {
+      if (attempt === 1 || err.message === 'Popup was closed') {
+        if (btn) { btn.disabled = false; btn.textContent = '✘ Upload failed'; }
+        log('✘ Cloud upload error: ' + err.message, 'err');
+        return;
+      }
+    }
+  }
 }
 
 </script>

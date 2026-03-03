@@ -1,15 +1,16 @@
 import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress
+import requests as _requests
 from urllib.parse import urlparse
 import static_ffmpeg
 static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
-from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session
 from werkzeug.utils import secure_filename
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
 
 # ── Security config ───────────────────────────────────────────────────────────
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
@@ -348,6 +349,7 @@ def search():
                 "duration":  e.get("duration_string") or "",
                 "uploader":  e.get("uploader") or e.get("channel") or "",
                 "thumbnail": e.get("thumbnail") or "",
+                "filesize":  e.get("filesize") or e.get("filesize_approx") or 0,
             })
         return jsonify({"results": results})
     except Exception as ex:
@@ -373,10 +375,18 @@ def prefetch():
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         entries = info.get("entries") or []
+        total_dur  = sum(e.get("duration") or 0 for e in entries if e)
+        total_size = sum((e.get("filesize") or e.get("filesize_approx") or 0) for e in entries if e)
+        # For single videos (not playlists)
+        if not entries:
+            total_dur  = info.get("duration") or 0
+            total_size = info.get("filesize") or info.get("filesize_approx") or 0
         return jsonify({
             "title":    info.get("title", url),
             "count":    len(entries) if entries else 1,
             "uploader": info.get("uploader") or info.get("channel") or "",
+            "duration": total_dur,
+            "filesize": total_size,
         })
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
@@ -482,6 +492,273 @@ def clear_cookies():
     except FileNotFoundError:
         pass
     return jsonify({"ok": True})
+
+
+# ── Google Drive Integration ──────────────────────────────────────────────────
+_GDRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file"
+_GDRIVE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+_GDRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+
+def _gdrive_redirect_uri():
+    base = os.environ.get("APP_URL", "").rstrip("/")
+    return f"{base}/api/gdrive/callback" if base else None
+
+
+@app.route("/api/gdrive/status")
+def gdrive_status():
+    configured = bool(os.environ.get("GDRIVE_CLIENT_ID") and os.environ.get("GDRIVE_CLIENT_SECRET"))
+    authed = bool(session.get("gdrive_token"))
+    return jsonify({"configured": configured, "authed": authed})
+
+
+@app.route("/api/gdrive/auth")
+def gdrive_auth():
+    client_id = os.environ.get("GDRIVE_CLIENT_ID", "")
+    if not client_id:
+        return jsonify({"error": "Google Drive is not configured on this server."}), 503
+    task_id = request.args.get("task_id", "")
+    redir = _gdrive_redirect_uri()
+    if not redir:
+        return jsonify({"error": "APP_URL env var not set — cannot build redirect URI."}), 503
+    auth_url = (
+        f"{_GDRIVE_AUTH_URL}?client_id={client_id}"
+        f"&redirect_uri={redir}"
+        "&response_type=code"
+        f"&scope={_GDRIVE_SCOPES}"
+        f"&state={task_id}"
+        "&access_type=offline&prompt=consent"
+    )
+    return redirect(auth_url)
+
+
+@app.route("/api/gdrive/callback")
+def gdrive_callback():
+    code    = request.args.get("code", "")
+    task_id = request.args.get("state", "")
+    error   = request.args.get("error", "")
+    if error:
+        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:'{error}'}}, '*');window.close();</script>"
+
+    client_id     = os.environ.get("GDRIVE_CLIENT_ID", "")
+    client_secret = os.environ.get("GDRIVE_CLIENT_SECRET", "")
+    redir         = _gdrive_redirect_uri()
+
+    resp = _requests.post(_GDRIVE_TOKEN_URL, data={
+        "code": code, "client_id": client_id, "client_secret": client_secret,
+        "redirect_uri": redir, "grant_type": "authorization_code",
+    }, timeout=15)
+    token_data = resp.json()
+    access_token = token_data.get("access_token", "")
+    if not access_token:
+        err_msg = token_data.get("error_description", "Token exchange failed")
+        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:'{err_msg}'}}, '*');window.close();</script>"
+
+    session["gdrive_token"] = access_token
+    return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_authed',taskId:'{task_id}'}}, '*');window.close();</script>"
+
+
+@app.route("/api/gdrive/upload/<task_id>", methods=["POST"])
+@limiter.limit("20 per hour")
+def gdrive_upload(task_id):
+    token = session.get("gdrive_token", "")
+    if not token:
+        return jsonify({"error": "not_authed"}), 401
+
+    t = _get_task(task_id)
+    if not t or t["status"] != "done":
+        return jsonify({"error": "File not ready"}), 404
+
+    task_dir = os.path.join(DOWNLOAD_BASE, task_id)
+    zip_name = t.get("zip")
+    if zip_name:
+        fpath = os.path.join(task_dir, zip_name)
+    else:
+        files = t.get("files", [])
+        if not files:
+            return jsonify({"error": "No files"}), 404
+        fpath = os.path.join(task_dir, files[0])
+
+    filename = os.path.basename(fpath)
+    file_size = os.path.getsize(fpath)
+
+    # Resumable upload for files > 5 MB, multipart for smaller
+    if file_size > 5 * 1024 * 1024:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "X-Upload-Content-Type": "application/octet-stream",
+            "X-Upload-Content-Length": str(file_size),
+        }
+        init_resp = _requests.post(
+            "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+            headers=headers, json={"name": filename}, timeout=30
+        )
+        if init_resp.status_code != 200:
+            return jsonify({"error": f"Drive init failed: {init_resp.text}"}), 500
+        upload_url = init_resp.headers.get("Location")
+        with open(fpath, "rb") as f:
+            up_resp = _requests.put(upload_url, data=f, headers={
+                "Content-Length": str(file_size),
+                "Content-Type": "application/octet-stream",
+            }, timeout=600)
+    else:
+        with open(fpath, "rb") as f:
+            up_resp = _requests.post(
+                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+                headers={"Authorization": f"Bearer {token}"},
+                files={
+                    "metadata": ("metadata", json.dumps({"name": filename}), "application/json"),
+                    "file": (filename, f, "application/octet-stream"),
+                }, timeout=120
+            )
+
+    if up_resp.status_code in (200, 201):
+        file_id = up_resp.json().get("id", "")
+        return jsonify({"ok": True, "url": f"https://drive.google.com/file/d/{file_id}/view"})
+    if up_resp.status_code == 401:
+        session.pop("gdrive_token", None)
+        return jsonify({"error": "not_authed"}), 401
+    return jsonify({"error": f"Upload failed ({up_resp.status_code})"}), 500
+
+
+# ── OneDrive Integration ────────────────────────────────────────────────────────
+_OD_AUTH_URL  = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+_OD_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+_OD_SCOPES    = "Files.ReadWrite offline_access"
+
+
+def _onedrive_redirect_uri():
+    base = os.environ.get("APP_URL", "").rstrip("/")
+    return f"{base}/api/onedrive/callback" if base else None
+
+
+@app.route("/api/onedrive/status")
+def onedrive_status():
+    configured = bool(os.environ.get("ONEDRIVE_CLIENT_ID"))
+    authed = bool(session.get("onedrive_token"))
+    return jsonify({"configured": configured, "authed": authed})
+
+
+@app.route("/api/onedrive/auth")
+def onedrive_auth():
+    client_id = os.environ.get("ONEDRIVE_CLIENT_ID", "")
+    if not client_id:
+        return jsonify({"error": "OneDrive is not configured on this server."}), 503
+    task_id = request.args.get("task_id", "")
+    redir = _onedrive_redirect_uri()
+    if not redir:
+        return jsonify({"error": "APP_URL env var not set — cannot build redirect URI."}), 503
+    auth_url = (
+        f"{_OD_AUTH_URL}?client_id={client_id}"
+        f"&redirect_uri={redir}"
+        "&response_type=code"
+        f"&scope={_OD_SCOPES.replace(' ', '%20')}"
+        f"&state={task_id}"
+    )
+    return redirect(auth_url)
+
+
+@app.route("/api/onedrive/callback")
+def onedrive_callback():
+    code    = request.args.get("code", "")
+    task_id = request.args.get("state", "")
+    error   = request.args.get("error", "")
+    if error:
+        return f"<script>window.opener&&window.opener.postMessage({{type:'od_error',msg:'{error}'}}, '*');window.close();</script>"
+
+    client_id = os.environ.get("ONEDRIVE_CLIENT_ID", "")
+    redir     = _onedrive_redirect_uri()
+
+    resp = _requests.post(_OD_TOKEN_URL, data={
+        "code": code, "client_id": client_id,
+        "redirect_uri": redir, "grant_type": "authorization_code",
+        "scope": _OD_SCOPES,
+    }, timeout=15)
+    token_data = resp.json()
+    access_token = token_data.get("access_token", "")
+    if not access_token:
+        err_msg = token_data.get("error_description", "Token exchange failed")
+        return f"<script>window.opener&&window.opener.postMessage({{type:'od_error',msg:'{err_msg}'}}, '*');window.close();</script>"
+
+    session["onedrive_token"] = access_token
+    return f"<script>window.opener&&window.opener.postMessage({{type:'od_authed',taskId:'{task_id}'}}, '*');window.close();</script>"
+
+
+@app.route("/api/onedrive/upload/<task_id>", methods=["POST"])
+@limiter.limit("20 per hour")
+def onedrive_upload(task_id):
+    token = session.get("onedrive_token", "")
+    if not token:
+        return jsonify({"error": "not_authed"}), 401
+
+    t = _get_task(task_id)
+    if not t or t["status"] != "done":
+        return jsonify({"error": "File not ready"}), 404
+
+    task_dir = os.path.join(DOWNLOAD_BASE, task_id)
+    zip_name = t.get("zip")
+    if zip_name:
+        fpath = os.path.join(task_dir, zip_name)
+    else:
+        files = t.get("files", [])
+        if not files:
+            return jsonify({"error": "No files"}), 404
+        fpath = os.path.join(task_dir, files[0])
+
+    filename = os.path.basename(fpath)
+    file_size = os.path.getsize(fpath)
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    if file_size <= 4 * 1024 * 1024:
+        # Simple upload (≤4 MB)
+        with open(fpath, "rb") as f:
+            up_resp = _requests.put(
+                f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/content",
+                headers={**headers, "Content-Type": "application/octet-stream"},
+                data=f, timeout=120
+            )
+        if up_resp.status_code in (200, 201):
+            web_url = up_resp.json().get("webUrl", "")
+            return jsonify({"ok": True, "url": web_url})
+        if up_resp.status_code == 401:
+            session.pop("onedrive_token", None)
+            return jsonify({"error": "not_authed"}), 401
+        return jsonify({"error": f"Upload failed ({up_resp.status_code})"}), 500
+    else:
+        # Create upload session for large files
+        sess_resp = _requests.post(
+            f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/createUploadSession",
+            headers={**headers, "Content-Type": "application/json"},
+            json={"item": {"@microsoft.graph.conflictBehavior": "rename", "name": filename}},
+            timeout=30
+        )
+        if sess_resp.status_code not in (200, 201):
+            return jsonify({"error": f"Session creation failed: {sess_resp.text}"}), 500
+        upload_url = sess_resp.json().get("uploadUrl")
+        # Upload in 10 MB chunks
+        chunk_size = 10 * 1024 * 1024
+        with open(fpath, "rb") as f:
+            offset = 0
+            web_url = ""
+            while offset < file_size:
+                chunk = f.read(chunk_size)
+                end = offset + len(chunk) - 1
+                chunk_resp = _requests.put(
+                    upload_url,
+                    headers={"Content-Range": f"bytes {offset}-{end}/{file_size}",
+                             "Content-Length": str(len(chunk))},
+                    data=chunk, timeout=300
+                )
+                if chunk_resp.status_code in (200, 201):
+                    web_url = chunk_resp.json().get("webUrl", "")
+                elif chunk_resp.status_code == 202:
+                    pass  # Continue uploading
+                else:
+                    return jsonify({"error": f"Chunk upload failed ({chunk_resp.status_code})"}), 500
+                offset += len(chunk)
+        return jsonify({"ok": True, "url": web_url})
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
