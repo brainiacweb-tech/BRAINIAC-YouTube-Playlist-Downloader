@@ -1,9 +1,5 @@
-[phases.build]
-cmds = ["npm install -g @imputnet/bgutil-yt-dlp-pot-provider"]
-[start]
-cmd = "bash start.sh"
 [phases.setup]
-nixPkgs = ["ffmpeg", "nodejs_20"]
+nixPkgs = ["ffmpeg"]
 
-[phases.build]
-cmds = ["npm install -g @imputnet/bgutil-yt-dlp-pot-provider"]
+[start]
+cmd = "gunicorn web_app:app --bind 0.0.0.0:$PORT --workers=4 --threads=16 --timeout=600 --worker-class=gthread --keep-alive=5"
