@@ -758,17 +758,7 @@ select:focus { border-color: var(--red); }
         </div>
       </div>
       <div class="quality-row">
-        <i class="ri-file-video-line" style="color:var(--muted);font-size:18px"></i>
-        <span class="quality-label">Format</span>
-        <select id="direct-quality">
-          <option>Best Quality</option>
-          <option>1080p</option>
-          <option>720p</option>
-          <option>480p</option>
-          <option>360p</option>
-          <option>Audio Only (MP3)</option>
-        </select>
-        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto">
+        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto;width:100%">
           <i class="ri-download-cloud-fill"></i> Download
         </button>
       </div>
@@ -1462,9 +1452,8 @@ function directPreview() {
 }
 function directDownload() {
   const url = document.getElementById('direct-url').value.trim();
-  const quality = document.getElementById('direct-quality').value;
   if (!url) { log('⚠️  Paste a URL first.', 'warn'); return; }
-  startDownload({ url, quality, mode: 'direct' });
+  startDownload({ url, quality: 'Best Quality', mode: 'direct' });
 }
 
 function escHtml(s) {

@@ -526,8 +526,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         }]
     elif quality == "Best Quality":
         if mode == "direct":
-            # No ext restriction — support any site (Instagram, TikTok, Reddit, etc.)
-            opts["format"] = "bestvideo+bestaudio/best"
+            # Fully universal — no codec/container restrictions, works on any site
+            opts["format"] = "bestvideo+bestaudio/bestvideo/best"
         else:
             # Try combined (non-DASH) first — android_vr provides these;
             # fall back to DASH merge only if combined unavailable
@@ -560,10 +560,11 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             "/bestvideo+bestaudio"
         )
 
-    # For direct mode: merge to mp4 only when we selected split streams
-    if mode == "direct" and quality != "Audio Only (MP3)":
+    # For direct mode: always merge to mp4, allow any format
+    if mode == "direct":
         opts["merge_output_format"] = "mp4"
         opts["allow_unplayable_formats"] = True
+        opts["noplaylist"] = True
 
     return opts, logger
 
