@@ -53,32 +53,32 @@ body {
 
 /* ── Dark mode ──────────────────────────────────────────────── */
 body.dark-mode {
-  --fg:      #e8d5d5;
-  --fg2:     #b09090;
-  --muted:   #7a6060;
-  --surface: #1e0e0e;
-  --surface2:#2a1212;
-  --surface3:#331515;
-  --border:  #3a1a1a;
-  --border2: #4a2020;
-  --red-light:#2a0808;
-  --red-mid:  #5a1a1a;
-  --green-bg: #0a1f0a;
-  --shadow:   0 4px 20px rgba(0,0,0,0.5);
+  --fg:      #ebebeb;
+  --fg2:     #b0b0b0;
+  --muted:   #727272;
+  --surface: #242424;
+  --surface2:#2c2c2c;
+  --surface3:#333333;
+  --border:  #3c3c3c;
+  --border2: #4a4a4a;
+  --red-light:#2d1515;
+  --red-mid:  #5a2a2a;
+  --green-bg: #0d200d;
+  --shadow:   0 4px 20px rgba(0,0,0,0.4);
 }
-body.dark-mode { background: #1a0a0a !important; }
+body.dark-mode { background: #1a1a1a !important; }
 body.dark-mode .card,
 body.dark-mode .tabs,
-body.dark-mode .header { background: #1e0e0e !important; border-color: rgba(90,30,30,0.5) !important; }
+body.dark-mode .header { background: #242424 !important; border-color: #3c3c3c !important; }
 body.dark-mode input[type=text],
-body.dark-mode select { background: #2a1212 !important; border-color: rgba(80,25,25,0.6) !important; color: var(--fg) !important; }
-body.dark-mode .src-btn { background: #1e0a0a; color: var(--muted); border-color: var(--border2); }
+body.dark-mode select { background: #2c2c2c !important; border-color: #444 !important; color: var(--fg) !important; }
+body.dark-mode .src-btn { background: #2c2c2c; color: var(--muted); border-color: var(--border2); }
 body.dark-mode .quality-row,
 body.dark-mode .src-row,
-body.dark-mode .results-action { background: #1a0808 !important; }
+body.dark-mode .results-action { background: #202020 !important; }
 
 /* ── Layout ─────────────────────────────────────────────────── */
-.wrapper { max-width: 740px; margin: 0 auto; padding: 16px 16px 60px; }
+.wrapper { max-width: 660px; margin: 0 auto; padding: 18px 18px 60px; }
 
 /* ── Header ─────────────────────────────────────────────────── */
 .header {
@@ -135,10 +135,10 @@ body.dark-mode .results-action { background: #1a0808 !important; }
 .user-dd-logout { color: #e53935 !important; }
 .user-dd-logout i { color: #e53935 !important; }
 .user-dd-logout:hover { background: rgba(229,57,53,0.08) !important; }
-body.dark-mode .user-dd-menu { background: #1e1010; border-color: rgba(120,30,30,0.4); }
-body.dark-mode .user-dd-item { color: #c08080; }
+body.dark-mode .user-dd-menu { background: #242424; border-color: #3c3c3c; }
+body.dark-mode .user-dd-item { color: #b0b0b0; }
 body.dark-mode .user-dd-item:hover { background: rgba(229,57,53,0.12); color: var(--red); }
-body.dark-mode .user-dd-divider { background: rgba(120,30,30,0.3); }
+body.dark-mode .user-dd-divider { background: #3c3c3c; }
 
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
@@ -779,7 +779,7 @@ select:focus { border-color: var(--red); }
     <div class="card">
       <div class="card-body">
         <div class="sec-label"><i class="ri-user-3-fill"></i> Your Profile</div>
-        <div style="display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);">
+        <div style="display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
           {% if avatar %}
           <img src="{{ avatar }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--red);" referrerpolicy="no-referrer" alt="">
           {% else %}
@@ -794,8 +794,8 @@ select:focus { border-color: var(--red); }
           </div>
         </div>
         <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="/change-password" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(20,5,5,0.7);border:1.5px solid rgba(120,30,30,0.4);border-radius:20px;font-size:11px;font-weight:700;color:#b08080;text-decoration:none;transition:all 0.18s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='rgba(120,30,30,0.4)';this.style.color='#b08080'"><i class="ri-lock-password-line"></i> Change Password</a>
-          <a href="/change-email" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(20,5,5,0.7);border:1.5px solid rgba(120,30,30,0.4);border-radius:20px;font-size:11px;font-weight:700;color:#b08080;text-decoration:none;transition:all 0.18s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='rgba(120,30,30,0.4)';this.style.color='#b08080'"><i class="ri-mail-settings-line"></i> Change Email</a>
+          <a href="/change-password" class="btn btn-ghost btn-sm"><i class="ri-lock-password-line"></i> Change Password</a>
+          <a href="/change-email" class="btn btn-ghost btn-sm"><i class="ri-mail-settings-line"></i> Change Email</a>
           <a href="/logout" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(229,57,53,0.1);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:11px;font-weight:700;color:#e57373;text-decoration:none;transition:all 0.18s;" onmouseover="this.style.background='rgba(229,57,53,0.22)'" onmouseout="this.style.background='rgba(229,57,53,0.1)'"><i class="ri-logout-box-r-line"></i> Logout</a>
         </div>
 
@@ -813,25 +813,25 @@ select:focus { border-color: var(--red); }
         <div style="margin-top:14px;display:flex;flex-direction:column;gap:14px;">
 
           <!-- Dark mode row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-moon-line" style="color:var(--red);"></i> Dark Mode</div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;">Toggle the darker visual theme</div>
             </div>
             <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
               <input type="checkbox" id="dm-toggle-settings" onchange="toggleDarkModeFromSettings(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
-              <span id="dm-toggle-track" style="position:absolute;inset:0;background:rgba(60,20,20,0.7);border-radius:34px;border:1.5px solid rgba(120,30,30,0.4);cursor:pointer;transition:all 0.2s;"></span>
-              <span id="dm-toggle-thumb" style="position:absolute;left:3px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:#7a5050;border-radius:50%;transition:all 0.2s;pointer-events:none;"></span>
+              <span id="dm-toggle-track" style="position:absolute;inset:0;background:var(--border2);border-radius:34px;border:1.5px solid var(--border2);cursor:pointer;transition:all 0.2s;"></span>
+              <span id="dm-toggle-thumb" style="position:absolute;left:3px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:var(--muted);border-radius:50%;transition:all 0.2s;pointer-events:none;"></span>
             </label>
           </div>
 
           <!-- Default quality row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-hd-line" style="color:var(--red);"></i> Default Video Quality</div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;">Pre-select a quality when fetching playlists</div>
             </div>
-            <select id="default-quality" onchange="localStorage.setItem('defaultQuality',this.value)" style="padding:6px 10px;background:rgba(20,5,5,0.75);border:1.5px solid rgba(120,30,30,0.45);border-radius:8px;color:#c08080;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;cursor:pointer;outline:none;">
+            <select id="default-quality" onchange="localStorage.setItem('defaultQuality',this.value)">
               <option value="">Auto (best)</option>
               <option value="1080">1080p</option>
               <option value="720">720p</option>
@@ -841,12 +841,12 @@ select:focus { border-color: var(--red); }
           </div>
 
           <!-- Clear history row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-delete-bin-line" style="color:var(--red);"></i> Clear Download History</div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;">Remove the files list from this session</div>
             </div>
-            <button onclick="clearFilesHistory()" style="padding:7px 16px;background:rgba(229,57,53,0.1);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:11px;font-weight:700;color:#e57373;cursor:pointer;transition:all 0.18s;font-family:'Montserrat',sans-serif;" onmouseover="this.style.background='rgba(229,57,53,0.22)'" onmouseout="this.style.background='rgba(229,57,53,0.1)'"><i class="ri-delete-bin-line"></i> Clear</button>
+            <button onclick="clearFilesHistory()" class="btn btn-ghost btn-sm"><i class="ri-delete-bin-line"></i> Clear</button>
           </div>
 
         </div>
