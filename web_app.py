@@ -572,7 +572,21 @@ def login():
 @login_required
 def logout():
     logout_user()
-    return redirect("/login")
+    session.clear()
+    resp = make_response(redirect("/login"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+@app.route("/api/me")
+@login_required
+def api_me():
+    resp = make_response(jsonify({
+        "username": current_user.username,
+        "avatar":   current_user.avatar or "",
+        "email":    current_user.email,
+    }))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @app.route("/privacy")

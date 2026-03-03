@@ -148,9 +148,10 @@ body.dark-mode .user-dd-divider { background: #3c3c3c; }
   color: #e57373; cursor: pointer; flex-shrink: 0; align-self: center;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s, border-color 0.2s; overflow: hidden;
+  -webkit-appearance: none; appearance: none;
 }
 #dm-btn:hover { background: rgba(229,57,53,0.25); border-color: rgba(229,57,53,0.5); }
-#dm-btn i { font-size: 15px; line-height: 1; pointer-events: none; }
+#dm-btn i { font-size: 15px; line-height: 1; pointer-events: none; display: block; }
 
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
@@ -958,6 +959,38 @@ function toggleDarkModeFromSettings(on) {
   const dq = localStorage.getItem('defaultQuality');
   if (dq) { const s = document.getElementById('default-quality'); if (s) s.value = dq; }
   const sd = localStorage.getItem('saveDest');
+  // Always refresh user info from server so cached HTML never shows stale user
+  fetch('/api/me', {credentials:'same-origin', cache:'no-store'})
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const nameEl = document.querySelector('#user-dd-btn span');
+      if (nameEl) nameEl.textContent = data.username;
+      const btn = document.getElementById('user-dd-btn');
+      if (btn) {
+        const oldImg = btn.querySelector('img');
+        const oldIco = btn.querySelector('i.ri-user-3-line');
+        if (data.avatar) {
+          if (oldImg) { oldImg.src = data.avatar; }
+          else {
+            if (oldIco) oldIco.remove();
+            const img = document.createElement('img');
+            img.src = data.avatar;
+            img.setAttribute('referrerpolicy','no-referrer');
+            img.style.cssText = 'width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;';
+            btn.insertBefore(img, btn.firstChild);
+          }
+        } else {
+          if (oldImg) oldImg.remove();
+          if (!btn.querySelector('i.ri-user-3-line')) {
+            const ico = document.createElement('i');
+            ico.className = 'ri-user-3-line';
+            ico.style.fontSize = '15px';
+            btn.insertBefore(ico, btn.firstChild);
+          }
+        }
+      }
+    }).catch(() => {});
   if (sd) { const s = document.getElementById('save-dest'); if (s) s.value = sd; }
   // Restore GDrive connected state from localStorage (no server ping needed)
   _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1');
