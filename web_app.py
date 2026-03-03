@@ -985,6 +985,54 @@ def onedrive_upload(task_id):
         return jsonify({"ok": True, "url": web_url})
 
 
+# ── Change Password ───────────────────────────────────────────────────────────
+@app.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    from werkzeug.security import check_password_hash, generate_password_hash
+    error = success = None
+    if request.method == "POST":
+        current_pw  = request.form.get("current_password", "")
+        new_pw      = request.form.get("new_password", "")
+        confirm_pw  = request.form.get("confirm_password", "")
+        if not check_password_hash(current_user.password, current_pw):
+            error = "Current password is incorrect."
+        elif len(new_pw) < 6:
+            error = "New password must be at least 6 characters."
+        elif new_pw != confirm_pw:
+            error = "New passwords do not match."
+        else:
+            current_user.password = generate_password_hash(new_pw)
+            db.session.commit()
+            success = "Password changed successfully!"
+    return render_template("change_password.html", error=error, success=success,
+                           username=current_user.username, avatar=current_user.avatar)
+
+
+# ── Change Email ──────────────────────────────────────────────────────────────
+@app.route("/change-email", methods=["GET", "POST"])
+@login_required
+def change_email():
+    from werkzeug.security import check_password_hash
+    error = success = None
+    if request.method == "POST":
+        new_email   = request.form.get("new_email", "").strip().lower()
+        password    = request.form.get("password", "")
+        if not new_email or "@" not in new_email:
+            error = "Please enter a valid email address."
+        elif not check_password_hash(current_user.password, password):
+            error = "Password is incorrect."
+        elif User.query.filter_by(email=new_email).first():
+            error = "That email is already in use."
+        else:
+            current_user.email = new_email
+            db.session.commit()
+            success = "Email updated successfully!"
+    return render_template("change_email.html", error=error, success=success,
+                           username=current_user.username, avatar=current_user.avatar,
+                           current_email=current_user.email)
+
+
 # ── List downloaded files ─────────────────────────────────────────────────────
 @app.route("/api/files")
 @login_required
