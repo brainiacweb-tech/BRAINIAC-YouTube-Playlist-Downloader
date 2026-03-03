@@ -1,4 +1,4 @@
-import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress
+import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
 from functools import lru_cache
 import requests as _requests
 from urllib.parse import urlparse
@@ -186,6 +186,17 @@ def serve_image(filename):
 DOWNLOAD_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_downloads")
 os.makedirs(DOWNLOAD_BASE, exist_ok=True)
 
+# ── Verify ffmpeg is available ────────────────────────────────────────────────
+def _find_ffmpeg():
+    import shutil as _shutil
+    ff = _shutil.which("ffmpeg")
+    if ff:
+        print(f"[startup] ffmpeg found: {ff}")
+    else:
+        print("[startup] WARNING: ffmpeg not found in PATH — audio extraction will fail!")
+    return ff
+_FFMPEG_PATH = _find_ffmpeg()
+
 # ── Search result cache ───────────────────────────────────────────────────────
 _search_cache: dict = {}      # key: (query, source, mode) → (timestamp, results)
 _search_cache_lock = threading.Lock()
@@ -325,7 +336,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
     }
     _inject_cookies(opts)
 
-    if mode == "music" or quality == "Audio Only (MP3)":
+    if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio/best"
         opts["postprocessors"] = [{
             "key":              "FFmpegExtractAudio",
@@ -381,7 +392,12 @@ def _run_download(task_id: str, data: dict):
 
         files = [f for f in os.listdir(task_dir) if os.path.isfile(os.path.join(task_dir, f))]
         if not files:
-            raise RuntimeError("No files were downloaded.")
+            raise RuntimeError(
+                "No files were downloaded. This is usually caused by:\n"
+                "1) YouTube blocking server IPs — try uploading cookies (Settings → Cookies).\n"
+                "2) The video is age-restricted or region-locked.\n"
+                "3) The URL is invalid or the video was removed."
+            )
 
         if len(files) == 1:
             with _tasks_lock:

@@ -1093,10 +1093,28 @@ async function startDownload(payload) {
   document.getElementById('dl-btn-row').style.display = 'none';
   document.getElementById('dl-btn-row').innerHTML = '';
   log('⬇  Starting download…', 'info');
-  const res  = await fetch('/api/download', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-  const data = await res.json();
-  currentTaskId = data.task_id;
-  subscribeProgress(currentTaskId);
+  try {
+    const res  = await fetch('/api/download', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      setBadge('error');
+      isDownloading = false;
+      log('✘  ' + (data.error || ('Server error ' + res.status)), 'err');
+      return;
+    }
+    if (!data.task_id) {
+      setBadge('error');
+      isDownloading = false;
+      log('✘  No task ID returned from server.', 'err');
+      return;
+    }
+    currentTaskId = data.task_id;
+    subscribeProgress(currentTaskId);
+  } catch (err) {
+    setBadge('error');
+    isDownloading = false;
+    log('✘  Network error: ' + err.message, 'err');
+  }
 }
 
 async function ytFetch() {
