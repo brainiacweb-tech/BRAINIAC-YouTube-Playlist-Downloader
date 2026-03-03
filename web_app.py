@@ -107,7 +107,9 @@ google_oauth = oauth.register(
     access_token_url="https://oauth2.googleapis.com/token",
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
-    client_kwargs={"scope": "openid email profile"},
+    client_kwargs={
+        "scope": "openid email profile https://www.googleapis.com/auth/drive.file",
+    },
 )
 
 # ── Security config ───────────────────────────────────────────────────────────
@@ -534,7 +536,9 @@ def google_login():
     # Don't block if a different user is already logged in — let Google OAuth proceed
     # so the correct account gets signed in.
     cb = os.environ.get("GOOGLE_REDIRECT_URI") or url_for("google_callback", _external=True)
-    return google_oauth.authorize_redirect(cb)
+    # access_type=offline gets a refresh_token; prompt=consent ensures Drive scope is granted
+    # even for users who previously signed in without Drive scope.
+    return google_oauth.authorize_redirect(cb, access_type="offline", prompt="consent")
 
 
 @app.route("/auth/google/callback")
@@ -588,11 +592,21 @@ def google_callback():
         db.session.add(user)
         db.session.commit()
 
+    # Auto-connect Google Drive — the login token already carries drive.file scope.
+    _drive_access  = token.get("access_token", "")
+    _drive_refresh = token.get("refresh_token", "")
+    if _drive_access:
+        user.gdrive_token = _drive_access
+    if _drive_refresh:          # Google only sends this on first consent
+        user.gdrive_refresh = _drive_refresh
+    if _drive_access or _drive_refresh:
+        db.session.commit()
+
     # Clear any previous session (different account) before logging in
     logout_user()
     session.clear()
     login_user(user, remember=True)
-    # Restore persisted GDrive token into session so it's immediately available
+    # Put Drive token straight into session so it works immediately
     if user.gdrive_token:
         session["gdrive_token"] = user.gdrive_token
     return redirect("/app")

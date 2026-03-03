@@ -1003,8 +1003,17 @@ function toggleDarkModeFromSettings(on) {
       }
     }).catch(() => {});
   if (sd) { const s = document.getElementById('save-dest'); if (s) s.value = sd; }
-  // Restore GDrive connected state from localStorage (no server ping needed)
-  _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1');
+  // Restore GDrive connected state — check server so Google-login users are shown as connected
+  fetch('/api/gdrive/status', {credentials: 'same-origin', cache: 'no-store'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d) return;
+      const authed = d.authed;
+      if (authed) localStorage.setItem('gdrive_authed', '1');
+      else localStorage.removeItem('gdrive_authed');
+      _renderGdriveUI(authed);
+    })
+    .catch(() => _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1'));
   // Load cookies status
   loadCookiesStatus();
 })();
