@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 
-# Start bgutil YouTube PO token provider server in background (port 4416)
+# Debug: check if bgutil-yt-dlp-pot-provider is in PATH and print version
+echo "[startup] Checking for bgutil-yt-dlp-pot-provider in PATH..."
+which bgutil-yt-dlp-pot-provider || { echo '[startup] ERROR: bgutil-yt-dlp-pot-provider not found in PATH!'; exit 1; }
+echo "[startup] bgutil-yt-dlp-pot-provider found: $(which bgutil-yt-dlp-pot-provider)"
+bgutil-yt-dlp-pot-provider --version || echo '[startup] WARNING: Could not get bgutil version.'
+echo "[startup] Launching bgutil-yt-dlp-pot-provider on port 4416..."
 bgutil-yt-dlp-pot-provider &
 BGUTIL_PID=$!
 echo "[startup] bgutil PO token provider started (PID $BGUTIL_PID)"
