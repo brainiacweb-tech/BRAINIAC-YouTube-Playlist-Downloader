@@ -819,11 +819,11 @@ def landing():
     resp = render_template("landing.html")
     return resp, 200, {"Cache-Control": "public, max-age=300"}
 
-# Google Search Console domain verification — set GOOGLE_SITE_VERIFY env var to your token
+# Google Search Console domain verification
+_GSITE_TOKEN = os.environ.get("GOOGLE_SITE_VERIFY", "gFXOPMcc20rPxHnQwiIZHtrRALzPJdNO_-em6L0nD2M")
 @app.route("/google<token>.html")
 def google_site_verify(token):
-    expected = os.environ.get("GOOGLE_SITE_VERIFY", "")
-    if token == expected:
+    if token == _GSITE_TOKEN:
         return f"google-site-verification: google{token}.html", 200, {"Content-Type": "text/plain"}
     return "", 404
 
