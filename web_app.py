@@ -47,12 +47,14 @@ login_manager.login_view = "login"
 login_manager.login_message = ""
 
 class User(UserMixin, db.Model):
-    id        = db.Column(db.Integer, primary_key=True)
-    username  = db.Column(db.String(80), unique=True, nullable=False)
-    email     = db.Column(db.String(120), unique=True, nullable=False)
-    password  = db.Column(db.String(256), nullable=False)
-    google_id = db.Column(db.String(128), unique=True, nullable=True)
-    avatar    = db.Column(db.String(512), nullable=True)
+    id                  = db.Column(db.Integer, primary_key=True)
+    username            = db.Column(db.String(80), unique=True, nullable=False)
+    email               = db.Column(db.String(120), unique=True, nullable=False)
+    password            = db.Column(db.String(256), nullable=False)
+    google_id           = db.Column(db.String(128), unique=True, nullable=True)
+    avatar              = db.Column(db.String(512), nullable=True)
+    gdrive_token        = db.Column(db.String(512), nullable=True)   # access token
+    gdrive_refresh      = db.Column(db.Text, nullable=True)          # refresh token (longer)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -66,8 +68,10 @@ with app.app_context():
         db.session.rollback()
     # Add google_id / avatar columns if this is an existing DB without them
     for _col, _ddl in [
-        ("google_id", "ALTER TABLE user ADD COLUMN google_id VARCHAR(128) UNIQUE"),
-        ("avatar",    "ALTER TABLE user ADD COLUMN avatar VARCHAR(512)"),
+        ("google_id",      "ALTER TABLE user ADD COLUMN google_id VARCHAR(128) UNIQUE"),
+        ("avatar",         "ALTER TABLE user ADD COLUMN avatar VARCHAR(512)"),
+        ("gdrive_token",   "ALTER TABLE user ADD COLUMN gdrive_token VARCHAR(512)"),
+        ("gdrive_refresh", "ALTER TABLE user ADD COLUMN gdrive_refresh TEXT"),
     ]:
         try:
             with db.engine.connect() as _conn:
@@ -468,6 +472,9 @@ def google_callback():
         db.session.commit()
 
     login_user(user, remember=True)
+    # Restore persisted GDrive token into session so it's immediately available
+    if user.gdrive_token:
+        session["gdrive_token"] = user.gdrive_token
     return redirect("/app")
 
 
@@ -519,6 +526,8 @@ def login():
         ).first()
         if user and check_password_hash(user.password, password):
             login_user(user, remember=request.form.get("remember") == "on")
+            if user.gdrive_token:
+                session["gdrive_token"] = user.gdrive_token
             return redirect("/app")
         error = "Invalid username/email or password."
     return render_template("login.html", error=error)
@@ -804,7 +813,7 @@ def gdrive_status():
     google_id  = os.environ.get("GOOGLE_CLIENT_ID", "")
     eff_id     = gdrive_id or google_id
     configured = bool(eff_id and (os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")))
-    authed     = bool(session.get("gdrive_token"))
+    authed     = bool(session.get("gdrive_token") or (current_user.is_authenticated and current_user.gdrive_token))
     return jsonify({
         "configured": configured,
         "authed": authed,
@@ -853,19 +862,62 @@ def gdrive_callback():
         "redirect_uri": redir, "grant_type": "authorization_code",
     }, timeout=15)
     token_data = resp.json()
-    access_token = token_data.get("access_token", "")
+    access_token  = token_data.get("access_token", "")
+    refresh_token = token_data.get("refresh_token", "")
     if not access_token:
         err_msg = token_data.get("error_description", "Token exchange failed")
         return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:'{err_msg}'}}, '*');window.close();</script>"
+
+    # Persist tokens in DB so they survive server restarts / redeploys
+    if current_user.is_authenticated:
+        current_user.gdrive_token   = access_token
+        if refresh_token:  # Google only sends refresh_token on first auth
+            current_user.gdrive_refresh = refresh_token
+        db.session.commit()
 
     session["gdrive_token"] = access_token
     return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_authed',taskId:'{task_id}'}}, '*');window.close();</script>"
 
 
+@app.route("/api/gdrive/disconnect", methods=["POST"])
+@login_required
+def gdrive_disconnect():
+    session.pop("gdrive_token", None)
+    if current_user.is_authenticated:
+        current_user.gdrive_token   = None
+        current_user.gdrive_refresh = None
+        db.session.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/gdrive/upload/<task_id>", methods=["POST"])
 @limiter.limit("20 per hour")
 def gdrive_upload(task_id):
+    # 1. Try session (fastest)
     token = session.get("gdrive_token", "")
+
+    # 2. Fall back to DB-stored token
+    if not token and current_user.is_authenticated and current_user.gdrive_token:
+        token = current_user.gdrive_token
+        session["gdrive_token"] = token  # warm up session cache
+
+    # 3. Try to refresh using the stored refresh token
+    if not token and current_user.is_authenticated and current_user.gdrive_refresh:
+        client_id     = os.environ.get("GDRIVE_CLIENT_ID")     or os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret = os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        r = _requests.post(_GDRIVE_TOKEN_URL, data={
+            "grant_type":    "refresh_token",
+            "refresh_token": current_user.gdrive_refresh,
+            "client_id":     client_id,
+            "client_secret": client_secret,
+        }, timeout=15)
+        new_token = r.json().get("access_token", "")
+        if new_token:
+            token = new_token
+            current_user.gdrive_token = new_token
+            db.session.commit()
+            session["gdrive_token"] = new_token
+
     if not token:
         return jsonify({"error": "not_authed"}), 401
 
