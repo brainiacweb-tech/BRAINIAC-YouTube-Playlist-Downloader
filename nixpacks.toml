@@ -1,5 +1,3 @@
-[start]
-cmd = "bash start.sh"
 [phases.setup]
 nixPkgs = ["ffmpeg", "nodejs_20"]
 
