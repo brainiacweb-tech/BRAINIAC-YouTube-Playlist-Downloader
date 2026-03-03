@@ -149,7 +149,7 @@ body::before {
   position: relative;
 }
 
-.input-wrap i {
+.input-wrap > i {
   position: absolute;
   left: 13px;
   top: 50%;
@@ -189,13 +189,15 @@ body::before {
   border: none;
   cursor: pointer;
   color: var(--muted);
-  padding: 0;
+  padding: 4px;
   line-height: 1;
   font-size: 1.1rem;
-  z-index: 3;
+  z-index: 4;
   display: flex;
   align-items: center;
+  pointer-events: auto;
 }
+.eye-toggle i { pointer-events: none; }
 .eye-toggle:hover { color: var(--red); }
 
 .hint {
