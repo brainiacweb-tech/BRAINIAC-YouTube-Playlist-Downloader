@@ -726,7 +726,10 @@ _GDRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 def _gdrive_redirect_uri():
     base = os.environ.get("APP_URL", "").rstrip("/")
-    return f"{base}/api/gdrive/callback" if base else None
+    if not base:
+        # fallback: build from the current request host
+        base = request.host_url.rstrip("/")
+    return f"{base}/api/gdrive/callback"
 
 
 @app.route("/api/gdrive/status")
@@ -738,18 +741,19 @@ def gdrive_status():
 
 @app.route("/api/gdrive/auth")
 def gdrive_auth():
-    client_id = os.environ.get("GDRIVE_CLIENT_ID", "")
+    # Accept GDRIVE_CLIENT_ID or fall back to the Google login client (same app)
+    client_id = os.environ.get("GDRIVE_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID", "")
     if not client_id:
-        return jsonify({"error": "Google Drive is not configured on this server."}), 503
+        _err = "Google OAuth client ID is not configured on this server."
+        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:{repr(_err)}}}, '*');window.close();</script>", 503
     task_id = request.args.get("task_id", "")
     redir = _gdrive_redirect_uri()
-    if not redir:
-        return jsonify({"error": "APP_URL env var not set — cannot build redirect URI."}), 503
+    from urllib.parse import quote
     auth_url = (
         f"{_GDRIVE_AUTH_URL}?client_id={client_id}"
-        f"&redirect_uri={redir}"
+        f"&redirect_uri={quote(redir, safe='')}"
         "&response_type=code"
-        f"&scope={_GDRIVE_SCOPES}"
+        f"&scope={quote(_GDRIVE_SCOPES, safe='')}"
         f"&state={task_id}"
         "&access_type=offline&prompt=consent"
     )
@@ -762,10 +766,11 @@ def gdrive_callback():
     task_id = request.args.get("state", "")
     error   = request.args.get("error", "")
     if error:
-        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:'{error}'}}, '*');window.close();</script>"
+        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:{repr(error)}}}, '*');window.close();</script>"
 
-    client_id     = os.environ.get("GDRIVE_CLIENT_ID", "")
-    client_secret = os.environ.get("GDRIVE_CLIENT_SECRET", "")
+    # Fall back to the Google login credentials if GDRIVE-specific ones aren't set
+    client_id     = os.environ.get("GDRIVE_CLIENT_ID")     or os.environ.get("GOOGLE_CLIENT_ID", "")
+    client_secret = os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET", "")
     redir         = _gdrive_redirect_uri()
 
     resp = _requests.post(_GDRIVE_TOKEN_URL, data={
