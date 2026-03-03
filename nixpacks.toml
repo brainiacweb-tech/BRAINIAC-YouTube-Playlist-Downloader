@@ -1,2 +1,5 @@
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+nixPkgs = ["ffmpeg", "nodejs_20"]
+
+[phases.build]
+cmds = ["npm install -g @imputnet/bgutil-yt-dlp-pot-provider"]
