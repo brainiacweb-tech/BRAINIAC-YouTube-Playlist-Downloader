@@ -725,10 +725,9 @@ _GDRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 def _gdrive_redirect_uri():
-    # Use APP_URL env var (set to https://franciskusi.dev in Railway),
-    # defaulting to the production domain if not configured.
-    base = os.environ.get("APP_URL", "https://franciskusi.dev").rstrip("/")
-    return f"{base}/api/gdrive/callback"
+    # Always use the custom domain — Railway's APP_URL points to the internal
+    # domain which doesn't match the registered OAuth redirect URI.
+    return "https://franciskusi.dev/api/gdrive/callback"
 
 
 @app.route("/api/gdrive/status")
