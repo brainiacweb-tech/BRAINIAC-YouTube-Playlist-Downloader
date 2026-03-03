@@ -54,6 +54,11 @@ class User(UserMixin, db.Model):
     gdrive_token        = db.Column(db.String(512), nullable=True)   # access token
     gdrive_refresh      = db.Column(db.Text, nullable=True)          # refresh token (longer)
 
+class AppSetting(db.Model):
+    """Key-value store for app-wide settings that must survive restarts."""
+    key   = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
@@ -234,6 +239,18 @@ if _env_cookies and not os.path.exists(COOKIES_FILE):
         print("[cookies] Loaded cookies from YT_COOKIES environment variable")
     except Exception as _e:
         print(f"[cookies] Failed to load YT_COOKIES env var: {_e}")
+
+# Restore cookies from DB (persists across Railway restarts/redeployments)
+if not os.path.exists(COOKIES_FILE) or os.path.getsize(COOKIES_FILE) == 0:
+    try:
+        with app.app_context():
+            _db_cookies = AppSetting.query.get("yt_cookies")
+            if _db_cookies and _db_cookies.value:
+                with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
+                    _f.write(base64.b64decode(_db_cookies.value).decode("utf-8"))
+                print("[cookies] Restored cookies from database")
+    except Exception as _e:
+        print(f"[cookies] Could not restore cookies from DB: {_e}")
 
 
 def _cookies_active() -> bool:
@@ -836,6 +853,18 @@ def upload_cookies():
     with open(COOKIES_FILE, "w", encoding="utf-8") as fh:
         fh.write(content)
 
+    # Persist to DB so cookies survive Railway restarts / redeployments
+    try:
+        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+        setting = AppSetting.query.get("yt_cookies")
+        if setting:
+            setting.value = encoded
+        else:
+            db.session.add(AppSetting(key="yt_cookies", value=encoded))
+        db.session.commit()
+    except Exception as _e:
+        print(f"[cookies] Could not persist cookies to DB: {_e}")
+
     return jsonify({"ok": True, "size": len(content)})
 
 
@@ -844,6 +873,14 @@ def clear_cookies():
     try:
         os.remove(COOKIES_FILE)
     except FileNotFoundError:
+        pass
+    # Remove from DB too
+    try:
+        setting = AppSetting.query.get("yt_cookies")
+        if setting:
+            db.session.delete(setting)
+            db.session.commit()
+    except Exception:
         pass
     return jsonify({"ok": True})
 
