@@ -432,9 +432,52 @@ body::before {
   .pbar-stats { padding: 6px 14px 2px; }
   .dl-btn-row { padding: 10px 14px 14px; }
 }
+
+/* ── Doodles ─────────────────────────────────────────────────── */
+.doodles {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.doodle {
+  position: absolute;
+  opacity: 0.07;
+  color: #e53935;
+  user-select: none;
+  animation: floatDoodle linear infinite;
+}
+@keyframes floatDoodle {
+  0%   { transform: translateY(0px) rotate(0deg); }
+  50%  { transform: translateY(-18px) rotate(6deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+.wrapper { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+
+<div class="doodles" aria-hidden="true">
+  <!-- Download arrow 1 -->
+  <svg class="doodle" style="width:80px;top:6%;left:3%;animation-duration:7s;animation-delay:0s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>
+  <!-- Music note 1 -->
+  <svg class="doodle" style="width:64px;top:15%;right:5%;animation-duration:9s;animation-delay:1s" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h4V3H9z"/></svg>
+  <!-- YouTube play btn -->
+  <svg class="doodle" style="width:90px;top:30%;left:1%;animation-duration:11s;animation-delay:2s" viewBox="0 0 24 24" fill="currentColor"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l5.5-3.5L10 8.5v7z"/></svg>
+  <!-- Headphones -->
+  <svg class="doodle" style="width:70px;top:55%;right:3%;animation-duration:8s;animation-delay:0.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 6 0v-4a3 3 0 0 0-3-3V12a6 6 0 1 1 12 0v-.003a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0v-6a9 9 0 0 0-9-9z"/></svg>
+  <!-- Film strip -->
+  <svg class="doodle" style="width:75px;top:72%;left:4%;animation-duration:13s;animation-delay:3s" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zm4 1v3H4V5h2zm0 5v3H4v-3h2zm0 5v3H4v-3h2zm10-10v3h-2V5h2zm0 5v3h-2v-3h2zm0 5v3h-2v-3h2zM8 5v14h8V5H8z"/></svg>
+  <!-- Music note 2 -->
+  <svg class="doodle" style="width:50px;top:85%;right:8%;animation-duration:6s;animation-delay:2s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l.01 10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+  <!-- Download arrow 2 -->
+  <svg class="doodle" style="width:55px;top:42%;right:1%;animation-duration:10s;animation-delay:4s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>
+  <!-- Microphone -->
+  <svg class="doodle" style="width:60px;top:20%;left:90%;animation-duration:12s;animation-delay:1.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zM7.25 11.5A5.001 5.001 0 0 0 17 11v1a5 5 0 0 1-10 0v-0.5zM11 18.944V21H9v1h6v-1h-2v-2.056A7.003 7.003 0 0 0 19 12v-1h-2v1a5 5 0 0 1-10 0v-1H5v1a7.003 7.003 0 0 0 6 6.944z"/></svg>
+  <!-- Waveform bars -->
+  <svg class="doodle" style="width:80px;top:90%;left:40%;animation-duration:7s;animation-delay:0.8s" viewBox="0 0 24 24" fill="currentColor"><path d="M2 12h2v4H2zm4-4h2v8H6zm4-4h2v16h-2zm4 2h2v12h-2zm4 3h2v6h-2z"/></svg>
+  <!-- Play circle -->
+  <svg class="doodle" style="width:65px;top:62%;left:88%;animation-duration:9s;animation-delay:3.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-1.5 14.5v-9l7 4.5-7 4.5z"/></svg>
+</div>
+
 <div class="wrapper">
 
   <!-- HEADER -->
