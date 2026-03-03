@@ -539,8 +539,8 @@ def search():
     if source not in ("YouTube", "SoundCloud", "Dailymotion"):
         source = "YouTube"
 
-    prefix = {"YouTube": "ytsearch10:", "SoundCloud": "scsearch10:",
-              "Dailymotion": "dmsearch10:"}.get(source, "ytsearch10:")
+    prefix = {"YouTube": "ytsearch50:", "SoundCloud": "scsearch50:",
+              "Dailymotion": "dmsearch50:"}.get(source, "ytsearch50:")
 
     try:
         search_opts = {"quiet": True, "no_warnings": True,
@@ -554,7 +554,7 @@ def search():
             info = ydl.extract_info(f"{prefix}{query}", download=False)
 
         results = []
-        for e in (info.get("entries") or [])[:10]:
+        for e in (info.get("entries") or []):
             if not e:
                 continue
 
