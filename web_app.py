@@ -49,7 +49,11 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception:
+        # Ignore "table already exists" race between gunicorn workers on first boot
+        db.session.rollback()
 
 # ── Security config ───────────────────────────────────────────────────────────
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
