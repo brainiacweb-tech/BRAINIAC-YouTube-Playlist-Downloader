@@ -403,10 +403,11 @@ body::before {
 
 /* ── Mobile ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .header { padding: 16px 0 14px; margin-bottom: 18px; }
+  .header { padding: 12px 14px; margin-bottom: 18px; }
   .logo-text { font-size: 17px; }
-  .logo-img { width: 48px; height: 48px; }
-  .header-tag { display: none; }
+  .logo-img { width: 44px; height: 44px; }
+  .header-user-tag { font-size: 9px !important; padding: 4px 8px !important; }
+  .header-logout { font-size: 9px !important; padding: 4px 9px !important; }
   .tabs { gap: 4px; padding: 4px; }
   .tab-btn { min-width: 0; flex: 1; padding: 9px 6px; font-size: 10px; gap: 4px; }
   .tab-btn i { font-size: 16px; }
@@ -424,24 +425,7 @@ body::before {
   .dl-btn-row { flex-direction: column; }
   .dl-btn-row .btn, .dl-btn-row a { width: 100%; text-align: center; }
   .pbar-stats { font-size: 10px; }
-  .card-body, .quality-row, .src-row, .results-action, .log-header, .log-body {
-  font-family: 'Montserrat', sans-serif;
-  background: #fceaea;
-  color: var(--fg);
-  min-height: 100vh;
-  overflow-x: hidden;
-  font-size: 14px;
-  position: relative;
-}
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: -1;
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(229,57,53,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
-    linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
-}
+  .card-body, .quality-row, .src-row, .results-action, .log-header, .log-body { padding: 0 14px; }
   .result-item { padding: 6px 12px; }
   .playlist-info { margin: 0 14px 14px; }
   .progress-header { padding: 14px 14px 10px; }
@@ -555,11 +539,11 @@ body::before {
       <div class="logo-text">BRAIN<span>IAC</span><div class="logo-sub">Downloader</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <div class="header-tag" style="display:flex;align-items:center;gap:5px;">
+      <div class="header-user-tag" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--red);background:var(--red-light);border:1.5px solid var(--red-mid);padding:4px 12px;border-radius:20px;">
         <i class="ri-user-3-line" style="font-size:13px;"></i>
         {{ username }}
       </div>
-      <a href="/logout" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#e53935,#b71c1c);border-radius:20px;padding:5px 13px;text-decoration:none;transition:opacity 0.18s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <a href="/logout" class="header-logout" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#e53935,#b71c1c);border-radius:20px;padding:5px 13px;text-decoration:none;transition:opacity 0.18s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
         <i class="ri-logout-box-r-line" style="font-size:13px;"></i> Logout
       </a>
     </div>
