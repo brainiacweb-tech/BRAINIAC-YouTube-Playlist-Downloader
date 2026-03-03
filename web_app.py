@@ -322,6 +322,7 @@ def search():
     data   = request.get_json(force=True) or {}
     query  = (data.get("query") or "").strip()
     source = data.get("source", "YouTube")
+    mode   = (data.get("mode") or "music").strip()
 
     err = _validate_query(query)
     if err:
