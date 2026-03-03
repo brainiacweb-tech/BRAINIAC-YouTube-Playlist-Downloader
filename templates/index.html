@@ -849,6 +849,47 @@ select:focus { border-color: var(--red); }
             <button onclick="clearFilesHistory()" class="btn btn-ghost btn-sm"><i class="ri-delete-bin-line"></i> Clear</button>
           </div>
 
+          <!-- Cloud Storage section -->
+          <div class="sec-label" style="margin-top:4px;margin-bottom:0;"><i class="ri-cloud-fill"></i> Cloud Storage</div>
+
+          <!-- Google Drive row -->
+          <div id="gdrive-settings-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/22px-Google_Drive_icon_%282020%29.svg.png" style="height:22px;flex-shrink:0;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--fg);">Google Drive</div>
+                <div id="gdrive-status-lbl" style="font-size:11px;color:var(--muted);margin-top:2px;">Checking&hellip;</div>
+              </div>
+            </div>
+            <div id="gdrive-action-wrap"></div>
+          </div>
+
+          <!-- OneDrive row -->
+          <div id="onedrive-settings-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <i class="ri-microsoft-fill" style="font-size:22px;color:#0078d4;flex-shrink:0;"></i>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--fg);">OneDrive</div>
+                <div id="onedrive-status-lbl" style="font-size:11px;color:var(--muted);margin-top:2px;">Checking&hellip;</div>
+              </div>
+            </div>
+            <div id="onedrive-action-wrap"></div>
+          </div>
+
+          <!-- Auto-save destination -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-save-3-line" style="color:var(--red);"></i> Auto-Save Destination</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Automatically upload after each download finishes</div>
+            </div>
+            <select id="save-dest" onchange="localStorage.setItem('saveDest',this.value)">
+              <option value="local">Local only</option>
+              <option value="gdrive">Google Drive</option>
+              <option value="onedrive">OneDrive</option>
+              <option value="both">Both clouds</option>
+            </select>
+          </div>
+
         </div>
       </div>
     </div>
@@ -919,9 +960,12 @@ function toggleDarkModeFromSettings(on) {
 (function() {
   const saved = localStorage.getItem('dm') === 'true';
   if (saved) applyDarkMode(true);
-  // restore default quality
   const dq = localStorage.getItem('defaultQuality');
   if (dq) { const s = document.getElementById('default-quality'); if (s) s.value = dq; }
+  const sd = localStorage.getItem('saveDest');
+  if (sd) { const s = document.getElementById('save-dest'); if (s) s.value = sd; }
+  // Kick off cloud status in background so Settings panel is ready
+  loadCloudStatus(false);
 })();
 
 // ── Files history ──────────────────────────────────────────
@@ -1043,6 +1087,7 @@ function subscribeProgress(taskId, onDone) {
       const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
       addFileToPanel(fname, taskId);
       showCloudButtons(row, taskId);
+      autoSync(taskId);
       if (onDone) onDone();
     } else if (d.type === 'error') {
       es.close();
@@ -1241,25 +1286,85 @@ function fmtDur(secs) {
 }
 
 let _cloudStatus = null;
-async function showCloudButtons(row, taskId) {
-  if (!_cloudStatus) {
-    const [gd, od] = await Promise.all([
-      fetch('/api/gdrive/status').then(r=>r.json()).catch(()=>({configured:false})),
-      fetch('/api/onedrive/status').then(r=>r.json()).catch(()=>({configured:false})),
-    ]);
-    _cloudStatus = { gdrive: gd, onedrive: od };
+
+async function loadCloudStatus(force) {
+  if (_cloudStatus && !force) return _cloudStatus;
+  const [gd, od] = await Promise.all([
+    fetch('/api/gdrive/status').then(r=>r.json()).catch(()=>({configured:false,authed:false})),
+    fetch('/api/onedrive/status').then(r=>r.json()).catch(()=>({configured:false,authed:false})),
+  ]);
+  _cloudStatus = { gdrive: gd, onedrive: od };
+  _renderCloudUI(gd, od);
+  return _cloudStatus;
+}
+
+function _renderCloudUI(gd, od) {
+  function setService(svc, info) {
+    const lbl  = document.getElementById(svc+'-status-lbl');
+    const wrap = document.getElementById(svc+'-action-wrap');
+    const row  = document.getElementById(svc+'-settings-row');
+    if (!lbl || !wrap) return;
+    if (!info.configured) {
+      if (row) row.style.opacity = '0.45';
+      lbl.textContent = 'Not available on this server';
+      wrap.innerHTML = ''; return;
+    }
+    if (row) row.style.opacity = '';
+    if (info.authed) {
+      lbl.innerHTML = '<span style="color:#2e7d32;font-weight:700;">\u2713 Connected</span>';
+      wrap.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="disconnectCloud('${svc}')"><i class="ri-link-unlink"></i> Disconnect</button>`;
+    } else {
+      lbl.textContent = 'Not connected';
+      if (svc==='gdrive') {
+        wrap.innerHTML = `<button class="btn btn-gdrive btn-sm" onclick="connectCloud('gdrive')"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/14px-Google_Drive_icon_%282020%29.svg.png" style="height:13px;vertical-align:middle;margin-right:5px;"> Connect</button>`;
+      } else {
+        wrap.innerHTML = `<button class="btn btn-onedrive btn-sm" onclick="connectCloud('onedrive')"><i class="ri-microsoft-fill"></i> Connect</button>`;
+      }
+    }
   }
-  if (_cloudStatus.gdrive.configured) {
+  setService('gdrive',   gd);
+  setService('onedrive', od);
+}
+
+async function connectCloud(service) {
+  const wrap = document.getElementById(service+'-action-wrap');
+  if (wrap) wrap.innerHTML = `<span style="font-size:11px;font-weight:600;color:var(--muted);"><i class="ri-loader-4-line"></i> Opening…</span>`;
+  try {
+    await openOAuthPopup(service, '');
+    _cloudStatus = null;
+    await loadCloudStatus(true);
+  } catch(e) { log('Cloud connect: '+e.message, 'err'); await loadCloudStatus(true); }
+}
+
+async function disconnectCloud(service) {
+  await fetch(`/api/${service}/disconnect`, {method:'POST'}).catch(()=>{});
+  _cloudStatus = null;
+  await loadCloudStatus(true);
+}
+
+async function autoSync(taskId) {
+  const dest = localStorage.getItem('saveDest') || 'local';
+  if (dest === 'local') return;
+  const st = await loadCloudStatus(false);
+  const targets = dest === 'both' ? ['gdrive','onedrive'] : [dest];
+  for (const svc of targets) {
+    if (st[svc]?.configured) uploadToCloud(svc, taskId);
+  }
+}
+
+async function showCloudButtons(row, taskId) {
+  const st = await loadCloudStatus(false);
+  if (st.gdrive.configured) {
     const btn = document.createElement('button');
-    btn.id = 'gdrive-btn-' + taskId; btn.className = 'btn btn-gdrive';
-    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/18px-Google_Drive_icon_%282020%29.svg.png" style="height:16px;vertical-align:middle;margin-right:6px"> Google Drive';
+    btn.id = 'gdrive-btn-' + taskId; btn.className = 'btn btn-gdrive btn-sm';
+    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/14px-Google_Drive_icon_%282020%29.svg.png" style="height:13px;vertical-align:middle;margin-right:5px;"> Drive';
     btn.onclick = () => uploadToCloud('gdrive', taskId);
     row.appendChild(btn);
   }
-  if (_cloudStatus.onedrive.configured) {
+  if (st.onedrive.configured) {
     const btn = document.createElement('button');
-    btn.id = 'onedrive-btn-' + taskId; btn.className = 'btn btn-onedrive';
-    btn.innerHTML = '<i class="ri-cloud-fill"></i> OneDrive';
+    btn.id = 'onedrive-btn-' + taskId; btn.className = 'btn btn-onedrive btn-sm';
+    btn.innerHTML = '<i class="ri-microsoft-fill"></i> OneDrive';
     btn.onclick = () => uploadToCloud('onedrive', taskId);
     row.appendChild(btn);
   }
