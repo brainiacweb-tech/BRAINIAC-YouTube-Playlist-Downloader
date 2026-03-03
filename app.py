@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import ttk, font as tkfont, filedialog, messagebox
 
 import yt_dlp
+from googleapiclient.discovery import build
+from fetch_playlist import fetch_playlist_details
 
 # Paths
 DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
@@ -1759,5 +1761,30 @@ class App(tk.Tk):
                 self.after(0, lambda: self._lbl_eta_sb.config(text="—"))
 
 
-if __name__ == "__main__":
-    App().mainloop()
+    # ── Function to fetch playlist details using YouTube Data API
+    def fetch_playlist_details(api_key, playlist_id):
+        youtube = build('youtube', 'v3', developerKey=api_key)
+        request = youtube.playlistItems().list(
+            part="snippet",
+            playlistId=playlist_id,
+            maxResults=10
+        )
+        response = request.execute()
+
+        playlist_details = []
+        for item in response['items']:
+            video_title = item['snippet']['title']
+            video_url = f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}"
+            playlist_details.append({"title": video_title, "url": video_url})
+
+        return playlist_details
+
+    # Example integration
+    if __name__ == "__main__":
+        PLAYLIST_ID = "YOUR_PLAYLIST_ID"  # Replace with actual playlist ID
+        try:
+            details = fetch_playlist_details(PLAYLIST_ID)
+            for video in details:
+                print(f"Title: {video['title']}, URL: {video['url']}")
+        except Exception as e:
+            print(f"Error: {e}")
