@@ -471,7 +471,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "logger":           logger,
         "progress_hooks":   [_make_hook(task_id)],
         "outtmpl":          os.path.join(task_dir, "%(title)s.%(ext)s"),
-        "noplaylist":       False,
+        "noplaylist":       mode == "direct",   # for direct tab: single item only
         "retries":          10,
         "fragment_retries": 10,
         "ignoreerrors":     mode in ("playlist",),  # only skip errors in playlists
@@ -525,23 +525,34 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             "preferredquality": "256",
         }]
     elif quality == "Best Quality":
-        # Try combined (non-DASH) first — android_vr provides these;
-        # fall back to DASH merge only if combined unavailable
-        opts["format"] = (
-            "best[ext=mp4]"
-            "/best"
-            "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
-            "/bestvideo+bestaudio"
-        )
+        if mode == "direct":
+            # No ext restriction — support any site (Instagram, TikTok, Reddit, etc.)
+            opts["format"] = "bestvideo+bestaudio/best"
+        else:
+            # Try combined (non-DASH) first — android_vr provides these;
+            # fall back to DASH merge only if combined unavailable
+            opts["format"] = (
+                "best[ext=mp4]"
+                "/best"
+                "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+                "/bestvideo+bestaudio"
+            )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
-        opts["format"] = (
-            f"best[height<={h}][ext=mp4]"
-            f"/best[height<={h}]"
-            f"/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
-            f"/bestvideo[height<={h}]+bestaudio"
-            f"/best"
-        )
+        if mode == "direct":
+            opts["format"] = (
+                f"bestvideo[height<={h}]+bestaudio"
+                f"/best[height<={h}]"
+                f"/best"
+            )
+        else:
+            opts["format"] = (
+                f"best[height<={h}][ext=mp4]"
+                f"/best[height<={h}]"
+                f"/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+                f"/bestvideo[height<={h}]+bestaudio"
+                f"/best"
+            )
     else:
         opts["format"] = (
             "best[ext=mp4]/best"
@@ -549,9 +560,10 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             "/bestvideo+bestaudio"
         )
 
-    # For direct mode merge video+audio and re-encode into a clean mp4 if needed
+    # For direct mode: merge to mp4 only when we selected split streams
     if mode == "direct" and quality != "Audio Only (MP3)":
         opts["merge_output_format"] = "mp4"
+        opts["allow_unplayable_formats"] = True
 
     return opts, logger
 
