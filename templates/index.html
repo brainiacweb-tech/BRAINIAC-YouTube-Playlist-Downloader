@@ -40,7 +40,7 @@
 html { scroll-behavior: smooth; }
 body {
   font-family: 'Montserrat', sans-serif;
-  background: #fceaea;
+  background: #1a0a0a;
   color: var(--fg);
   min-height: 100vh;
   overflow-x: hidden;
@@ -51,34 +51,59 @@ body::before {
   content: '';
   position: fixed; inset: 0; z-index: -1;
   background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(229,57,53,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
-    linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
+    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(180,20,20,0.40) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(120,10,10,0.30) 0%, transparent 60%),
+    linear-gradient(160deg, #2a0808 0%, #1a0505 45%, #120303 100%);
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
 
+/* ── Dark mode ──────────────────────────────────────────────── */
+body.dark-mode {
+  --fg:      #e8d5d5;
+  --fg2:     #b09090;
+  --muted:   #7a6060;
+  --surface: #1e0e0e;
+  --surface2:#2a1212;
+  --surface3:#331515;
+  --border:  #3a1a1a;
+  --border2: #4a2020;
+  --red-light:#2a0808;
+  --red-mid:  #5a1a1a;
+  --green-bg: #0a1f0a;
+  --shadow:   0 4px 20px rgba(0,0,0,0.5);
+}
+body.dark-mode .card,
+body.dark-mode .tabs,
+body.dark-mode .header { background: rgba(20,6,6,0.80) !important; border-color: rgba(90,30,30,0.5) !important; }
+body.dark-mode input[type=text],
+body.dark-mode select { background: rgba(30,8,8,0.85) !important; border-color: rgba(80,25,25,0.6) !important; color: var(--fg) !important; }
+body.dark-mode .src-btn { background: #1e0a0a; color: var(--muted); border-color: var(--border2); }
+body.dark-mode .quality-row,
+body.dark-mode .src-row,
+body.dark-mode .results-action { background: rgba(20,6,6,0.6) !important; }
+
 /* ── Layout ─────────────────────────────────────────────────── */
-.wrapper { max-width: 860px; margin: 0 auto; padding: 0 16px 60px; }
+.wrapper { max-width: 740px; margin: 0 auto; padding: 0 14px 60px; }
 
 /* ── Header ─────────────────────────────────────────────────── */
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 20px;
-  background: rgba(255,255,255,0.60);
+  padding: 12px 16px;
+  background: rgba(12,3,3,0.75);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.80);
+  border: 1.5px solid rgba(120,30,30,0.45);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(229,57,53,0.10), 0 1px 4px rgba(0,0,0,0.06);
-  margin-bottom: 20px;
+  box-shadow: 0 8px 32px rgba(229,57,53,0.18), 0 1px 4px rgba(0,0,0,0.4);
+  margin-bottom: 16px;
 }
 .logo { display: flex; align-items: center; gap: 14px; }
-.logo-img { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; filter: brightness(0) saturate(100%) invert(26%) sepia(85%) saturate(2290%) hue-rotate(340deg) brightness(100%); }
-.logo-text { font-size: 22px; font-weight: 900; letter-spacing: -1px; color: var(--fg); }
+.logo-img { width: 48px; height: 48px; object-fit: contain; border-radius: 10px; filter: brightness(0) saturate(100%) invert(26%) sepia(85%) saturate(2290%) hue-rotate(340deg) brightness(100%); }
+.logo-text { font-size: 18px; font-weight: 900; letter-spacing: -1px; color: var(--fg); }
 .logo-text span { color: var(--red); }
 .logo-sub { font-size: 9px; font-weight: 800; letter-spacing: 3.5px; text-transform: uppercase; color: var(--red); margin-top: 1px; line-height: 1; }
 .header-tag {
@@ -89,17 +114,16 @@ body::before {
 
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
-  display: flex; gap: 5px; margin-bottom: 24px;
-  background: rgba(255,255,255,0.55);
+  display: flex; gap: 5px; margin-bottom: 20px;
+  background: rgba(18,4,4,0.70);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.75);
+  border: 1.5px solid rgba(120,30,30,0.45);
   border-radius: var(--radius); padding: 5px; overflow-x: auto;
-  box-shadow: 0 8px 32px rgba(229,57,53,0.08), 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 32px rgba(229,57,53,0.15), 0 1px 4px rgba(0,0,0,0.3);
 }
 .tabs::-webkit-scrollbar { height: 0; }
-.tab-btn {
-  flex: 1; min-width: 120px; display: flex; align-items: center; justify-content: center;
+.tab-btn { flex: 1; min-width: 90px; display: flex; align-items: center; justify-content: center;
   gap: 7px; padding: 10px 14px; border-radius: var(--radius2); border: none;
   background: transparent; color: var(--muted); font-family: 'Montserrat', sans-serif;
   font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
@@ -127,22 +151,7 @@ body::before {
   margin-bottom: 16px;
 }
 .card-body {
-  font-family: 'Montserrat', sans-serif;
-  background: #fceaea;
-  color: var(--fg);
-  min-height: 100vh;
-  overflow-x: hidden;
-  font-size: 14px;
-  position: relative;
-}
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: -1;
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(229,57,53,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
-    linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
+  padding: 16px 18px;
 }
 .sec-label {
   font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
@@ -159,7 +168,7 @@ body::before {
   color: var(--muted); font-size: 18px; pointer-events: none;
 }
 input[type=text] {
-  width: 100%; padding: 13px 14px 13px 42px;
+  width: 100%; padding: 11px 14px 11px 40px;
   background: rgba(255,255,255,0.65); border: 1.5px solid rgba(255,255,255,0.8);
   border-radius: var(--radius3); color: var(--fg);
   font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 500;
@@ -209,12 +218,12 @@ input[type=text]:focus {
 /* ── Quality row ────────────────────────────────────────────── */
 .quality-row {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 13px 20px; background: rgba(255,255,255,0.45); border-top: 1.5px solid rgba(255,255,255,0.6);
+  padding: 11px 18px; background: rgba(12,2,2,0.45); border-top: 1.5px solid rgba(120,30,30,0.35);
 }
 .quality-label { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 select {
-  padding: 9px 12px; background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: var(--radius3); color: var(--fg); font-family: 'Montserrat', sans-serif;
+  padding: 8px 12px; background: rgba(20,5,5,0.75); border: 1.5px solid rgba(120,30,30,0.45);
+  border-radius: var(--radius3); color: #c08080; font-family: 'Montserrat', sans-serif;
   font-size: 12px; font-weight: 600; cursor: pointer; outline: none;
 }
 select:focus { border-color: var(--red); }
@@ -226,36 +235,19 @@ select:focus { border-color: var(--red); }
   padding: 14px 16px; display: flex; align-items: center; gap: 12px;
 }
 .playlist-info-icon { font-size: 26px; color: var(--red); flex-shrink: 0; }
-.playlist-info-body {
-  font-family: 'Montserrat', sans-serif;
-  background: #fceaea;
-  color: var(--fg);
-  min-height: 100vh;
-  overflow-x: hidden;
-  font-size: 14px;
-  position: relative;
-}
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: -1;
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(229,57,53,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
-    linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
-}
+.playlist-info-body { flex: 1; min-width: 0; }
 .playlist-info-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
 .playlist-info-meta  { font-size: 11px; color: var(--red-dark); margin-top: 3px; font-weight: 600; }
 
 /* ── Source buttons ──────────────────────────────────────────── */
 .src-row {
-  padding: 11px 20px; display: flex; align-items: center; gap: 8px;
-  border-top: 1.5px solid rgba(255,255,255,0.6); flex-wrap: wrap; background: rgba(255,255,255,0.45);
+  padding: 10px 18px; display: flex; align-items: center; gap: 8px;
+  border-top: 1.5px solid rgba(120,30,30,0.35); flex-wrap: wrap; background: rgba(12,2,2,0.45);
 }
 .src-label { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
 .src-btn {
-  padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border);
-  background: #fff; color: var(--muted); font-family: 'Montserrat', sans-serif;
+  padding: 5px 12px; border-radius: 20px; border: 1.5px solid rgba(120,30,30,0.4);
+  background: rgba(20,5,5,0.7); color: #7a5050; font-family: 'Montserrat', sans-serif;
   font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.18s;
 }
 .src-btn:hover { border-color: var(--red-mid); color: var(--red); }
@@ -315,7 +307,7 @@ body::before {
 .cb-btn:hover { background: var(--red-light); border-color: var(--red-mid); color: var(--red-dark); }
 .results-action {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 20px; background: rgba(255,255,255,0.45); border-top: 1.5px solid rgba(255,255,255,0.6);
+  padding: 10px 18px; background: rgba(12,2,2,0.45); border-top: 1.5px solid rgba(120,30,30,0.35);
   gap: 10px; flex-wrap: wrap;
 }
 .results-action-left { display: flex; gap: 8px; }
@@ -372,22 +364,8 @@ body::before {
 .log-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
 .log-body {
-  font-family: 'Montserrat', sans-serif;
-  background: #fceaea;
-  color: var(--fg);
-  min-height: 100vh;
-  overflow-x: hidden;
-  font-size: 14px;
-  position: relative;
-}
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: -1;
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(229,57,53,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 80%, rgba(229,57,53,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
-    linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
+  padding: 14px 18px; max-height: 160px; overflow-y: auto;
+  font-size: 12px; font-weight: 500; line-height: 1.7;
 }
 .log-info { color: var(--fg2); }
 .log-ok   { color: var(--green); }
@@ -550,6 +528,7 @@ body::before {
       <a href="/logout" class="header-logout" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#e53935,#b71c1c);border-radius:20px;padding:5px 13px;text-decoration:none;transition:opacity 0.18s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
         <i class="ri-logout-box-r-line" style="font-size:13px;"></i> Logout
       </a>
+      <button id="dm-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.3);border-radius:50%;width:32px;height:32px;min-width:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#e57373;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(229,57,53,0.25)'" onmouseout="this.style.background='rgba(229,57,53,0.12)'"><i class="ri-moon-line" style="font-size:15px;"></i></button>
     </div>
   </header>
 
@@ -566,6 +545,15 @@ body::before {
     </button>
     <button class="tab-btn" data-tab="direct" onclick="switchTab('direct',this)">
       <i class="ri-link"></i> Direct
+    </button>
+    <button class="tab-btn" data-tab="files" onclick="switchTab('files',this)">
+      <i class="ri-folder-3-fill"></i> Files
+    </button>
+    <button class="tab-btn" data-tab="profile" onclick="switchTab('profile',this)">
+      <i class="ri-user-3-fill"></i> Profile
+    </button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings',this)">
+      <i class="ri-settings-3-fill"></i> Settings
     </button>
   </div>
 
@@ -742,6 +730,99 @@ body::before {
     </div>
   </div>
 
+  <!-- FILES PANEL -->
+  <div class="panel" id="panel-files">
+    <div class="card">
+      <div class="card-body">
+        <div class="sec-label"><i class="ri-folder-3-fill"></i> Downloaded Files</div>
+        <p class="hint" style="margin-top:8px;">Files downloaded in this session appear here. Completed downloads show a link to open or save the file.</p>
+      </div>
+      <div id="files-list" style="padding:0 18px 14px;">
+        <div id="files-empty" style="text-align:center;padding:32px 0;color:var(--muted);font-size:13px;font-weight:600;">
+          <i class="ri-folder-open-line" style="font-size:36px;display:block;margin-bottom:8px;opacity:0.4;"></i>
+          No files yet — start a download!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE PANEL -->
+  <div class="panel" id="panel-profile">
+    <div class="card">
+      <div class="card-body">
+        <div class="sec-label"><i class="ri-user-3-fill"></i> Your Profile</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);">
+          {% if avatar %}
+          <img src="{{ avatar }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--red);" referrerpolicy="no-referrer" alt="">
+          {% else %}
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(229,57,53,0.2);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ri-user-3-line" style="font-size:30px;color:var(--red);"></i></div>
+          {% endif %}
+          <div>
+            <div style="font-size:17px;font-weight:800;color:var(--fg);">{{ username }}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ email if email is defined else '' }}</div>
+            {% if avatar %}
+            <div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);letter-spacing:0.5px;"><i class="ri-google-fill"></i> Google account</div>
+            {% endif %}
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="/change-password" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(20,5,5,0.7);border:1.5px solid rgba(120,30,30,0.4);border-radius:20px;font-size:11px;font-weight:700;color:#b08080;text-decoration:none;transition:all 0.18s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='rgba(120,30,30,0.4)';this.style.color='#b08080'"><i class="ri-lock-password-line"></i> Change Password</a>
+          <a href="/logout" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:rgba(229,57,53,0.1);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:11px;font-weight:700;color:#e57373;text-decoration:none;transition:all 0.18s;" onmouseover="this.style.background='rgba(229,57,53,0.22)'" onmouseout="this.style.background='rgba(229,57,53,0.1)'"><i class="ri-logout-box-r-line"></i> Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PANEL -->
+  <div class="panel" id="panel-settings">
+    <div class="card">
+      <div class="card-body">
+        <div class="sec-label"><i class="ri-settings-3-fill"></i> Settings</div>
+
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:14px;">
+
+          <!-- Dark mode row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-moon-line" style="color:var(--red);"></i> Dark Mode</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Toggle the darker visual theme</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+              <input type="checkbox" id="dm-toggle-settings" onchange="toggleDarkModeFromSettings(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
+              <span id="dm-toggle-track" style="position:absolute;inset:0;background:rgba(60,20,20,0.7);border-radius:34px;border:1.5px solid rgba(120,30,30,0.4);cursor:pointer;transition:all 0.2s;"></span>
+              <span id="dm-toggle-thumb" style="position:absolute;left:3px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:#7a5050;border-radius:50%;transition:all 0.2s;pointer-events:none;"></span>
+            </label>
+          </div>
+
+          <!-- Default quality row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-hd-line" style="color:var(--red);"></i> Default Video Quality</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Pre-select a quality when fetching playlists</div>
+            </div>
+            <select id="default-quality" onchange="localStorage.setItem('defaultQuality',this.value)" style="padding:6px 10px;background:rgba(20,5,5,0.75);border:1.5px solid rgba(120,30,30,0.45);border-radius:8px;color:#c08080;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;cursor:pointer;outline:none;">
+              <option value="">Auto (best)</option>
+              <option value="1080">1080p</option>
+              <option value="720">720p</option>
+              <option value="480">480p</option>
+              <option value="360">360p</option>
+            </select>
+          </div>
+
+          <!-- Clear history row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(20,5,5,0.6);border-radius:10px;border:1.5px solid rgba(120,30,30,0.3);flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-delete-bin-line" style="color:var(--red);"></i> Clear Download History</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Remove the files list from this session</div>
+            </div>
+            <button onclick="clearFilesHistory()" style="padding:7px 16px;background:rgba(229,57,53,0.1);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:11px;font-weight:700;color:#e57373;cursor:pointer;transition:all 0.18s;font-family:'Montserrat',sans-serif;" onmouseover="this.style.background='rgba(229,57,53,0.22)'" onmouseout="this.style.background='rgba(229,57,53,0.1)'"><i class="ri-delete-bin-line"></i> Clear</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PROGRESS -->
   <div class="card progress-card" id="progress-card" style="display:none">
     <div class="progress-header">
@@ -776,6 +857,57 @@ body::before {
 </div>
 
 <script>
+// ── Dark mode ──────────────────────────────────────────────
+function applyDarkMode(on) {
+  document.body.classList.toggle('dark-mode', on);
+  const icon = document.querySelector('#dm-btn i');
+  if (icon) icon.className = on ? 'ri-sun-line' : 'ri-moon-line';
+  const track = document.getElementById('dm-toggle-track');
+  const thumb = document.getElementById('dm-toggle-thumb');
+  const cb    = document.getElementById('dm-toggle-settings');
+  if (track) { track.style.background = on ? 'var(--red)' : 'rgba(60,20,20,0.7)'; track.style.borderColor = on ? 'var(--red)' : 'rgba(120,30,30,0.4)'; }
+  if (thumb) { thumb.style.left = on ? '21px' : '3px'; thumb.style.background = on ? '#fff' : '#7a5050'; }
+  if (cb)    cb.checked = on;
+}
+function toggleDarkMode() {
+  const on = !document.body.classList.contains('dark-mode');
+  applyDarkMode(on);
+  localStorage.setItem('dm', on);
+}
+function toggleDarkModeFromSettings(on) {
+  applyDarkMode(on);
+  localStorage.setItem('dm', on);
+}
+(function() {
+  const saved = localStorage.getItem('dm') === 'true';
+  if (saved) applyDarkMode(true);
+  // restore default quality
+  const dq = localStorage.getItem('defaultQuality');
+  if (dq) { const s = document.getElementById('default-quality'); if (s) s.value = dq; }
+})();
+
+// ── Files history ──────────────────────────────────────────
+const downloadedFiles = [];
+function addFileToPanel(filename, taskId) {
+  const list  = document.getElementById('files-list');
+  const empty = document.getElementById('files-empty');
+  if (empty) empty.style.display = 'none';
+  downloadedFiles.push({ filename, taskId });
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(120,30,30,0.18);';
+  row.innerHTML = `<i class="ri-file-download-line" style="font-size:18px;color:var(--red);flex-shrink:0;"></i>
+    <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${filename}">${filename}</span>
+    <a href="/api/file/${taskId}" download style="padding:4px 12px;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;transition:all 0.18s;" onmouseover="this.style.background='rgba(229,57,53,0.25)'" onmouseout="this.style.background='rgba(229,57,53,0.12)'"><i class="ri-download-2-line"></i> Save</a>`;
+  list.appendChild(row);
+}
+function clearFilesHistory() {
+  downloadedFiles.length = 0;
+  const list  = document.getElementById('files-list');
+  const empty = document.getElementById('files-empty');
+  list.innerHTML = '';
+  if (empty) { list.appendChild(empty); empty.style.display = ''; }
+}
+
 const searchSources = { music: 'YouTube', movies: 'YouTube' };
 const searchResults = { music: [], movies: [] };
 const selectedItems = { music: new Set(), movies: new Set() };
@@ -853,6 +985,9 @@ function subscribeProgress(taskId, onDone) {
       const saveLabel = `Save File${d.count > 1 ? 's  (' + d.count + ' as .zip)' : ''}`;
       row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
       log(`🎉 Done! ${d.count} file(s) ready.`, 'ok');
+      // add to files panel
+      const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
+      addFileToPanel(fname, taskId);
       showCloudButtons(row, taskId);
       if (onDone) onDone();
     } else if (d.type === 'error') {
