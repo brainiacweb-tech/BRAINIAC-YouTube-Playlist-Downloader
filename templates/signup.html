@@ -291,9 +291,60 @@ body::before {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ── Doodles ─────────────────────────────────────────────────── */
+.doodles {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.doodle {
+  position: absolute;
+  opacity: 0.12;
+  color: #e53935;
+  user-select: none;
+  animation: floatDoodle ease-in-out infinite;
+}
+.doodle.spin  { animation: spinDoodle  linear    infinite; }
+.doodle.drift { animation: driftDoodle ease-in-out infinite; }
+@keyframes floatDoodle {
+  0%   { transform: translateY(0px) rotate(0deg); }
+  33%  { transform: translateY(-22px) rotate(8deg); }
+  66%  { transform: translateY(-10px) rotate(-5deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+@keyframes spinDoodle {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.08); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes driftDoodle {
+  0%   { transform: translateX(0) translateY(0) rotate(-6deg); }
+  50%  { transform: translateX(18px) translateY(-14px) rotate(6deg); }
+  100% { transform: translateX(0) translateY(0) rotate(-6deg); }
+}
+.auth-card { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+
+<div class="doodles" aria-hidden="true">
+  <svg class="doodle drift" style="width:35px;top:3.4%;left:26.2%;animation-duration:7.5s;animation-delay:4.4s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>
+  <svg class="doodle spin"  style="width:33px;top:57.7%;left:2.1%;animation-duration:6.0s;animation-delay:1.4s" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h4V3H9z"/></svg>
+  <svg class="doodle drift" style="width:29px;top:54.9%;left:69.9%;animation-duration:12.7s;animation-delay:2.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l.01 10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+  <svg class="doodle"       style="width:45px;top:78.7%;left:4%;animation-duration:13.9s;animation-delay:4.2s" viewBox="0 0 24 24" fill="currentColor"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l5.5-3.5L10 8.5v7z"/></svg>
+  <svg class="doodle"       style="width:45px;top:15.9%;left:88%;animation-duration:8.7s;animation-delay:0.6s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 6 0v-4a3 3 0 0 0-3-3V12a6 6 0 1 1 12 0v-.003a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0v-6a9 9 0 0 0-9-9z"/></svg>
+  <svg class="doodle drift" style="width:50px;top:82.4%;left:58.8%;animation-duration:13.9s;animation-delay:4.4s" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zm4 1v3H4V5h2zm0 5v3H4v-3h2zm0 5v3H4v-3h2zm10-10v3h-2V5h2zm0 5v3h-2v-3h2zm0 5v3h-2v-3h2zM8 5v14h8V5H8z"/></svg>
+  <svg class="doodle spin"  style="width:35px;top:10%;left:36.5%;animation-duration:11.1s;animation-delay:5.0s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zM11 18.944V21H9v1h6v-1h-2v-2.056A7.003 7.003 0 0 0 19 12v-1h-2v1a5 5 0 0 1-10 0v-1H5v1a7.003 7.003 0 0 0 6 6.944z"/></svg>
+  <svg class="doodle"       style="width:38px;top:36.5%;left:5.6%;animation-duration:7.9s;animation-delay:5.6s" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h1a4 4 0 0 1 0 8h-1v-2h1a2 2 0 0 0 0-4h-2v-1a5 5 0 1 0-9.9 1H6a3 3 0 0 0 0 6h1v2H6a5 5 0 0 1 0-10h.05A7 7 0 0 1 17 12zm-5 2v4.586l1.293-1.293a1 1 0 0 1 1.414 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 1 1 1.414-1.414L11 18.586V14h2z"/></svg>
+  <svg class="doodle drift" style="width:38px;top:52.3%;left:23.2%;animation-duration:10.1s;animation-delay:1.6s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+  <svg class="doodle"       style="width:42px;top:66.7%;left:82.4%;animation-duration:13.5s;animation-delay:1.4s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+  <svg class="doodle drift" style="width:35px;top:15.7%;left:14.8%;animation-duration:12.5s;animation-delay:3.6s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 6 0v-4a3 3 0 0 0-3-3V12a6 6 0 1 1 12 0v-.003a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0v-6a9 9 0 0 0-9-9z"/></svg>
+  <svg class="doodle spin"  style="width:36px;top:24.7%;left:54.6%;animation-duration:7.9s;animation-delay:3.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l.01 10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+  <svg class="doodle drift" style="width:40px;top:15.7%;left:74.5%;animation-duration:10.9s;animation-delay:4.7s" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h1a4 4 0 0 1 0 8h-1v-2h1a2 2 0 0 0 0-4h-2v-1a5 5 0 1 0-9.9 1H6a3 3 0 0 0 0 6h1v2H6a5 5 0 0 1 0-10h.05A7 7 0 0 1 17 12zm-5 2v4.586l1.293-1.293a1 1 0 0 1 1.414 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 1 1 1.414-1.414L11 18.586V14h2z"/></svg>
+  <svg class="doodle drift" style="width:43px;top:6.6%;left:85.9%;animation-duration:15.4s;animation-delay:0.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+  <svg class="doodle drift" style="width:38px;top:26.4%;left:85.4%;animation-duration:9.7s;animation-delay:1.3s" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h4V3H9z"/></svg>
+</div>
+
   <div class="auth-card">
     <!-- Logo -->
     <div class="auth-logo">
