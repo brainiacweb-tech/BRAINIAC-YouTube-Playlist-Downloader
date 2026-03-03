@@ -492,6 +492,9 @@ def _run_download(task_id: str, data: dict):
             with _tasks_lock:
                 _tasks[task_id]["files"]  = files
                 _tasks[task_id]["status"] = "done"
+            # Write to disk so any worker can serve the file
+            with open(os.path.join(task_dir, "task.json"), "w") as f:
+                json.dump({"status": "done", "files": files, "zip": None}, f)
             _push(task_id, {"type": "done", "filename": files[0], "count": 1})
         else:
             zip_name = "playlist.zip"
@@ -503,6 +506,9 @@ def _run_download(task_id: str, data: dict):
                 _tasks[task_id]["files"]  = files
                 _tasks[task_id]["zip"]    = zip_name
                 _tasks[task_id]["status"] = "done"
+            # Write to disk so any worker can serve the file
+            with open(os.path.join(task_dir, "task.json"), "w") as f:
+                json.dump({"status": "done", "files": files, "zip": zip_name}, f)
             _push(task_id, {"type": "done", "filename": zip_name, "count": len(files)})
 
     except Exception as ex:
@@ -872,7 +878,17 @@ def progress_stream(task_id):
 @app.route("/api/file/<task_id>")
 def download_file(task_id):
     t = _get_task(task_id)
+    # Fallback: read task.json from disk (handles cross-worker / restart cases)
     if not t or t["status"] != "done":
+        task_dir = os.path.join(DOWNLOAD_BASE, task_id)
+        meta_path = os.path.join(task_dir, "task.json")
+        if os.path.isfile(meta_path):
+            try:
+                with open(meta_path) as f:
+                    t = json.load(f)
+            except Exception:
+                t = None
+    if not t or t.get("status") != "done":
         return (
             "<!doctype html><html><head>"
             "<meta http-equiv='refresh' content='3;url=/app'>"
