@@ -313,7 +313,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/122.0.0.0 Safari/537.36"
+                "Chrome/124.0.0.0 Safari/537.36"
             ),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "*/*",
@@ -327,15 +327,22 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ── YouTube specifically: use iOS/Android client ──────────────────────
-        # ── Twitter/X: use syndication API (avoids auth requirement) ────────
+        # ── YouTube client: tv_embedded + mweb work from datacenter IPs ──────
+        # ios/android require PO tokens from non-residential IPs since 2024.
+        # tv_embedded and mweb bypass this without needing cookies.
         "extractor_args": {
-            "youtube": {"player_client": ["ios", "android"]},
+            "youtube": {
+                "player_client": ["tv_embedded", "mweb", "web"],
+                "player_skip":   ["configs"],
+            },
             "twitter": {"api": ["syndication"]},
         },
 
         # ── Socket patience ───────────────────────────────────────────────────
-        "socket_timeout": 30,
+        "socket_timeout": 60,
+
+        # ── Let yt-dlp pick the best available format even if DASH fails ──────
+        "compat_opts": {"no-youtube-unavailable-videos"},
     }
     _inject_cookies(opts)
 
