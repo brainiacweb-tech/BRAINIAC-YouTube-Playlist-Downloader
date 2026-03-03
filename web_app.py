@@ -5,9 +5,10 @@ import static_ffmpeg
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from authlib.integrations.flask_client import OAuth
 static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
-from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for
 from werkzeug.utils import secure_filename
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -39,10 +40,12 @@ login_manager.login_view = "login"
 login_manager.login_message = ""
 
 class User(UserMixin, db.Model):
-    id       = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email    = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(256), nullable=False)
+    id        = db.Column(db.Integer, primary_key=True)
+    username  = db.Column(db.String(80), unique=True, nullable=False)
+    email     = db.Column(db.String(120), unique=True, nullable=False)
+    password  = db.Column(db.String(256), nullable=False)
+    google_id = db.Column(db.String(128), unique=True, nullable=True)
+    avatar    = db.Column(db.String(512), nullable=True)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -54,6 +57,27 @@ with app.app_context():
     except Exception:
         # Ignore "table already exists" race between gunicorn workers on first boot
         db.session.rollback()
+    # Add google_id / avatar columns if this is an existing DB without them
+    for _col, _ddl in [
+        ("google_id", "ALTER TABLE user ADD COLUMN google_id VARCHAR(128) UNIQUE"),
+        ("avatar",    "ALTER TABLE user ADD COLUMN avatar VARCHAR(512)"),
+    ]:
+        try:
+            with db.engine.connect() as _conn:
+                _conn.execute(db.text(_ddl))
+                _conn.commit()
+        except Exception:
+            pass  # column already exists
+
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+oauth = OAuth(app)
+google_oauth = oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
 
 # ── Security config ───────────────────────────────────────────────────────────
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
@@ -80,7 +104,7 @@ def set_security_headers(resp):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: https:; "
-        "connect-src 'self'; "
+        "connect-src 'self' https://accounts.google.com; "
         "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com; "
         "frame-ancestors 'none';"
     )
@@ -352,7 +376,62 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
     threading.Thread(target=_clean, daemon=True).start()
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── Routes ───────────────────────────────────────────────────────────────────
+@app.route("/auth/google")
+def google_login():
+    if current_user.is_authenticated:
+        return redirect("/")
+    cb = url_for("google_callback", _external=True)
+    return google_oauth.authorize_redirect(cb)
+
+
+@app.route("/auth/google/callback")
+def google_callback():
+    try:
+        token = google_oauth.authorize_access_token()
+    except Exception:
+        return redirect("/login")
+
+    userinfo = token.get("userinfo") or {}
+    google_id = str(userinfo.get("sub", ""))
+    email     = userinfo.get("email", "").lower().strip()
+    name      = userinfo.get("name", "")
+    picture   = userinfo.get("picture", "")
+
+    if not google_id or not email:
+        return redirect("/login")
+
+    # 1. Find by google_id
+    user = User.query.filter_by(google_id=google_id).first()
+
+    # 2. Find by email and link
+    if not user:
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.google_id = google_id
+            user.avatar    = picture or user.avatar
+            db.session.commit()
+
+    # 3. Create new account
+    if not user:
+        base = re.sub(r"[^a-zA-Z0-9]", "", name or email.split("@")[0])[:20] or "user"
+        username, n = base, 1
+        while User.query.filter_by(username=username).first():
+            username = f"{base}{n}"; n += 1
+        user = User(
+            username  = username,
+            email     = email,
+            password  = generate_password_hash(os.urandom(24).hex()),
+            google_id = google_id,
+            avatar    = picture or None,
+        )
+        db.session.add(user)
+        db.session.commit()
+
+    login_user(user, remember=True)
+    return redirect("/")
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if current_user.is_authenticated:
@@ -417,7 +496,7 @@ def logout():
 @login_required
 @limiter.limit("120 per minute")
 def index():
-    return render_template("index.html", username=current_user.username)
+    return render_template("index.html", username=current_user.username, avatar=current_user.avatar)
 
 
 @app.route("/api/search", methods=["POST"])

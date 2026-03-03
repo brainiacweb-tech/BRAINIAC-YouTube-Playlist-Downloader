@@ -539,8 +539,12 @@ body::before {
       <div class="logo-text">BRAIN<span>IAC</span><div class="logo-sub">Downloader</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <div class="header-user-tag" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--red);background:var(--red-light);border:1.5px solid var(--red-mid);padding:4px 12px;border-radius:20px;">
-        <i class="ri-user-3-line" style="font-size:13px;"></i>
+      <div class="header-user-tag" style="display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--red);background:var(--red-light);border:1.5px solid var(--red-mid);padding:4px 12px 4px 6px;border-radius:20px;">
+        {% if avatar %}
+        <img src="{{ avatar }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" alt="">
+        {% else %}
+        <i class="ri-user-3-line" style="font-size:15px;"></i>
+        {% endif %}
         {{ username }}
       </div>
       <a href="/logout" class="header-logout" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#e53935,#b71c1c);border-radius:20px;padding:5px 13px;text-decoration:none;transition:opacity 0.18s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
