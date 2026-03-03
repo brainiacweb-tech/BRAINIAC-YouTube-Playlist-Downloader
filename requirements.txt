@@ -4,3 +4,4 @@ gunicorn>=21.2.0
 Pillow>=10.0.0
 requests>=2.31.0
 static-ffmpeg>=2.5
+Flask-Limiter>=3.5

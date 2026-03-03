@@ -1,12 +1,92 @@
-import os, uuid, threading, queue, json, time, zipfile, shutil, base64
+import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress
+from urllib.parse import urlparse
 import static_ffmpeg
 static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
 from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
 from werkzeug.utils import secure_filename
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# ── Security config ───────────────────────────────────────────────────────────
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
+
+# Rate limiter — keyed by real client IP (Railway passes X-Forwarded-For)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "60 per hour"],
+    headers_enabled=True,
+)
+
+# ── Security headers on every response ───────────────────────────────────────
+@app.after_request
+def set_security_headers(resp):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"]        = "DENY"
+    resp.headers["X-XSS-Protection"]       = "1; mode=block"
+    resp.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"]     = "geolocation=(), microphone=(), camera=()"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    # Remove fingerprinting headers
+    resp.headers.pop("Server", None)
+    resp.headers.pop("X-Powered-By", None)
+    return resp
+
+# ── SSRF / URL firewall ───────────────────────────────────────────────────────
+_BLOCKED_NETS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+def _validate_url(url: str) -> str | None:
+    """Return an error string if URL is invalid/dangerous, else None."""
+    if not url:
+        return "URL is required."
+    if len(url) > 2048:
+        return "URL too long."
+    try:
+        p = urlparse(url)
+    except Exception:
+        return "Malformed URL."
+    if p.scheme not in ("http", "https"):
+        return "Only http/https URLs are allowed."
+    hostname = p.hostname or ""
+    # Block localhost names
+    if re.match(r"^(localhost|.*\.local)$", hostname, re.I):
+        return "Access to local addresses is not allowed."
+    # Block internal IPs
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if any(addr in net for net in _BLOCKED_NETS):
+            return "Access to internal/private addresses is not allowed."
+    except ValueError:
+        pass   # hostname — not an IP literal, fine
+    return None
+
+
+def _validate_query(q: str) -> str | None:
+    if not q:
+        return "Query is required."
+    if len(q) > 200:
+        return "Search query too long (max 200 chars)."
+    return None
 
 IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
 
@@ -225,18 +305,24 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route("/")
+@limiter.limit("120 per minute")
 def index():
     return render_template("index.html")
 
 
 @app.route("/api/search", methods=["POST"])
+@limiter.limit("30 per minute")
 def search():
-    data   = request.get_json(force=True)
-    query  = data.get("query", "").strip()
+    data   = request.get_json(force=True) or {}
+    query  = (data.get("query") or "").strip()
     source = data.get("source", "YouTube")
 
-    if not query:
-        return jsonify({"error": "No query provided"}), 400
+    err = _validate_query(query)
+    if err:
+        return jsonify({"error": err}), 400
+
+    if source not in ("YouTube", "SoundCloud", "Dailymotion"):
+        source = "YouTube"
 
     prefix = {"YouTube": "ytsearch10:", "SoundCloud": "scsearch10:",
               "Dailymotion": "dmsearch10:"}.get(source, "ytsearch10:")
@@ -269,11 +355,13 @@ def search():
 
 
 @app.route("/api/prefetch", methods=["POST"])
+@limiter.limit("30 per minute")
 def prefetch():
-    data = request.get_json(force=True)
-    url  = data.get("url", "").strip()
-    if not url:
-        return jsonify({"error": "No URL"}), 400
+    data = request.get_json(force=True) or {}
+    url  = (data.get("url") or "").strip()
+    err = _validate_url(url)
+    if err:
+        return jsonify({"error": err}), 400
     try:
         prefetch_opts = {"quiet": True, "no_warnings": True,
                          "extract_flat": True, "skip_download": True,
@@ -295,8 +383,18 @@ def prefetch():
 
 
 @app.route("/api/download", methods=["POST"])
+@limiter.limit("10 per minute; 50 per hour")
 def start_download():
-    data    = request.get_json(force=True)
+    data = request.get_json(force=True) or {}
+    url  = (data.get("url") or "").strip()
+    mode = (data.get("mode") or "playlist").strip()
+
+    # Validate URL for non-search modes
+    if mode != "music_search" and mode != "movies_search":
+        err = _validate_url(url)
+        if err:
+            return jsonify({"error": err}), 400
+
     task_id = str(uuid.uuid4())
     _create_task(task_id)
     threading.Thread(target=_run_download, args=(task_id, data), daemon=True).start()
