@@ -415,17 +415,38 @@ def _run_download(task_id: str, data: dict):
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
         opts = _build_opts(task_id, task_dir, quality, mode)
 
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+        except yt_dlp.utils.DownloadError as ex:
+            error_msg = str(ex)
+            if "age-restricted" in error_msg or "This video is age restricted" in error_msg:
+                user_msg = "Download failed: The video is age-restricted. Try uploading your YouTube cookies."
+            elif "region-locked" in error_msg or "This video is not available in your country" in error_msg:
+                user_msg = "Download failed: The video is region-locked. Try using cookies from an allowed region."
+            elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
+                user_msg = "Download failed: Your server IP may be blocked by YouTube. Try uploading cookies or using a different network."
+            else:
+                user_msg = f"Download failed: {error_msg}"
+            with _tasks_lock:
+                _tasks[task_id]["status"] = "error"
+                _tasks[task_id]["error"] = user_msg
+            _push(task_id, {"type": "error", "msg": user_msg})
+            return
 
         files = [f for f in os.listdir(task_dir) if os.path.isfile(os.path.join(task_dir, f))]
         if not files:
-            raise RuntimeError(
+            user_msg = (
                 "No files were downloaded. This is usually caused by:\n"
                 "1) YouTube blocking server IPs — try uploading cookies (Settings → Cookies).\n"
                 "2) The video is age-restricted or region-locked.\n"
                 "3) The URL is invalid or the video was removed."
             )
+            with _tasks_lock:
+                _tasks[task_id]["status"] = "error"
+                _tasks[task_id]["error"] = user_msg
+            _push(task_id, {"type": "error", "msg": user_msg})
+            return
 
         if len(files) == 1:
             with _tasks_lock:
