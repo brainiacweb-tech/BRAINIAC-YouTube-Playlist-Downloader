@@ -2,12 +2,10 @@ import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipad
 from functools import lru_cache
 import requests as _requests
 from urllib.parse import urlparse
-import static_ffmpeg
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from authlib.integrations.flask_client import OAuth
-static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
 from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for
 from werkzeug.utils import secure_filename
