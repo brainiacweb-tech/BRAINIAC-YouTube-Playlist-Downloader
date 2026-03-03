@@ -3,7 +3,11 @@ from functools import lru_cache
 import requests as _requests
 from urllib.parse import urlparse
 
-# ── ffmpeg: try static-ffmpeg bundle first, fall back to system PATH ──────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  ⚠  LOCKED — DO NOT REMOVE static-ffmpeg  ⚠                     ║
+# ║  Required for MP3 extraction, DASH merging, MP4 remux on Railway ║
+# ║  Removing this breaks ALL audio/video postprocessing.            ║
+# ╚══════════════════════════════════════════════════════════════════╝
 _FFMPEG_LOCATION = None
 try:
     import static_ffmpeg
@@ -373,9 +377,14 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ── YouTube client: tv_simply + ios use lightweight APIs that
-        #    work from datacenter IPs better than web/mweb clients.
-        #    tv_embedded is unsupported in yt-dlp 2026 - removed.
+        # ╔══════════════════════════════════════════════════════════════════╗
+        # ║  ⚠  LOCKED CONFIGURATION — DO NOT MODIFY  ⚠                     ║
+        # ║  These settings are the only combination known to work on         ║
+        # ║  Railway datacenter IPs (commit 393dbdf / tag v1.0-working).      ║
+        # ║  Changing clients, adding bgutil/pot tokens, or removing          ║
+        # ║  static-ffmpeg WILL break downloads. Restore with:                ║
+        # ║    git checkout v1.0-working -- web_app.py requirements.txt       ║
+        # ╚══════════════════════════════════════════════════════════════════╝
         "extractor_args": {
             "youtube": {
                 "player_client": ["tv_simply", "android_vr", "ios", "android"],
