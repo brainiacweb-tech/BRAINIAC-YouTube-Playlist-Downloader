@@ -291,6 +291,25 @@ def _push(task_id: str, data: dict):
 
 
 # ── yt-dlp helpers ────────────────────────────────────────────────────────────
+class _YtLogger:
+    """Forward yt-dlp messages to the SSE stream so users see real errors."""
+    def __init__(self, task_id: str):
+        self._tid = task_id
+        self.errors: list[str] = []
+
+    def debug(self, msg: str):
+        if msg.startswith("[debug]"):
+            return  # too noisy
+        _push(self._tid, {"type": "log", "msg": msg, "level": "info"})
+
+    def warning(self, msg: str):
+        _push(self._tid, {"type": "log", "msg": f"⚠  {msg}", "level": "warn"})
+
+    def error(self, msg: str):
+        self.errors.append(msg)
+        _push(self._tid, {"type": "log", "msg": f"✘  {msg}", "level": "err"})
+
+
 def _make_hook(task_id: str):
     def hook(d):
         if d["status"] == "downloading":
@@ -314,15 +333,15 @@ def _make_hook(task_id: str):
 
 
 def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
+    logger = _YtLogger(task_id)
     opts = {
-        "quiet":            True,
-        "no_warnings":      True,
+        "logger":           logger,
         "progress_hooks":   [_make_hook(task_id)],
         "outtmpl":          os.path.join(task_dir, "%(title)s.%(ext)s"),
         "noplaylist":       False,
         "retries":          10,
         "fragment_retries": 10,
-        "ignoreerrors":     True,         # skip bad items in playlists
+        "ignoreerrors":     mode in ("playlist",),  # only skip errors in playlists
         "no_color":         True,
 
         # ── Anti-block: look like a real browser ──────────────────────────────
@@ -362,42 +381,42 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
     _inject_cookies(opts)
 
     if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
-        opts["format"] = "bestaudio/best"
+        opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
         opts["postprocessors"] = [{
             "key":              "FFmpegExtractAudio",
             "preferredcodec":   "mp3",
             "preferredquality": "256",
         }]
     elif quality == "Best Quality":
-        # Wide fallback chain: tries merged mp4, then any best single-file
+        # Try combined (non-DASH) first — android_vr provides these;
+        # fall back to DASH merge only if combined unavailable
         opts["format"] = (
-            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
-            "/bestvideo+bestaudio"
-            "/best[ext=mp4]"
+            "best[ext=mp4]"
             "/best"
+            "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo+bestaudio"
         )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
         opts["format"] = (
-            f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
-            f"/bestvideo[height<={h}]+bestaudio"
-            f"/best[height<={h}][ext=mp4]"
+            f"best[height<={h}][ext=mp4]"
             f"/best[height<={h}]"
+            f"/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+            f"/bestvideo[height<={h}]+bestaudio"
             f"/best"
         )
     else:
         opts["format"] = (
-            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "best[ext=mp4]/best"
+            "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
             "/bestvideo+bestaudio"
-            "/best[ext=mp4]"
-            "/best"
         )
 
     # For direct mode merge video+audio and re-encode into a clean mp4 if needed
     if mode == "direct" and quality != "Audio Only (MP3)":
         opts["merge_output_format"] = "mp4"
 
-    return opts
+    return opts, logger
 
 
 def _run_download(task_id: str, data: dict):
@@ -410,7 +429,7 @@ def _run_download(task_id: str, data: dict):
 
     try:
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
-        opts = _build_opts(task_id, task_dir, quality, mode)
+        opts, logger = _build_opts(task_id, task_dir, quality, mode)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -431,14 +450,11 @@ def _run_download(task_id: str, data: dict):
             _push(task_id, {"type": "error", "msg": user_msg})
             return
 
-        files = [f for f in os.listdir(task_dir) if os.path.isfile(os.path.join(task_dir, f))]
+        files = [f for f in os.listdir(task_dir)
+                 if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
         if not files:
-            user_msg = (
-                "No files were downloaded. This is usually caused by:\n"
-                "1) YouTube blocking server IPs — try uploading cookies (Settings → Cookies).\n"
-                "2) The video is age-restricted or region-locked.\n"
-                "3) The URL is invalid or the video was removed."
-            )
+            captured = "; ".join(logger.errors[-3:]) if logger.errors else "no details captured"
+            user_msg = f"No files were downloaded. Error details: {captured}"
             with _tasks_lock:
                 _tasks[task_id]["status"] = "error"
                 _tasks[task_id]["error"] = user_msg
