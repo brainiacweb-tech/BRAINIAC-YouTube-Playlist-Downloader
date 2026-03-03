@@ -725,10 +725,8 @@ _GDRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 def _gdrive_redirect_uri():
-    base = os.environ.get("APP_URL", "").rstrip("/")
-    if not base:
-        # fallback: build from the current request host
-        base = request.host_url.rstrip("/")
+    # Always use the host the request arrived on so the URI matches the custom domain
+    base = request.host_url.rstrip("/")
     return f"{base}/api/gdrive/callback"
 
 
