@@ -186,8 +186,11 @@ footer a:hover { color: var(--red); }
 .footer-links { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; }
 
 @media (max-width: 560px) {
-  nav { padding: 12px 18px; }
-  .nav-logo-text { font-size: 14px; }
+  nav { padding: 10px 14px; }
+  .nav-logo img { height: 28px; }
+  .nav-logo-text { font-size: 13px; }
+  .nav-links { gap: 6px; }
+  .btn-nav { padding: 6px 12px; font-size: 11px; gap: 4px; border-radius: 8px; }
   .step:not(:last-child)::after { display: none; }
   .hero { padding: 70px 16px 44px; }
 }
