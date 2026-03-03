@@ -94,15 +94,43 @@ def _make_hook(task_id: str):
 
 def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
     opts = {
-        "quiet":           True,
-        "no_warnings":     True,
-        "progress_hooks":  [_make_hook(task_id)],
-        "outtmpl":         os.path.join(task_dir, "%(title)s.%(ext)s"),
-        "noplaylist":      False,
-        # Use iOS/Android client — bypasses YouTube bot-detection on cloud IPs
-        "extractor_args":  {"youtube": {"player_client": ["ios", "android"]}},
+        "quiet":            True,
+        "no_warnings":      True,
+        "progress_hooks":   [_make_hook(task_id)],
+        "outtmpl":          os.path.join(task_dir, "%(title)s.%(ext)s"),
+        "noplaylist":       False,
+        "retries":          10,
+        "fragment_retries": 10,
+        "ignoreerrors":     True,         # skip bad items in playlists
+        "no_color":         True,
+
+        # ── Anti-block: look like a real browser ──────────────────────────────
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "*/*",
+        },
+
+        # ── Geo / age-gate bypass ─────────────────────────────────────────────
+        "geo_bypass":              True,
+        "geo_bypass_country":      "US",
+        "age_limit":               99,    # don't block age-gated content
+
+        # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
+        "nocheckcertificate":      True,
+
+        # ── YouTube specifically: use iOS/Android client ──────────────────────
+        "extractor_args": {"youtube": {"player_client": ["ios", "android"]}},
+
+        # ── Socket patience ───────────────────────────────────────────────────
+        "socket_timeout": 30,
     }
     _inject_cookies(opts)
+
     if mode == "music" or quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio/best"
         opts["postprocessors"] = [{
@@ -111,15 +139,34 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
             "preferredquality": "256",
         }]
     elif quality == "Best Quality":
-        opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        # Wide fallback chain: tries merged mp4, then any best single-file
+        opts["format"] = (
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo+bestaudio"
+            "/best[ext=mp4]"
+            "/best"
+        )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
         opts["format"] = (
             f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
-            f"/best[height<={h}][ext=mp4]/best"
+            f"/bestvideo[height<={h}]+bestaudio"
+            f"/best[height<={h}][ext=mp4]"
+            f"/best[height<={h}]"
+            f"/best"
         )
     else:
-        opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        opts["format"] = (
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo+bestaudio"
+            "/best[ext=mp4]"
+            "/best"
+        )
+
+    # For direct mode merge video+audio and re-encode into a clean mp4 if needed
+    if mode == "direct" and quality != "Audio Only (MP3)":
+        opts["merge_output_format"] = "mp4"
+
     return opts
 
 
@@ -197,6 +244,9 @@ def search():
     try:
         search_opts = {"quiet": True, "no_warnings": True,
                        "extract_flat": True, "skip_download": True,
+                       "nocheckcertificate": True,
+                       "geo_bypass": True,
+                       "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -227,6 +277,9 @@ def prefetch():
     try:
         prefetch_opts = {"quiet": True, "no_warnings": True,
                          "extract_flat": True, "skip_download": True,
+                         "nocheckcertificate": True,
+                         "geo_bypass": True,
+                         "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
