@@ -873,7 +873,22 @@ def progress_stream(task_id):
 def download_file(task_id):
     t = _get_task(task_id)
     if not t or t["status"] != "done":
-        return jsonify({"error": "File not ready"}), 404
+        return (
+            "<!doctype html><html><head>"
+            "<meta http-equiv='refresh' content='3;url=/app'>"
+            "<style>body{font-family:sans-serif;display:flex;align-items:center;"
+            "justify-content:center;height:100vh;margin:0;background:#1a1a1a;color:#eee;}</style>"
+            "</head><body><div style='text-align:center'>"
+            "<div style='font-size:48px;margin-bottom:16px'>⏳</div>"
+            "<h2 style='margin:0 0 8px'>File Not Ready</h2>"
+            "<p style='color:#aaa;margin:0'>The download has expired or hasn't finished yet.<br>"
+            "Redirecting back to the app in 3 seconds…</p>"
+            "<a href='/app' style='display:inline-block;margin-top:20px;padding:10px 24px;"
+            "background:#e53935;color:#fff;border-radius:20px;text-decoration:none;"
+            "font-weight:700;'>← Back to App</a>"
+            "</div></body></html>",
+            404,
+        )
 
     task_dir = os.path.join(DOWNLOAD_BASE, task_id)
     zip_name = t.get("zip")
