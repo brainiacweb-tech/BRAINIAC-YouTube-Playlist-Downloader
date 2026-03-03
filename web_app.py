@@ -348,13 +348,45 @@ def search():
         for e in (info.get("entries") or [])[:10]:
             if not e:
                 continue
+
+            # ── Thumbnail: prefer explicit field, then thumbnails list,
+            #    then construct YouTube URL from video ID ─────────────
+            thumb = e.get("thumbnail") or ""
+            if not thumb:
+                thumbs = e.get("thumbnails") or []
+                if thumbs:
+                    best = max(thumbs, key=lambda t: (t.get("width") or 0) * (t.get("height") or 0))
+                    thumb = best.get("url") or ""
+            if not thumb and source == "YouTube":
+                vid_id = e.get("id") or ""
+                if vid_id and not vid_id.startswith("http"):
+                    thumb = f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg"
+
+            # ── Filesize: use real value or estimate from duration ────
+            filesize = e.get("filesize") or e.get("filesize_approx") or 0
+            if filesize == 0:
+                dur_sec = e.get("duration") or 0
+                if dur_sec:
+                    # music mode → ~256 kbps MP3; video → ~2 Mbps
+                    bps = 32_000 if (mode == "music" or source == "SoundCloud") else 250_000
+                    filesize = int(dur_sec * bps)
+
+            # ── Duration string ───────────────────────────────────────
+            dur_str = e.get("duration_string") or ""
+            if not dur_str:
+                dur_sec = e.get("duration") or 0
+                if dur_sec:
+                    m, s = divmod(int(dur_sec), 60)
+                    h, m = divmod(m, 60)
+                    dur_str = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
             results.append({
-                "url":       e.get("url") or e.get("webpage_url", ""),
-                "title":     e.get("title", "Unknown"),
-                "duration":  e.get("duration_string") or "",
-                "uploader":  e.get("uploader") or e.get("channel") or "",
-                "thumbnail": e.get("thumbnail") or "",
-                "filesize":  e.get("filesize") or e.get("filesize_approx") or 0,
+                "url":       e.get("webpage_url") or e.get("url") or "",
+                "title":     e.get("title") or "Unknown",
+                "duration":  dur_str,
+                "uploader":  e.get("uploader") or e.get("channel") or e.get("creator") or "",
+                "thumbnail": thumb,
+                "filesize":  filesize,
             })
         return jsonify({"results": results})
     except Exception as ex:

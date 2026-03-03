@@ -263,10 +263,10 @@ body::before {
 
 /* ── Results ─────────────────────────────────────────────────── */
 .results-area { display: none; border-top: 1.5px solid var(--border); }
-.results-list { max-height: 400px; overflow-y: auto; }
+.results-list { max-height: 250px; overflow-y: auto; }
 .result-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer;
   border-bottom: 1px solid var(--border);
   transition: background 0.12s; position: relative;
 }
@@ -278,18 +278,18 @@ body::before {
   background: var(--red); border-radius: 0 3px 3px 0;
 }
 .result-thumb {
-  width: 56px; height: 38px; object-fit: cover;
+  width: 52px; height: 34px; object-fit: cover;
   border-radius: 5px; flex-shrink: 0; background: var(--surface2);
 }
 .result-thumb-placeholder {
-  width: 56px; height: 38px; background: var(--red-light);
+  width: 52px; height: 34px; background: var(--red-light);
   border-radius: 5px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px; color: var(--red);
+  font-size: 14px; color: var(--red);
 }
 .result-info { flex: 1; min-width: 0; }
-.result-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.result-meta  { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 500; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.result-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-meta  { font-size: 10px; color: var(--muted); margin-top: 2px; font-weight: 500; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .result-check {
   width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--border2);
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
@@ -413,7 +413,7 @@ body::before {
   .input-row { flex-direction: column; }
   .input-row .btn { width: 100%; }
   input[type=text] { font-size: 14px; }
-  .result-thumb { width: 56px; height: 38px; }
+  .result-thumb { width: 52px; height: 34px; }
   .result-title { font-size: 12px; }
   .result-meta  { font-size: 10px; }
   .quality-row { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -442,7 +442,7 @@ body::before {
     radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,200,200,0.15) 0%, transparent 60%),
     linear-gradient(160deg, #fff5f5 0%, #ffe4e4 50%, #fff0f0 100%);
 }
-  .result-item { padding: 9px 14px; }
+  .result-item { padding: 6px 12px; }
   .playlist-info { margin: 0 14px 14px; }
   .progress-header { padding: 14px 14px 10px; }
   .pbar-stats { padding: 6px 14px 2px; }
@@ -963,15 +963,14 @@ function renderResults(mode, results) {
 
     // Thumbnail with fallback
     let thumbHtml;
+    const fallbackIcon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
     if (r.thumbnail) {
-      const fallbackIcon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
-      thumbHtml = `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="this.outerHTML='<div class=\\'result-thumb-placeholder\\'><i class=\\'${fallbackIcon}\\'></i></div>'">`;
+      thumbHtml = `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="imgError(this,'${fallbackIcon}')">`;
     } else {
-      const icon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
-      thumbHtml = `<div class="result-thumb-placeholder"><i class="${icon}"></i></div>`;
+      thumbHtml = `<div class="result-thumb-placeholder"><i class="${fallbackIcon}"></i></div>`;
     }
 
-    const sizeBadge = r.filesize > 0 ? `<span class="size-badge">${fmtSize(r.filesize)}</span>` : '';
+    const sizeBadge = r.filesize > 0 ? `<span class="size-badge">~${fmtSize(r.filesize)}</span>` : '';
 
     let srcCls = '';
     if (r.source === 'SoundCloud') srcCls = ' sc';
@@ -1120,6 +1119,13 @@ async function uploadToCloud(service, taskId) {
       }
     }
   }
+}
+
+function imgError(el, icon) {
+  const ph = document.createElement('div');
+  ph.className = 'result-thumb-placeholder';
+  ph.innerHTML = `<i class="${icon}"></i>`;
+  el.replaceWith(ph);
 }
 
 function showPreview(src, title) {
