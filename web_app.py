@@ -84,7 +84,10 @@ google_oauth = oauth.register(
     name="google",
     client_id=os.environ.get("GOOGLE_CLIENT_ID"),
     client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    # Hardcoded endpoints — avoids an extra HTTP round-trip to fetch discovery doc
+    access_token_url="https://oauth2.googleapis.com/token",
+    authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
+    jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
     client_kwargs={"scope": "openid email profile"},
 )
 
@@ -458,22 +461,30 @@ def google_callback():
     if not google_id or not email:
         return redirect("/login")
 
-    # 1. Find by google_id
-    user = User.query.filter_by(google_id=google_id).first()
+    # Single query: find by google_id OR email
+    from sqlalchemy import or_
+    user = User.query.filter(
+        or_(User.google_id == google_id, User.email == email)
+    ).first()
 
-    # 2. Find by email and link
-    if not user:
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.google_id = google_id
-            user.avatar    = picture or user.avatar
+    if user:
+        # Link google_id if signed up via email before
+        changed = False
+        if not user.google_id:
+            user.google_id = google_id; changed = True
+        if picture and not user.avatar:
+            user.avatar = picture; changed = True
+        if changed:
             db.session.commit()
-
-    # 3. Create new account
-    if not user:
+    else:
+        # Create new account
         base = re.sub(r"[^a-zA-Z0-9]", "", name or email.split("@")[0])[:20] or "user"
+        # Generate unique username with one query using LIKE
+        existing = {u.username for u in User.query.filter(
+            User.username.like(f"{base}%")
+        ).with_entities(User.username).all()}
         username, n = base, 1
-        while User.query.filter_by(username=username).first():
+        while username in existing:
             username = f"{base}{n}"; n += 1
         user = User(
             username  = username,
