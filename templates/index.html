@@ -867,6 +867,31 @@ select:focus { border-color: var(--red); }
             </select>
           </div>
 
+          <!-- YouTube Cookies section -->
+          <div class="sec-label" style="margin-top:4px;margin-bottom:0;"><i class="ri-shield-keyhole-fill"></i> YouTube Authentication</div>
+
+          <div style="padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-cookie-line" style="color:var(--red);"></i> YouTube Cookies</div>
+                <div id="cookies-status-lbl" style="font-size:11px;color:var(--muted);margin-top:2px;">Checking&hellip;</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+                  <i class="ri-upload-2-line"></i> Upload File
+                  <input type="file" id="cookies-file-input" accept=".txt" style="display:none" onchange="uploadCookiesFile(this)">
+                </label>
+                <button class="btn btn-ghost btn-sm" onclick="toggleCookiePaste()"><i class="ri-clipboard-line"></i> Paste Text</button>
+                <button id="cookies-clear-btn" class="btn btn-ghost btn-sm" onclick="clearCookies()" style="display:none;color:var(--red);"><i class="ri-delete-bin-line"></i> Clear</button>
+              </div>
+            </div>
+            <div id="cookies-paste-wrap" style="display:none;margin-top:10px;">
+              <textarea id="cookies-paste" placeholder="Paste your Netscape cookies.txt content here&hellip;" style="width:100%;min-height:90px;padding:8px 10px;font-family:monospace;font-size:11px;border:1.5px solid var(--border2);border-radius:8px;background:var(--surface3);color:var(--fg);resize:vertical;outline:none;"></textarea>
+              <button class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="saveCookiesPaste()"><i class="ri-save-2-line"></i> Save Cookies</button>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--muted);">Required when YouTube demands sign-in (bot-detection). Export from your browser using the <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener" style="color:var(--red);text-decoration:none;font-weight:600;">Get cookies.txt</a> extension.</div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -980,6 +1005,8 @@ function toggleDarkModeFromSettings(on) {
   if (sd) { const s = document.getElementById('save-dest'); if (s) s.value = sd; }
   // Restore GDrive connected state from localStorage (no server ping needed)
   _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1');
+  // Load cookies status
+  loadCookiesStatus();
 })();
 
 // ── Files history ──────────────────────────────────────────
@@ -1436,6 +1463,70 @@ function closePreview() {
   modal.classList.remove('open');
   const pl = document.getElementById('preview-player');
   if (pl) pl.src = '';
+}
+
+// ── Cookies management ────────────────────────────────────
+async function loadCookiesStatus() {
+  try {
+    const r = await fetch('/api/cookies');
+    const d = await r.json();
+    const lbl = document.getElementById('cookies-status-lbl');
+    const clearBtn = document.getElementById('cookies-clear-btn');
+    if (!lbl) return;
+    if (d.active) {
+      const kb = (d.size / 1024).toFixed(1);
+      lbl.innerHTML = '<span style="color:var(--green);font-weight:700;">&#10004; Active</span> &mdash; ' + kb + ' KB loaded';
+      if (clearBtn) clearBtn.style.display = '';
+    } else {
+      lbl.textContent = 'No cookies loaded \u2014 YouTube may block downloads on server IPs';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
+async function uploadCookiesFile(input) {
+  if (!input.files.length) return;
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  try {
+    const r = await fetch('/api/cookies', {method:'POST', body:fd});
+    const d = await r.json();
+    if (d.ok) { logMsg('\u2714 Cookies uploaded! YouTube downloads should now work.', 'success'); loadCookiesStatus(); }
+    else logMsg('Failed to upload cookies: ' + (d.error||'unknown'), 'error');
+  } catch(e) { logMsg('Upload error: ' + e, 'error'); }
+  input.value = '';
+}
+
+function toggleCookiePaste() {
+  const wrap = document.getElementById('cookies-paste-wrap');
+  if (wrap) wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+async function saveCookiesPaste() {
+  const ta = document.getElementById('cookies-paste');
+  if (!ta) return;
+  const text = ta.value.trim();
+  if (!text) return;
+  try {
+    const r = await fetch('/api/cookies', {method:'POST', headers:{'Content-Type':'text/plain'}, body:text});
+    const d = await r.json();
+    if (d.ok) {
+      logMsg('\u2714 Cookies saved! YouTube downloads should now work.', 'success');
+      loadCookiesStatus();
+      ta.value = '';
+      const wrap = document.getElementById('cookies-paste-wrap');
+      if (wrap) wrap.style.display = 'none';
+    } else logMsg('Failed to save cookies: ' + (d.error||'unknown'), 'error');
+  } catch(e) { logMsg('Save error: ' + e, 'error'); }
+}
+
+async function clearCookies() {
+  if (!confirm('Remove saved YouTube cookies?')) return;
+  try {
+    await fetch('/api/cookies', {method:'DELETE'});
+    logMsg('Cookies cleared.', 'info');
+    loadCookiesStatus();
+  } catch(e) {}
 }
 
 function cbAction(inputId, action) {
