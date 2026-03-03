@@ -101,6 +101,45 @@ body.dark-mode .results-action { background: #1a0808 !important; }
   padding: 4px 12px; border-radius: 20px;
 }
 
+/* ── User dropdown ──────────────────────────────────────────── */
+.user-dd-wrap { position: relative; }
+.user-dd-btn {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--red); background: var(--red-light); border: 1.5px solid var(--red-mid);
+  padding: 5px 10px 5px 7px; border-radius: 20px;
+  cursor: pointer; font-family: 'Montserrat', sans-serif; transition: all 0.18s;
+}
+.user-dd-btn:hover, .user-dd-btn.open { background: var(--red); color: #fff; border-color: var(--red); }
+.user-dd-arrow { transition: transform 0.2s; flex-shrink: 0; font-size: 15px; }
+.user-dd-btn.open .user-dd-arrow { transform: rotate(180deg); }
+.user-dd-menu {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  min-width: 200px; background: #fff;
+  border: 1.5px solid var(--border); border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(229,57,53,0.13), 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 999; padding: 6px;
+}
+.user-dd-menu.open { display: block; }
+.user-dd-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 12px; font-family: 'Montserrat', sans-serif;
+  font-size: 12px; font-weight: 700; color: var(--fg2);
+  background: none; border: none; border-radius: 9px;
+  cursor: pointer; text-decoration: none; letter-spacing: 0.2px;
+  transition: background 0.14s, color 0.14s;
+}
+.user-dd-item i { font-size: 15px; color: var(--red); flex-shrink: 0; }
+.user-dd-item:hover { background: var(--red-light); color: var(--red); }
+.user-dd-divider { height: 1px; background: var(--border); margin: 4px 6px; }
+.user-dd-logout { color: #e53935 !important; }
+.user-dd-logout i { color: #e53935 !important; }
+.user-dd-logout:hover { background: rgba(229,57,53,0.08) !important; }
+body.dark-mode .user-dd-menu { background: #1e1010; border-color: rgba(120,30,30,0.4); }
+body.dark-mode .user-dd-item { color: #c08080; }
+body.dark-mode .user-dd-item:hover { background: rgba(229,57,53,0.12); color: var(--red); }
+body.dark-mode .user-dd-divider { background: rgba(120,30,30,0.3); }
+
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
   display: flex; gap: 5px; margin-bottom: 20px;
@@ -503,17 +542,28 @@ select:focus { border-color: var(--red); }
       <div class="logo-text">BRAIN<span>IAC</span><div class="logo-sub">Downloader</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <div class="header-user-tag" style="display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--red);background:var(--red-light);border:1.5px solid var(--red-mid);padding:4px 12px 4px 6px;border-radius:20px;">
-        {% if avatar %}
-        <img src="{{ avatar }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" alt="">
-        {% else %}
-        <i class="ri-user-3-line" style="font-size:15px;"></i>
-        {% endif %}
-        {{ username }}
+      <!-- User dropdown -->
+      <div class="user-dd-wrap" id="user-dd-wrap">
+        <button class="user-dd-btn" id="user-dd-btn" onclick="toggleUserDropdown()">
+          {% if avatar %}
+          <img src="{{ avatar }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" alt="">
+          {% else %}
+          <i class="ri-user-3-line" style="font-size:15px;"></i>
+          {% endif %}
+          <span>{{ username }}</span>
+          <i class="ri-arrow-down-s-line user-dd-arrow"></i>
+        </button>
+        <div class="user-dd-menu" id="user-dd-menu">
+          <button class="user-dd-item" onclick="ddSwitchTab('profile')"><i class="ri-user-3-fill"></i> Profile</button>
+          <button class="user-dd-item" onclick="ddSwitchTab('files')"><i class="ri-folder-3-fill"></i> Files</button>
+          <button class="user-dd-item" onclick="ddSwitchTab('settings')"><i class="ri-settings-3-fill"></i> Settings</button>
+          <div class="user-dd-divider"></div>
+          <a href="/change-password" class="user-dd-item"><i class="ri-lock-password-line"></i> Change Password</a>
+          <a href="/change-email" class="user-dd-item"><i class="ri-mail-settings-line"></i> Change Email</a>
+          <div class="user-dd-divider"></div>
+          <a href="/logout" class="user-dd-item user-dd-logout"><i class="ri-logout-box-r-line"></i> Logout</a>
+        </div>
       </div>
-      <a href="/logout" class="header-logout" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#e53935,#b71c1c);border-radius:20px;padding:5px 13px;text-decoration:none;transition:opacity 0.18s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-        <i class="ri-logout-box-r-line" style="font-size:13px;"></i> Logout
-      </a>
       <button id="dm-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.3);border-radius:50%;width:32px;height:32px;min-width:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#e57373;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(229,57,53,0.25)'" onmouseout="this.style.background='rgba(229,57,53,0.12)'"><i class="ri-moon-line" style="font-size:15px;"></i></button>
     </div>
   </header>
@@ -532,15 +582,7 @@ select:focus { border-color: var(--red); }
     <button class="tab-btn" data-tab="direct" onclick="switchTab('direct',this)">
       <i class="ri-link"></i> Direct
     </button>
-    <button class="tab-btn" data-tab="files" onclick="switchTab('files',this)">
-      <i class="ri-folder-3-fill"></i> Files
-    </button>
-    <button class="tab-btn" data-tab="profile" onclick="switchTab('profile',this)">
-      <i class="ri-user-3-fill"></i> Profile
-    </button>
-    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings',this)">
-      <i class="ri-settings-3-fill"></i> Settings
-    </button>
+
   </div>
 
   <!-- YOUTUBE PLAYLIST -->
@@ -915,8 +957,24 @@ function switchTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active','active-movies','active-direct'));
   document.getElementById('panel-' + tab).classList.add('active');
   const cls = tab === 'movies' ? 'active-movies' : tab === 'direct' ? 'active-direct' : 'active';
-  btn.classList.add(cls);
+  if (btn) btn.classList.add(cls);
 }
+function toggleUserDropdown() {
+  document.getElementById('user-dd-btn').classList.toggle('open');
+  document.getElementById('user-dd-menu').classList.toggle('open');
+}
+function ddSwitchTab(tab) {
+  document.getElementById('user-dd-btn').classList.remove('open');
+  document.getElementById('user-dd-menu').classList.remove('open');
+  switchTab(tab, null);
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('user-dd-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('user-dd-btn').classList.remove('open');
+    document.getElementById('user-dd-menu').classList.remove('open');
+  }
+});
 
 function setSrc(group, btn, src) {
   searchSources[group] = src;
