@@ -108,7 +108,7 @@ google_oauth = oauth.register(
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
     client_kwargs={
-        "scope": "openid email profile https://www.googleapis.com/auth/drive.file",
+        "scope": "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/youtube",
     },
 )
 
@@ -348,8 +348,22 @@ def _make_hook(task_id: str):
     return hook
 
 
-def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
+def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: str = "") -> dict:
     logger = _YtLogger(task_id)
+    _headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "*/*",
+    }
+    # If the user authenticated with Google, use their OAuth token so YouTube
+    # recognises them as a signed-in user — bypasses bot/sign-in prompts.
+    if yt_token:
+        _headers["Authorization"] = f"Bearer {yt_token}"
+
     opts = {
         "logger":           logger,
         "progress_hooks":   [_make_hook(task_id)],
@@ -360,16 +374,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         "ignoreerrors":     mode in ("playlist",),  # only skip errors in playlists
         "no_color":         True,
 
-        # ── Anti-block: look like a real browser ──────────────────────────────
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept": "*/*",
-        },
+        # ── Anti-block: look like a real browser + YouTube OAuth if available ─
+        "http_headers": _headers,
 
         # ── Geo / age-gate bypass ─────────────────────────────────────────────
         "geo_bypass":              True,
@@ -403,6 +409,10 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
     if _FFMPEG_LOCATION:
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
     _inject_cookies(opts)
+    # If no cookies file but user has a YouTube OAuth token, the Authorization
+    # header already handles auth — no need to also require cookies.
+    if yt_token and not opts.get("cookiefile"):
+        pass  # Authorization header is already set in http_headers above
 
     if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
@@ -444,16 +454,17 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
 
 
 def _run_download(task_id: str, data: dict):
-    url     = data.get("url", "").strip()
-    quality = data.get("quality", "Best Quality")
-    mode    = data.get("mode", "playlist")
+    url      = data.get("url", "").strip()
+    quality  = data.get("quality", "Best Quality")
+    mode     = data.get("mode", "playlist")
+    yt_token = data.get("yt_token", "")
 
     task_dir = os.path.join(DOWNLOAD_BASE, task_id)
     os.makedirs(task_dir, exist_ok=True)
 
     try:
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
-        opts, logger = _build_opts(task_id, task_dir, quality, mode)
+        opts, logger = _build_opts(task_id, task_dir, quality, mode, yt_token=yt_token)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -861,6 +872,13 @@ def start_download():
         err = _validate_url(url)
         if err:
             return jsonify({"error": err}), 400
+
+    # Pass the user's Google/YouTube token to the download thread so yt-dlp
+    # can authenticate via Authorization header — avoids bot-detection prompts.
+    if current_user.is_authenticated:
+        yt_tok = session.get("gdrive_token") or (current_user.gdrive_token or "")
+        if yt_tok:
+            data["yt_token"] = yt_tok
 
     task_id = str(uuid.uuid4())
     _create_task(task_id)
