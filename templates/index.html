@@ -265,8 +265,8 @@ body::before {
 .results-area { display: none; border-top: 1.5px solid var(--border); }
 .results-list { max-height: 400px; overflow-y: auto; }
 .result-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 20px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; cursor: pointer;
   border-bottom: 1px solid var(--border);
   transition: background 0.12s; position: relative;
 }
@@ -278,14 +278,14 @@ body::before {
   background: var(--red); border-radius: 0 3px 3px 0;
 }
 .result-thumb {
-  width: 68px; height: 44px; object-fit: cover;
-  border-radius: 6px; flex-shrink: 0; background: var(--surface3);
+  width: 56px; height: 38px; object-fit: cover;
+  border-radius: 5px; flex-shrink: 0; background: var(--surface2);
 }
 .result-thumb-placeholder {
-  width: 68px; height: 44px; background: var(--red-light);
-  border-radius: 6px; flex-shrink: 0;
+  width: 56px; height: 38px; background: var(--red-light);
+  border-radius: 5px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; color: var(--red);
+  font-size: 16px; color: var(--red);
 }
 .result-info { flex: 1; min-width: 0; }
 .result-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -297,6 +297,22 @@ body::before {
 }
 .result-item.selected .result-check { background: var(--red); border-color: var(--red); color: #fff; }
 .size-badge { font-size: 10px; background: var(--red-light); color: var(--red-dark); border-radius: 5px; padding: 2px 7px; font-weight: 700; flex-shrink: 0; border: 1px solid var(--red-mid); }
+.source-badge { font-size: 10px; background: #e3f0ff; color: #1565c0; border-radius: 5px; padding: 2px 6px; font-weight: 700; flex-shrink: 0; border: 1px solid #90caf9; }
+.source-badge.sc { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+.source-badge.dm { background: #fce4ec; color: #c62828; border-color: #f48fb1; }
+.preview-btn { width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border2); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; color: var(--muted); flex-shrink: 0; transition: all 0.15s; }
+.preview-btn:hover { background: var(--red); border-color: var(--red); color: #fff; }
+/* ── Preview Modal ─────────────────────────────── */
+#preview-modal { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); align-items: center; justify-content: center; }
+#preview-modal.open { display: flex; }
+#preview-box { background: var(--surface); border-radius: var(--radius); overflow: hidden; width: min(92vw,640px); box-shadow: 0 20px 60px rgba(0,0,0,0.45); position: relative; }
+#preview-title { padding: 12px 44px 12px 16px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--border); }
+#preview-close { position: absolute; top: 8px; right: 10px; font-size: 20px; cursor: pointer; color: var(--muted); background: none; border: none; line-height: 1; padding: 0; }
+#preview-close:hover { color: var(--red); }
+/* ── Clipboard toolbar ─────────────────────────── */
+.cb-toolbar { display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
+.cb-btn { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px; border: 1.5px solid var(--border2); background: var(--surface2); color: var(--fg2); cursor: pointer; display: flex; align-items: center; gap: 3px; transition: all 0.12s; }
+.cb-btn:hover { background: var(--red-light); border-color: var(--red-mid); color: var(--red-dark); }
 .results-action {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 20px; background: rgba(255,255,255,0.45); border-top: 1.5px solid rgba(255,255,255,0.6);
@@ -604,6 +620,12 @@ body::before {
     <div class="card">
       <div class="card-body">
         <div class="sec-label"><i class="ri-search-line"></i> Search Music</div>
+        <div class="cb-toolbar">
+          <button class="cb-btn" onclick="cbAction('music-q','selectall')"><i class="ri-text"></i> Select All</button>
+          <button class="cb-btn" onclick="cbAction('music-q','copy')"><i class="ri-file-copy-line"></i> Copy</button>
+          <button class="cb-btn" onclick="cbAction('music-q','cut')"><i class="ri-scissors-line"></i> Cut</button>
+          <button class="cb-btn" onclick="cbAction('music-q','paste')"><i class="ri-clipboard-line"></i> Paste</button>
+        </div>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-music-search-line" style="font-size:17px"></i>
@@ -619,6 +641,7 @@ body::before {
         <button class="src-btn active" data-src-group="music" onclick="setSrc('music',this,'YouTube')">YouTube</button>
         <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'SoundCloud')">SoundCloud</button>
         <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'Dailymotion')">Dailymotion</button>
+        <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'All')">All Sources</button>
       </div>
       <div class="results-area" id="results-music">
         <div class="results-list" id="results-list-music"></div>
@@ -640,6 +663,12 @@ body::before {
     <div class="card">
       <div class="card-body">
         <div class="sec-label"><i class="ri-search-line"></i> Search Movies &amp; Videos</div>
+        <div class="cb-toolbar">
+          <button class="cb-btn" onclick="cbAction('movies-q','selectall')"><i class="ri-text"></i> Select All</button>
+          <button class="cb-btn" onclick="cbAction('movies-q','copy')"><i class="ri-file-copy-line"></i> Copy</button>
+          <button class="cb-btn" onclick="cbAction('movies-q','cut')"><i class="ri-scissors-line"></i> Cut</button>
+          <button class="cb-btn" onclick="cbAction('movies-q','paste')"><i class="ri-clipboard-line"></i> Paste</button>
+        </div>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-movie-search-line" style="font-size:17px"></i>
@@ -655,6 +684,7 @@ body::before {
         <button class="src-btn active" data-src-group="movies" onclick="setSrc('movies',this,'YouTube')">YouTube</button>
         <button class="src-btn" data-src-group="movies" onclick="setSrc('movies',this,'SoundCloud')">SoundCloud</button>
         <button class="src-btn" data-src-group="movies" onclick="setSrc('movies',this,'Dailymotion')">Dailymotion</button>
+        <button class="src-btn" data-src-group="movies" onclick="setSrc('movies',this,'All')">All Sources</button>
       </div>
       <div class="quality-row">
         <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
@@ -888,14 +918,37 @@ async function doSearch(mode) {
   const q   = document.getElementById(mode + '-q').value.trim();
   const src = searchSources[mode];
   if (!q) { log('⚠  Enter a search term.', 'warn'); return; }
-  log(`🔍  Searching ${src} for "${q}"…`, 'info');
-  const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
-  const data = await res.json();
-  if (data.error) { log('✘  ' + data.error, 'err'); return; }
-  searchResults[mode] = data.results;
-  selectedItems[mode].clear();
-  renderResults(mode, data.results);
-  log(`✔  Found ${data.results.length} result(s).`, 'ok');
+  if (src === 'All') {
+    log(`🔍  Searching all sources for "${q}"…`, 'info');
+    const sources = ['YouTube', 'SoundCloud', 'Dailymotion'];
+    const fetches = sources.map(s =>
+      fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:s, mode}) })
+        .then(r => r.json())
+        .then(data => (data.results || []).map(r => ({...r, source: s})))
+        .catch(() => [])
+    );
+    const allResults = await Promise.all(fetches);
+    // Interleave results from each source so all platforms are represented
+    const merged = [];
+    const maxLen = Math.max(...allResults.map(a => a.length));
+    for (let i = 0; i < maxLen; i++) {
+      allResults.forEach(arr => { if (arr[i]) merged.push(arr[i]); });
+    }
+    searchResults[mode] = merged;
+    selectedItems[mode].clear();
+    renderResults(mode, merged);
+    log(`✔  Found ${merged.length} result(s) from all sources.`, 'ok');
+  } else {
+    log(`🔍  Searching ${src} for "${q}"…`, 'info');
+    const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
+    const data = await res.json();
+    if (data.error) { log('✘  ' + data.error, 'err'); return; }
+    const results = (data.results || []).map(r => ({...r, source: src}));
+    searchResults[mode] = results;
+    selectedItems[mode].clear();
+    renderResults(mode, results);
+    log(`✔  Found ${results.length} result(s).`, 'ok');
+  }
 }
 
 function renderResults(mode, results) {
@@ -907,20 +960,45 @@ function renderResults(mode, results) {
     const item = document.createElement('div');
     item.className = 'result-item';
     item.dataset.idx = i;
-    const thumb = r.thumbnail
-      ? `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="this.style.display='none'">`
-      : `<div class="result-thumb-placeholder"><i class="ri-music-2-fill"></i></div>`;
+
+    // Thumbnail with fallback
+    let thumbHtml;
+    if (r.thumbnail) {
+      const fallbackIcon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
+      thumbHtml = `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="this.outerHTML='<div class=\\'result-thumb-placeholder\\'><i class=\\'${fallbackIcon}\\'></i></div>'">`;
+    } else {
+      const icon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
+      thumbHtml = `<div class="result-thumb-placeholder"><i class="${icon}"></i></div>`;
+    }
+
     const sizeBadge = r.filesize > 0 ? `<span class="size-badge">${fmtSize(r.filesize)}</span>` : '';
+
+    let srcCls = '';
+    if (r.source === 'SoundCloud') srcCls = ' sc';
+    else if (r.source === 'Dailymotion') srcCls = ' dm';
+    const srcLabel = r.source === 'YouTube' ? 'YT' : r.source === 'SoundCloud' ? 'SC' : r.source === 'Dailymotion' ? 'DM' : '';
+    const srcBadge = srcLabel ? `<span class="source-badge${srcCls}">${srcLabel}</span>` : '';
+
+    // Preview button — YouTube iframe or placeholder
+    const ytMatch = (r.url || '').match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+    let previewBtn = '';
+    if (ytMatch) {
+      const safeTitle = escHtml(r.title).replace(/'/g, '&#39;');
+      previewBtn = `<button class="preview-btn" title="Preview" onclick="event.stopPropagation();showPreview('https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0','${safeTitle}')"><i class="ri-play-circle-line"></i></button>`;
+    }
+
     item.innerHTML = `
-      ${thumb}
+      ${thumbHtml}
       <div class="result-info">
         <div class="result-title">${escHtml(r.title)}</div>
         <div class="result-meta">
           ${r.uploader ? '<span>' + escHtml(r.uploader) + '</span>' : ''}
           ${r.duration  ? '<span>· ' + r.duration + '</span>' : ''}
           ${sizeBadge}
+          ${srcBadge}
         </div>
       </div>
+      ${previewBtn}
       <div class="result-check"><i class="ri-check-line" style="font-size:13px"></i></div>
     `;
     item.onclick = () => toggleResult(mode, i, item);
@@ -1043,7 +1121,52 @@ async function uploadToCloud(service, taskId) {
     }
   }
 }
+
+function showPreview(src, title) {
+  const modal = document.getElementById('preview-modal');
+  document.getElementById('preview-title').textContent = title;
+  document.getElementById('preview-player').src = src;
+  modal.classList.add('open');
+}
+function closePreview() {
+  const modal = document.getElementById('preview-modal');
+  modal.classList.remove('open');
+  const pl = document.getElementById('preview-player');
+  if (pl) pl.src = '';
+}
+
+function cbAction(inputId, action) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.focus();
+  if (action === 'selectall') {
+    el.select();
+  } else if (action === 'copy') {
+    el.select();
+    navigator.clipboard.writeText(el.value).catch(() => document.execCommand('copy'));
+  } else if (action === 'cut') {
+    el.select();
+    const val = el.value;
+    navigator.clipboard.writeText(val).then(() => { el.value = ''; }).catch(() => document.execCommand('cut'));
+  } else if (action === 'paste') {
+    navigator.clipboard.readText().then(t => {
+      const s = el.selectionStart, e2 = el.selectionEnd;
+      el.value = el.value.slice(0, s) + t + el.value.slice(e2);
+      el.selectionStart = el.selectionEnd = s + t.length;
+    }).catch(() => document.execCommand('paste'));
+  }
+}
 </script>
+
+<!-- Preview Modal -->
+<div id="preview-modal" onclick="if(event.target===this)closePreview()">
+  <div id="preview-box">
+    <div id="preview-title"></div>
+    <button id="preview-close" onclick="closePreview()"><i class="ri-close-line"></i></button>
+    <iframe id="preview-player" style="width:100%;aspect-ratio:16/9;border:none;background:#000" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+  </div>
+</div>
+
 </body>
 </html>
 

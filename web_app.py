@@ -34,10 +34,11 @@ def set_security_headers(resp):
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: https:; "
         "connect-src 'self'; "
+        "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com; "
         "frame-ancestors 'none';"
     )
     # Remove fingerprinting headers
@@ -205,7 +206,11 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         "nocheckcertificate":      True,
 
         # ── YouTube specifically: use iOS/Android client ──────────────────────
-        "extractor_args": {"youtube": {"player_client": ["ios", "android"]}},
+        # ── Twitter/X: use syndication API (avoids auth requirement) ────────
+        "extractor_args": {
+            "youtube": {"player_client": ["ios", "android"]},
+            "twitter": {"api": ["syndication"]},
+        },
 
         # ── Socket patience ───────────────────────────────────────────────────
         "socket_timeout": 30,
