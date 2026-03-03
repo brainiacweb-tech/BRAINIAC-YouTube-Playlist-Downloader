@@ -199,6 +199,109 @@ def _validate_query(q: str) -> str | None:
         return "Search query too long (max 200 chars)."
     return None
 
+# ── YouTube Data API v3 ───────────────────────────────────────────────────────
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
+_YT_API_BASE    = "https://www.googleapis.com/youtube/v3"
+
+def _iso_duration(iso: str) -> tuple[int, str]:
+    """Convert ISO 8601 duration (PT1H2M3S) → (total_seconds, 'H:MM:SS')."""
+    m = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", iso or "")
+    if not m:
+        return 0, ""
+    h, mn, s = (int(m.group(i) or 0) for i in (1, 2, 3))
+    secs = h * 3600 + mn * 60 + s
+    dur_str = f"{h}:{mn:02d}:{s:02d}" if h else f"{mn}:{s:02d}"
+    return secs, dur_str
+
+
+def _yt_api_search(query: str, mode: str) -> list | None:
+    """Search YouTube via Data API v3. Returns result list or None on failure."""
+    if not YOUTUBE_API_KEY:
+        return None
+    try:
+        # 1. Get video IDs
+        r = _requests.get(f"{_YT_API_BASE}/search", params={
+            "part": "snippet", "q": query, "type": "video",
+            "maxResults": 50, "key": YOUTUBE_API_KEY,
+        }, timeout=10)
+        items = r.json().get("items") or []
+        if not items:
+            return []
+
+        # 2. Fetch duration for all IDs in one call
+        vid_ids = ",".join(it["id"]["videoId"] for it in items if it.get("id", {}).get("videoId"))
+        vr = _requests.get(f"{_YT_API_BASE}/videos", params={
+            "part": "contentDetails", "id": vid_ids, "key": YOUTUBE_API_KEY,
+        }, timeout=10)
+        details = {v["id"]: v for v in (vr.json().get("items") or [])}
+
+        results = []
+        bps = 32_000 if mode == "music" else 250_000
+        for it in items:
+            vid_id = (it.get("id") or {}).get("videoId", "")
+            if not vid_id:
+                continue
+            snip    = it.get("snippet") or {}
+            iso_dur = ((details.get(vid_id) or {}).get("contentDetails") or {}).get("duration", "")
+            dur_sec, dur_str = _iso_duration(iso_dur)
+            thumbs  = snip.get("thumbnails") or {}
+            thumb   = (thumbs.get("maxres") or thumbs.get("high") or
+                       thumbs.get("medium") or thumbs.get("default") or {}).get("url") or \
+                      f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg"
+            results.append({
+                "url":       f"https://www.youtube.com/watch?v={vid_id}",
+                "title":     snip.get("title") or "Unknown",
+                "duration":  dur_str,
+                "uploader":  snip.get("channelTitle") or "",
+                "thumbnail": thumb,
+                "filesize":  int(dur_sec * bps) if dur_sec else 0,
+            })
+        return results
+    except Exception:
+        return None
+
+
+def _yt_api_prefetch(url: str) -> dict | None:
+    """Fetch playlist/video metadata via YouTube Data API v3."""
+    if not YOUTUBE_API_KEY:
+        return None
+    try:
+        from urllib.parse import parse_qs, urlparse as _up
+        qs          = parse_qs(_up(url).query)
+        playlist_id = (qs.get("list") or [""])[0]
+        video_id    = (qs.get("v") or [""])[0]
+        # youtu.be/VIDEO_ID short links
+        if not video_id and "youtu.be" in url:
+            video_id = _up(url).path.lstrip("/")
+
+        if playlist_id:
+            pr = _requests.get(f"{_YT_API_BASE}/playlists", params={
+                "part": "snippet,contentDetails", "id": playlist_id, "key": YOUTUBE_API_KEY,
+            }, timeout=10)
+            pl_items = pr.json().get("items") or []
+            if not pl_items:
+                return None
+            pl    = pl_items[0]
+            count = (pl.get("contentDetails") or {}).get("itemCount") or 0
+            snip  = pl.get("snippet") or {}
+            return {"title": snip.get("title") or url, "count": count,
+                    "uploader": snip.get("channelTitle") or "", "duration": 0, "filesize": 0}
+
+        if video_id:
+            vr = _requests.get(f"{_YT_API_BASE}/videos", params={
+                "part": "snippet,contentDetails", "id": video_id, "key": YOUTUBE_API_KEY,
+            }, timeout=10)
+            v_items = vr.json().get("items") or []
+            if not v_items:
+                return None
+            v       = v_items[0]
+            snip    = v.get("snippet") or {}
+            dur_sec, _ = _iso_duration((v.get("contentDetails") or {}).get("duration", ""))
+            return {"title": snip.get("title") or url, "count": 1,
+                    "uploader": snip.get("channelTitle") or "", "duration": dur_sec, "filesize": 0}
+    except Exception:
+        return None
+
 IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
 
 @app.route("/images/<path:filename>")
@@ -759,6 +862,13 @@ def search():
     if cached is not None:
         return jsonify({"results": cached, "cached": True})
 
+    # ── YouTube Data API v3 fast-path (faster + more reliable than yt-dlp for metadata)
+    if source == "YouTube" and YOUTUBE_API_KEY:
+        api_results = _yt_api_search(query, mode)
+        if api_results is not None:
+            _cache_set(cache_key, api_results)
+            return jsonify({"results": api_results})
+
     try:
         search_opts = {"quiet": True, "no_warnings": True,
                        "extract_flat": True, "skip_download": True,
@@ -830,6 +940,13 @@ def prefetch():
     err = _validate_url(url)
     if err:
         return jsonify({"error": err}), 400
+
+    # ── YouTube Data API v3 fast-path ─────────────────────────────────────────
+    if YOUTUBE_API_KEY and ("youtube.com" in url or "youtu.be" in url):
+        api_info = _yt_api_prefetch(url)
+        if api_info:
+            return jsonify(api_info)
+
     try:
         prefetch_opts = {"quiet": True, "no_warnings": True,
                          "extract_flat": True, "skip_download": True,
