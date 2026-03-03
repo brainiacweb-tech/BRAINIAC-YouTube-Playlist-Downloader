@@ -2,11 +2,17 @@ import os, uuid, threading, queue, json, time, zipfile, shutil, base64
 import static_ffmpeg
 static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
-from flask import Flask, render_template, request, jsonify, Response, send_file
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    return send_from_directory(IMAGES_DIR, filename)
 
 DOWNLOAD_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_downloads")
 os.makedirs(DOWNLOAD_BASE, exist_ok=True)

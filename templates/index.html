@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BRAINIAC — YouTube Playlist Downloader</title>
+<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -46,6 +47,18 @@ body {
   z-index: 100;
 }
 .logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.logo img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.logo-text {
   font-size: 15px;
   font-weight: 800;
   color: var(--red);
@@ -376,7 +389,10 @@ select option { background: var(--card2); }
 
 <!-- Toolbar -->
 <div class="toolbar">
-  <div class="logo">⚡ BRAINIAC</div>
+  <div class="logo">
+    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC logo">
+    <span class="logo-text">BRAINIAC</span>
+  </div>
   <div class="tabs">
     <button class="tab-btn active"       data-tab="playlist" onclick="switchTab('playlist',this)">📺 YouTube Playlist</button>
     <button class="tab-btn"              data-tab="music"    onclick="switchTab('music',this)"   >🎵 Music</button>
