@@ -7,7 +7,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from authlib.integrations.flask_client import OAuth
 import yt_dlp
-from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for, make_response
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -446,8 +446,8 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
 # ── Routes ───────────────────────────────────────────────────────────────────
 @app.route("/auth/google")
 def google_login():
-    if current_user.is_authenticated:
-        return redirect("/app")
+    # Don't block if a different user is already logged in — let Google OAuth proceed
+    # so the correct account gets signed in.
     cb = os.environ.get("GOOGLE_REDIRECT_URI") or url_for("google_callback", _external=True)
     return google_oauth.authorize_redirect(cb)
 
@@ -475,11 +475,11 @@ def google_callback():
     ).first()
 
     if user:
-        # Link google_id if signed up via email before
+        # Link google_id if signed up via email before; always refresh avatar
         changed = False
         if not user.google_id:
             user.google_id = google_id; changed = True
-        if picture and not user.avatar:
+        if picture and user.avatar != picture:
             user.avatar = picture; changed = True
         if changed:
             db.session.commit()
@@ -503,6 +503,9 @@ def google_callback():
         db.session.add(user)
         db.session.commit()
 
+    # Clear any previous session (different account) before logging in
+    logout_user()
+    session.clear()
     login_user(user, remember=True)
     # Restore persisted GDrive token into session so it's immediately available
     if user.gdrive_token:
@@ -601,7 +604,11 @@ def google_site_verify(token):
 @login_required
 @limiter.limit("120 per minute")
 def index():
-    return render_template("index.html", username=current_user.username, avatar=current_user.avatar, email=current_user.email)
+    resp = make_response(render_template("index.html", username=current_user.username, avatar=current_user.avatar, email=current_user.email))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/api/search", methods=["POST"])

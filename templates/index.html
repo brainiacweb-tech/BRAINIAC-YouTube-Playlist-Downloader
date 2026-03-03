@@ -140,6 +140,18 @@ body.dark-mode .user-dd-item { color: #b0b0b0; }
 body.dark-mode .user-dd-item:hover { background: rgba(229,57,53,0.12); color: var(--red); }
 body.dark-mode .user-dd-divider { background: #3c3c3c; }
 
+/* ── Dark mode toggle button ────────────────────────────────── */
+#dm-btn {
+  width: 32px; height: 32px; min-width: 32px; min-height: 32px;
+  padding: 0; border-radius: 50%; box-sizing: border-box;
+  background: rgba(229,57,53,0.12); border: 1.5px solid rgba(229,57,53,0.3);
+  color: #e57373; cursor: pointer; flex-shrink: 0; align-self: center;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s; overflow: hidden;
+}
+#dm-btn:hover { background: rgba(229,57,53,0.25); border-color: rgba(229,57,53,0.5); }
+#dm-btn i { font-size: 15px; line-height: 1; pointer-events: none; }
+
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
   display: flex; gap: 5px; margin-bottom: 20px;
@@ -412,7 +424,7 @@ select:focus { border-color: var(--red); }
   .logo-img { width: 38px; height: 38px; }
   .header-user-tag { font-size: 9px !important; padding: 4px 8px !important; }
   .header-logout { font-size: 9px !important; padding: 4px 9px !important; }
-  #dm-btn { width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; padding: 0 !important; }
+  #dm-btn { width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; }
   .tabs { gap: 3px; padding: 4px; margin-bottom: 12px; }
   .tab-btn { min-width: 0; flex: 1; padding: 8px 4px; font-size: 9px; gap: 3px; }
   .tab-btn i { font-size: 15px; }
@@ -564,7 +576,7 @@ select:focus { border-color: var(--red); }
           <a href="/logout" class="user-dd-item user-dd-logout"><i class="ri-logout-box-r-line"></i> Logout</a>
         </div>
       </div>
-      <button id="dm-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.3);border-radius:50%;width:32px;height:32px;min-width:32px;padding:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#e57373;transition:all 0.2s;flex-shrink:0;align-self:center;" onmouseover="this.style.background='rgba(229,57,53,0.25)'" onmouseout="this.style.background='rgba(229,57,53,0.12)'"><i class="ri-moon-line" style="font-size:15px;line-height:1;"></i></button>
+      <button id="dm-btn" onclick="toggleDarkMode()" title="Toggle dark mode"><i class="ri-moon-line"></i></button>
     </div>
   </header>
 
@@ -1047,10 +1059,18 @@ function setBadge(state) {
   b.innerHTML = map[state] || state;
 }
 
-function subscribeProgress(taskId, onDone) {
+function subscribeProgress(taskId, onDone, _retries) {
+  _retries = _retries || 0;
   const es = new EventSource('/api/progress/' + taskId);
   es.onmessage = e => {
     const d = JSON.parse(e.data);
+    if (d.type === 'ping') {
+      return; // keepalive, ignore
+    } else if (d.type === 'error' && d.msg === 'Task not found' && _retries < 3) {
+      es.close();
+      setTimeout(() => subscribeProgress(taskId, onDone, _retries + 1), 800);
+      return;
+    }
     if (d.type === 'progress') {
       setProgress(d.pct, d.speed, d.eta, d.filename ? '⬇  ' + d.filename : null);
       setBadge('downloading');
