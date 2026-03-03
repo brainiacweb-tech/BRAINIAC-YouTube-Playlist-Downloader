@@ -187,10 +187,12 @@ footer a:hover { color: var(--red); }
 
 @media (max-width: 560px) {
   nav { padding: 10px 14px; }
-  .nav-logo img { height: 28px; }
+  .nav-logo img { height: 26px; }
   .nav-logo-text { font-size: 13px; }
-  .nav-links { gap: 6px; }
-  .btn-nav { padding: 6px 12px; font-size: 11px; gap: 4px; border-radius: 8px; }
+  .nav-links { gap: 7px; }
+  .btn-nav { padding: 7px 10px; font-size: 16px; gap: 0; border-radius: 9px; }
+  .btn-nav i { font-size: 17px; }
+  .btn-text { display: none; }
   .step:not(:last-child)::after { display: none; }
   .hero { padding: 70px 16px 44px; }
 }
@@ -291,8 +293,8 @@ footer a:hover { color: var(--red); }
     <span class="nav-logo-text">BRAINIAC</span>
   </a>
   <div class="nav-links">
-    <a href="/login" class="btn-nav btn-outline">Sign In</a>
-    <a href="/signup" class="btn-nav btn-filled">Get Started</a>
+    <a href="/login" class="btn-nav btn-outline"><i class="ri-login-box-line"></i><span class="btn-text">Sign In</span></a>
+    <a href="/signup" class="btn-nav btn-filled"><i class="ri-user-add-line"></i><span class="btn-text">Get Started</span></a>
   </div>
 </nav>
 
