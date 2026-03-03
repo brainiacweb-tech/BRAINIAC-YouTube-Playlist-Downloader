@@ -16,9 +16,21 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+# On Railway: add the MySQL plugin and it will set MYSQL_URL automatically.
+# Locally: falls back to a SQLite file.
+_raw_db_url = os.environ.get("MYSQL_URL") or os.environ.get("DATABASE_URL")
+if _raw_db_url:
+    # Railway provides mysql:// — SQLAlchemy needs mysql+pymysql://
+    _db_uri = _raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+else:
+    _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
+    _db_uri = f"sqlite:///{_DB_PATH}"
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 280,   # keep-alive: recycle before MySQL's wait_timeout (usually 300s)
+    "pool_pre_ping": True, # test connection health before each use
+}
 db = SQLAlchemy(app)
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
