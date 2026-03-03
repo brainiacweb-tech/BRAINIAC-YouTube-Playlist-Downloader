@@ -361,63 +361,6 @@ select option { background: var(--card2); }
   .card-body { padding: 12px; }
 }
 
-/* ── Cookie Management ── */
-.cookie-card .card-body { padding: 16px; }
-.cookie-status-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.cookie-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--muted);
-  flex-shrink: 0;
-  transition: background .3s;
-}
-.cookie-dot.active { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-.cookie-dot.inactive { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
-.cookie-status-text { font-size: 13px; font-weight: 600; }
-.cookie-instructions {
-  font-size: 12px;
-  color: var(--muted);
-  background: var(--card2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  line-height: 1.6;
-}
-.cookie-instructions code {
-  font-size: 11px;
-  background: rgba(255,255,255,.08);
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-family: monospace;
-}
-.cookie-upload-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.cookie-file-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--card2);
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg);
-  cursor: pointer;
-  transition: border-color .15s;
-}
-.cookie-file-label:hover { border-color: var(--accent); }
-.cookie-file-label input { display: none; }
 .footer {
   text-align: center;
   padding: 24px 0 16px;
@@ -598,38 +541,6 @@ select option { background: var(--card2); }
     </div>
     <div class="log-body" id="log-body">
       <p class="log-info">Ready.</p>
-    </div>
-  </div>
-
-  <!-- ═══ COOKIE MANAGEMENT ═══ -->
-  <div class="sec-label">🍪 YOUTUBE COOKIES (FIX BOT DETECTION)</div>
-  <div class="card cookie-card">
-    <div class="card-body">
-      <div class="cookie-status-row">
-        <div class="cookie-dot" id="cookie-dot"></div>
-        <span class="cookie-status-text" id="cookie-status-text">Checking…</span>
-      </div>
-      <div class="cookie-instructions">
-        <strong>Why?</strong> YouTube blocks downloads on cloud servers unless you provide browser cookies.<br>
-        <strong>How to get cookies.txt:</strong>
-        <ol style="margin:6px 0 0 16px;padding:0">
-          <li>Install <strong>Get cookies.txt LOCALLY</strong> extension for Chrome or Firefox.</li>
-          <li>Log in to YouTube in your browser.</li>
-          <li>Click the extension icon while on youtube.com → export as <code>cookies.txt</code>.</li>
-          <li>Upload the file below.</li>
-        </ol>
-        <br><strong>Railway env var method (persistent across restarts):</strong><br>
-        Run in PowerShell: <code>[Convert]::ToBase64String([IO.File]::ReadAllBytes("cookies.txt"))</code><br>
-        Then add env var <code>YT_COOKIES</code> = that base64 string in your Railway dashboard.
-      </div>
-      <div class="cookie-upload-row">
-        <label class="cookie-file-label">
-          📁 Choose cookies.txt
-          <input type="file" id="cookie-file-input" accept=".txt,text/plain" onchange="uploadCookies(this.files[0])">
-        </label>
-        <button class="btn" style="background:#22c55e;color:#fff;font-size:13px" id="cookie-remove-btn" onclick="clearCookies()" disabled>🗑 Remove Cookies</button>
-      </div>
-      <div id="cookie-msg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
     </div>
   </div>
 
@@ -891,70 +802,6 @@ function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Cookie management ─────────────────────────────────────────────────────────
-async function checkCookies() {
-  try {
-    const res = await fetch('/api/cookies');
-    const d   = await res.json();
-    const dot  = document.getElementById('cookie-dot');
-    const txt  = document.getElementById('cookie-status-text');
-    const btn  = document.getElementById('cookie-remove-btn');
-    if (d.active) {
-      dot.className  = 'cookie-dot active';
-      txt.textContent = `Cookies Active ✓  (${(d.size/1024).toFixed(1)} KB)`;
-      txt.style.color = '#22c55e';
-      btn.disabled   = false;
-    } else {
-      dot.className  = 'cookie-dot inactive';
-      txt.textContent = 'No Cookies — YouTube may block downloads on cloud servers';
-      txt.style.color = '#ef4444';
-      btn.disabled   = true;
-    }
-  } catch(e) {
-    document.getElementById('cookie-status-text').textContent = 'Could not reach server';
-  }
-}
-
-async function uploadCookies(file) {
-  if (!file) return;
-  const msg = document.getElementById('cookie-msg');
-  msg.textContent = 'Uploading…';
-  msg.style.color = 'var(--muted)';
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await fetch('/api/cookies', { method: 'POST', body: fd });
-    const d   = await res.json();
-    if (res.ok) {
-      msg.textContent = '✓ Cookies uploaded successfully!';
-      msg.style.color = '#22c55e';
-      checkCookies();
-    } else {
-      msg.textContent = '✗ ' + (d.error || 'Upload failed');
-      msg.style.color = '#ef4444';
-    }
-  } catch(e) {
-    msg.textContent = '✗ Network error';
-    msg.style.color = '#ef4444';
-  }
-  // reset input so the same file can be re-uploaded
-  document.getElementById('cookie-file-input').value = '';
-}
-
-async function clearCookies() {
-  const msg = document.getElementById('cookie-msg');
-  try {
-    await fetch('/api/cookies', { method: 'DELETE' });
-    msg.textContent = 'Cookies removed.';
-    msg.style.color = 'var(--muted)';
-    checkCookies();
-  } catch(e) {
-    msg.textContent = '✗ Could not remove';
-    msg.style.color = '#ef4444';
-  }
-}
-
-window.addEventListener('load', checkCookies);
 </script>
 </body>
 </html>
