@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRAINIAC Downloader — YouTube Playlist & Video Downloader</title>
+<meta name="description" content="BRAINIAC Downloader lets you download YouTube videos, playlists, music, and movies in high quality. Sign up free.">
+<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #e53935; --red-dark: #b71c1c; --red-light: #ffebee;
+  --fg: #111; --fg2: #444; --muted: #888; --border: #e8e8e8;
+}
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: #fceaea;
+  min-height: 100vh;
+  color: var(--fg);
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(229,57,53,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(183,28,28,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 60% 10%, rgba(229,57,53,0.10) 0%, transparent 50%);
+}
+
+/* NAV */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 40px;
+  background: rgba(252,234,234,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1.5px solid rgba(229,57,53,0.12);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-logo img { height: 32px; }
+.nav-logo-text { font-size: 15px; font-weight: 800; color: var(--red); letter-spacing: -0.3px; }
+.nav-links { display: flex; align-items: center; gap: 10px; }
+.btn-nav { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px;
+           border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; transition: all .16s; }
+.btn-outline { background: transparent; border: 1.5px solid var(--red); color: var(--red); }
+.btn-outline:hover { background: rgba(229,57,53,0.07); }
+.btn-filled { background: var(--red); border: 1.5px solid var(--red); color: #fff; }
+.btn-filled:hover { background: var(--red-dark); border-color: var(--red-dark); }
+
+/* HERO */
+.hero {
+  position: relative; z-index: 1;
+  text-align: center;
+  padding: 90px 20px 60px;
+  max-width: 700px; margin: 0 auto;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(229,57,53,0.1); border: 1.5px solid rgba(229,57,53,0.25);
+  border-radius: 99px; padding: 5px 16px; font-size: 12px; font-weight: 700; color: var(--red);
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-size: clamp(28px,5vw,46px); font-weight: 900; line-height: 1.15;
+  color: var(--fg); margin-bottom: 18px;
+}
+.hero h1 span { color: var(--red); }
+.hero p {
+  font-size: 15px; color: var(--fg2); line-height: 1.75; margin-bottom: 36px; max-width: 520px; margin-left: auto; margin-right: auto;
+}
+.hero-cta { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.btn-hero { display: inline-flex; align-items: center; gap: 8px; padding: 13px 30px;
+            border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; transition: all .18s; }
+.btn-hero-primary { background: var(--red); color: #fff; box-shadow: 0 4px 18px rgba(229,57,53,0.35); }
+.btn-hero-primary:hover { background: var(--red-dark); box-shadow: 0 6px 24px rgba(229,57,53,0.45); transform: translateY(-1px); }
+.btn-hero-secondary { background: #fff; color: var(--fg); border: 1.5px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.btn-hero-secondary:hover { border-color: var(--red); color: var(--red); transform: translateY(-1px); }
+
+/* FEATURES */
+.features { position: relative; z-index: 1; padding: 60px 20px 80px; max-width: 900px; margin: 0 auto; }
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 16px; }
+.feature-card {
+  background: #fff; border-radius: 16px; border: 1.5px solid var(--border);
+  padding: 24px 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform .18s, box-shadow .18s;
+}
+.feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.10); }
+.feature-icon {
+  width: 42px; height: 42px; border-radius: 11px;
+  background: var(--red-light); display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--red); margin-bottom: 14px;
+}
+.feature-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.feature-card p { font-size: 12px; color: var(--fg2); line-height: 1.7; }
+
+/* FOOTER */
+footer {
+  position: relative; z-index: 1;
+  text-align: center; padding: 28px 20px 32px;
+  font-size: 12px; color: var(--muted); font-weight: 500;
+  border-top: 1.5px solid rgba(229,57,53,0.12);
+}
+footer span { color: var(--red); font-weight: 800; }
+footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+footer a:hover { color: var(--red); }
+.footer-links { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 8px; }
+
+@media (max-width: 520px) {
+  nav { padding: 12px 18px; }
+  .nav-logo-text { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC Logo">
+    <span class="nav-logo-text">BRAINIAC Downloader</span>
+  </a>
+  <div class="nav-links">
+    <a href="/login" class="btn-nav btn-outline">Sign In</a>
+    <a href="/signup" class="btn-nav btn-filled">Get Started</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge"><i class="ri-youtube-fill"></i> YouTube Playlist Downloader</div>
+  <h1>Download YouTube videos<br>with <span>BRAINIAC</span></h1>
+  <p>Search, download, and save YouTube videos and playlists as MP4 or MP3 — straight to your device or Google Drive. Fast, clean, and free to use.</p>
+  <div class="hero-cta">
+    <a href="/signup" class="btn-hero btn-hero-primary"><i class="ri-user-add-line"></i> Create Free Account</a>
+    <a href="/login" class="btn-hero btn-hero-secondary"><i class="ri-login-box-line"></i> Sign In</a>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-download-2-line"></i></div>
+      <h3>Full Playlist Downloads</h3>
+      <p>Download entire YouTube playlists in one click. Supports up to hundreds of videos per batch.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-music-2-line"></i></div>
+      <h3>Music & Movies</h3>
+      <p>Search and download music videos and full movies separately with dedicated tabs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-hd-line"></i></div>
+      <h3>Quality Choice</h3>
+      <p>Pick your preferred quality — from 360p up to the best available resolution including 1080p.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-google-fill"></i></div>
+      <h3>Google Drive Sync</h3>
+      <p>Connect your Google Drive and auto-upload finished downloads directly without leaving the app.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-folder-zip-line"></i></div>
+      <h3>ZIP Downloads</h3>
+      <p>Multi-video downloads are bundled into a convenient ZIP file for easy saving.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ri-shield-check-line"></i></div>
+      <h3>Secure Accounts</h3>
+      <p>Sign in with Google or create an account. Your data is protected with hashed passwords and HTTPS.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-links">
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Service</a>
+    <a href="mailto:brainiactechhub@gmail.com">Contact</a>
+  </div>
+  Developed by <span>Francis Kusi</span> &mdash; BRAINIAC Downloader &copy; 2026
+</footer>
+
+</body>
+</html>

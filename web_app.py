@@ -383,7 +383,7 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
 @app.route("/auth/google")
 def google_login():
     if current_user.is_authenticated:
-        return redirect("/")
+        return redirect("/app")
     cb = os.environ.get("GOOGLE_REDIRECT_URI") or url_for("google_callback", _external=True)
     return google_oauth.authorize_redirect(cb)
 
@@ -432,13 +432,13 @@ def google_callback():
         db.session.commit()
 
     login_user(user, remember=True)
-    return redirect("/")
+    return redirect("/app")
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if current_user.is_authenticated:
-        return redirect("/")
+        return redirect("/app")
     error = None
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -466,14 +466,14 @@ def signup():
             db.session.add(user)
             db.session.commit()
             login_user(user)
-            return redirect("/")
+            return redirect("/app")
     return render_template("signup.html", error=error)
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect("/")
+        return redirect("/app")
     error = None
     if request.method == "POST":
         identifier = request.form.get("identifier", "").strip()
@@ -483,7 +483,7 @@ def login():
         ).first()
         if user and check_password_hash(user.password, password):
             login_user(user, remember=request.form.get("remember") == "on")
-            return redirect("/")
+            return redirect("/app")
         error = "Invalid username/email or password."
     return render_template("login.html", error=error)
 
@@ -504,6 +504,20 @@ def terms():
     return render_template("terms.html")
 
 @app.route("/")
+def landing():
+    if current_user.is_authenticated:
+        return redirect("/app")
+    return render_template("landing.html")
+
+# Google Search Console domain verification — set GOOGLE_SITE_VERIFY env var to your token
+@app.route("/google<token>.html")
+def google_site_verify(token):
+    expected = os.environ.get("GOOGLE_SITE_VERIFY", "")
+    if token == expected:
+        return f"google-site-verification: google{token}.html", 200, {"Content-Type": "text/plain"}
+    return "", 404
+
+@app.route("/app")
 @login_required
 @limiter.limit("120 per minute")
 def index():
