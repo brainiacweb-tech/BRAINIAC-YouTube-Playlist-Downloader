@@ -10,11 +10,14 @@ static_ffmpeg.add_paths()   # registers ffmpeg/ffprobe on PATH at startup
 import yt_dlp
 from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
+# Trust Cloudflare / Railway proxy headers so url_for(_external=True) uses https + real hostname
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # On Railway: add the MySQL plugin and it will set MYSQL_URL automatically.
@@ -381,7 +384,7 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
 def google_login():
     if current_user.is_authenticated:
         return redirect("/")
-    cb = url_for("google_callback", _external=True)
+    cb = os.environ.get("GOOGLE_REDIRECT_URI") or url_for("google_callback", _external=True)
     return google_oauth.authorize_redirect(cb)
 
 
