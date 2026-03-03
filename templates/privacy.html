@@ -66,13 +66,22 @@ a { color: var(--red); }
     <h2>4. Google Drive Access</h2>
     <p>When you connect Google Drive, this app requests the <code>drive.file</code> scope — which only allows access to files that the app itself creates. We cannot read, modify, or delete any of your existing Drive files. You can revoke access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions</a> page or by clicking "Disconnect" in the app settings.</p>
 
-    <h2>5. Data Retention</h2>
+    <h2>5. YouTube API Services</h2>
+    <p>BRAINIAC Downloader uses the <strong>YouTube API Services</strong> to authenticate your Google account so that age-restricted and member-only YouTube content can be accessed on your behalf. By using this app, you also agree to the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>.</p>
+    <ul>
+      <li>We request the <code>youtube</code> OAuth scope solely to pass your YouTube authentication token to the download engine (yt-dlp) so it can access content your own YouTube account has permission to view.</li>
+      <li>We do not read, store, modify, or share any of your YouTube data (subscriptions, history, playlists, watch later, etc.).</li>
+      <li>Your YouTube OAuth token is held only in your encrypted server-side session for the duration of your login and is never written to permanent storage or shared with any third party.</li>
+      <li>You can revoke YouTube access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions</a> page.</li>
+    </ul>
+
+    <h2>6. Data Retention</h2>
     <p>Downloaded files are stored temporarily on our server and deleted after a short period. Account data is retained as long as your account is active. You may delete your account at any time by contacting us.</p>
 
-    <h2>6. Security</h2>
+    <h2>7. Security</h2>
     <p>We use HTTPS for all traffic. Passwords are hashed and never stored in plain text. OAuth tokens are stored only in server-side sessions.</p>
 
-    <h2>7. Contact</h2>
+    <h2>8. Contact</h2>
     <p>For any privacy concerns, contact us at <a href="mailto:brainiactechhub@gmail.com">brainiactechhub@gmail.com</a>.</p>
   </div>
   <div class="footer">Developed by <span>Francis Kusi</span> &mdash; BRAINIAC Downloader &copy; 2026</div>
