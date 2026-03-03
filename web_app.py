@@ -344,13 +344,14 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ── YouTube client: tv_embedded + mweb work from datacenter IPs ──────
-        # ios/android require PO tokens from non-residential IPs since 2024.
-        # tv_embedded and mweb bypass this without needing cookies.
+        # ── YouTube client + bgutil PO token provider ──────────────────────
+        # bgutil server runs on port 4416 (started by start.sh).
+        # It generates YouTube PO tokens so any datacenter IP can download.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_embedded", "mweb", "web"],
-                "player_skip":   ["configs"],
+                "player_client":         ["web", "tv_embedded"],
+                "player_skip":           ["configs"],
+                "getpot_bgutil_baseurl": ["http://127.0.0.1:4416"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -672,7 +673,10 @@ def search():
                        "nocheckcertificate": True,
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
-                       "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
+                       "extractor_args": {"youtube": {
+                           "player_client": ["web", "tv_embedded"],
+                           "getpot_bgutil_baseurl": ["http://127.0.0.1:4416"],
+                       }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
@@ -741,7 +745,10 @@ def prefetch():
                          "nocheckcertificate": True,
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
-                         "extractor_args": {"youtube": {"player_client": ["ios", "android"]}}}
+                         "extractor_args": {"youtube": {
+                             "player_client": ["web", "tv_embedded"],
+                             "getpot_bgutil_baseurl": ["http://127.0.0.1:4416"],
+                         }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)

@@ -140,19 +140,6 @@ body.dark-mode .user-dd-item { color: #b0b0b0; }
 body.dark-mode .user-dd-item:hover { background: rgba(229,57,53,0.12); color: var(--red); }
 body.dark-mode .user-dd-divider { background: #3c3c3c; }
 
-/* ── Dark mode toggle button ────────────────────────────────── */
-#dm-btn {
-  width: 32px; height: 32px; min-width: 32px; min-height: 32px;
-  padding: 0; border-radius: 50%; box-sizing: border-box;
-  background: rgba(229,57,53,0.12); border: 1.5px solid rgba(229,57,53,0.3);
-  color: #e57373; cursor: pointer; flex-shrink: 0; align-self: center;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s, border-color 0.2s; overflow: hidden;
-  -webkit-appearance: none; appearance: none;
-}
-#dm-btn:hover { background: rgba(229,57,53,0.25); border-color: rgba(229,57,53,0.5); }
-#dm-btn i { font-size: 15px; line-height: 1; pointer-events: none; display: block; }
-
 /* ── Tabs ───────────────────────────────────────────────────── */
 .tabs {
   display: flex; gap: 5px; margin-bottom: 20px;
@@ -559,7 +546,7 @@ select:focus { border-color: var(--red); }
       <div class="user-dd-wrap" id="user-dd-wrap">
         <button class="user-dd-btn" id="user-dd-btn" onclick="toggleUserDropdown()">
           {% if avatar %}
-          <img src="{{ avatar }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" alt="">
+          <img src="{{ avatar }}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" alt="">
           {% else %}
           <i class="ri-user-3-line" style="font-size:15px;"></i>
           {% endif %}
@@ -577,7 +564,6 @@ select:focus { border-color: var(--red); }
           <a href="/logout" class="user-dd-item user-dd-logout"><i class="ri-logout-box-r-line"></i> Logout</a>
         </div>
       </div>
-      <button id="dm-btn" onclick="toggleDarkMode()" title="Toggle dark mode"><i class="ri-moon-line"></i></button>
     </div>
   </header>
 
@@ -977,7 +963,7 @@ function toggleDarkModeFromSettings(on) {
             const img = document.createElement('img');
             img.src = data.avatar;
             img.setAttribute('referrerpolicy','no-referrer');
-            img.style.cssText = 'width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;';
+            img.style.cssText = 'width:16px;height:16px;border-radius:50%;object-fit:cover;flex-shrink:0;';
             btn.insertBefore(img, btn.firstChild);
           }
         } else {
