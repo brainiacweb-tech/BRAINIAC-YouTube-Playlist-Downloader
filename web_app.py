@@ -363,11 +363,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ── YouTube client: android_vr works from any datacenter IP
-        #    without needing JS runtime or PO tokens ───────────────────────────
+        # ── YouTube client: tv_simply + ios use lightweight APIs that
+        #    work from datacenter IPs better than web/mweb clients.
+        #    tv_embedded is unsupported in yt-dlp 2026 - removed.
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "tv_embedded", "mweb", "web"],
+                "player_client": ["tv_simply", "android_vr", "ios", "android"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -436,12 +437,17 @@ def _run_download(task_id: str, data: dict):
                 ydl.download([url])
         except yt_dlp.utils.DownloadError as ex:
             error_msg = str(ex)
-            if "age-restricted" in error_msg or "This video is age restricted" in error_msg:
-                user_msg = "Download failed: The video is age-restricted. Try uploading your YouTube cookies."
-            elif "region-locked" in error_msg or "This video is not available in your country" in error_msg:
-                user_msg = "Download failed: The video is region-locked. Try using cookies from an allowed region."
+            if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
+                user_msg = ("YouTube is requiring authentication from this server's IP address. "
+                            "Please upload your YouTube cookies: go to Settings → Cookies, "
+                            "export cookies from your browser using a cookie exporter extension, "
+                            "then paste or upload the Netscape-format cookies.txt file.")
+            elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
+                user_msg = "Download failed: The video is age-restricted. Upload your YouTube cookies in Settings → Cookies."
+            elif "region-locked" in error_msg or "not available in your country" in error_msg:
+                user_msg = "Download failed: The video is region-locked. Try uploading cookies from an allowed region."
             elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
-                user_msg = "Download failed: Your server IP may be blocked by YouTube. Try uploading cookies or using a different network."
+                user_msg = "Download failed: YouTube is rate-limiting this server. Upload your YouTube cookies in Settings → Cookies."
             else:
                 user_msg = f"Download failed: {error_msg}"
             with _tasks_lock:
@@ -708,7 +714,7 @@ def search():
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["android_vr", "tv_embedded", "mweb", "web"],
+                           "player_client": ["tv_simply", "android_vr", "ios", "android"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -779,7 +785,7 @@ def prefetch():
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["android_vr", "tv_embedded", "mweb", "web"],
+                             "player_client": ["tv_simply", "android_vr", "ios", "android"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
