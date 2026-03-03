@@ -734,9 +734,18 @@ def _gdrive_redirect_uri():
 
 @app.route("/api/gdrive/status")
 def gdrive_status():
-    configured = bool(os.environ.get("GDRIVE_CLIENT_ID") and os.environ.get("GDRIVE_CLIENT_SECRET"))
-    authed = bool(session.get("gdrive_token"))
-    return jsonify({"configured": configured, "authed": authed})
+    gdrive_id  = os.environ.get("GDRIVE_CLIENT_ID", "")
+    google_id  = os.environ.get("GOOGLE_CLIENT_ID", "")
+    eff_id     = gdrive_id or google_id
+    configured = bool(eff_id and (os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")))
+    authed     = bool(session.get("gdrive_token"))
+    return jsonify({
+        "configured": configured,
+        "authed": authed,
+        "has_gdrive_creds": bool(gdrive_id),
+        "has_google_creds": bool(google_id),
+        "redirect_uri": _gdrive_redirect_uri(),
+    })
 
 
 @app.route("/api/gdrive/auth")
