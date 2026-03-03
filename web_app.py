@@ -499,7 +499,7 @@ def logout():
 @login_required
 @limiter.limit("120 per minute")
 def index():
-    return render_template("index.html", username=current_user.username, avatar=current_user.avatar)
+    return render_template("index.html", username=current_user.username, avatar=current_user.avatar, email=current_user.email)
 
 
 @app.route("/api/search", methods=["POST"])
@@ -983,6 +983,33 @@ def onedrive_upload(task_id):
                     return jsonify({"error": f"Chunk upload failed ({chunk_resp.status_code})"}), 500
                 offset += len(chunk)
         return jsonify({"ok": True, "url": web_url})
+
+
+# ── List downloaded files ─────────────────────────────────────────────────────
+@app.route("/api/files")
+@login_required
+def list_files():
+    import datetime
+    rows = []
+    dl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
+    if os.path.isdir(dl_dir):
+        for root, dirs, files in os.walk(dl_dir):
+            for fname in files:
+                if fname.endswith(".part"):
+                    continue
+                fpath = os.path.join(root, fname)
+                try:
+                    stat  = os.stat(fpath)
+                    rows.append({
+                        "name":     fname,
+                        "folder":   os.path.relpath(root, dl_dir),
+                        "size":     stat.st_size,
+                        "modified": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                    })
+                except OSError:
+                    pass
+    rows.sort(key=lambda x: x["modified"], reverse=True)
+    return jsonify(rows)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
