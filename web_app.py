@@ -1,4 +1,5 @@
 import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress
+from functools import lru_cache
 import requests as _requests
 from urllib.parse import urlparse
 import static_ffmpeg
@@ -13,6 +14,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_compress import Compress
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
@@ -32,8 +34,10 @@ else:
 app.config["SQLALCHEMY_DATABASE_URI"] = _db_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 280,   # keep-alive: recycle before MySQL's wait_timeout (usually 300s)
-    "pool_pre_ping": True, # test connection health before each use
+    "pool_recycle":  280,   # keep-alive: recycle before MySQL's wait_timeout (usually 300s)
+    "pool_pre_ping": True,  # test connection health before each use
+    "pool_size":     10,    # max persistent connections per worker
+    "max_overflow":  20,    # extra connections allowed under load
 }
 db = SQLAlchemy(app)
 
@@ -84,6 +88,15 @@ google_oauth = oauth.register(
 
 # ── Security config ───────────────────────────────────────────────────────────
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
+
+# ── Compression ──────────────────────────────────────────────────────────────
+app.config["COMPRESS_MIMETYPES"] = [
+    "text/html", "text/css", "text/javascript", "application/javascript",
+    "application/json", "text/plain", "text/xml",
+]
+app.config["COMPRESS_LEVEL"] = 6   # gzip level 6 — good balance of speed vs size
+app.config["COMPRESS_MIN_SIZE"] = 500  # don't compress tiny responses
+Compress(app)
 
 # Rate limiter — keyed by real client IP (Railway passes X-Forwarded-For)
 limiter = Limiter(
@@ -164,10 +177,33 @@ IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
 
 @app.route("/images/<path:filename>")
 def serve_image(filename):
-    return send_from_directory(IMAGES_DIR, filename)
+    resp = send_from_directory(IMAGES_DIR, filename)
+    resp.headers["Cache-Control"] = "public, max-age=86400"  # cache images 24h
+    return resp
 
 DOWNLOAD_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_downloads")
 os.makedirs(DOWNLOAD_BASE, exist_ok=True)
+
+# ── Search result cache ───────────────────────────────────────────────────────
+_search_cache: dict = {}      # key: (query, source, mode) → (timestamp, results)
+_search_cache_lock = threading.Lock()
+SEARCH_CACHE_TTL = 300        # seconds — cache search results for 5 minutes
+
+def _cache_get(key):
+    with _search_cache_lock:
+        entry = _search_cache.get(key)
+    if entry and (time.time() - entry[0]) < SEARCH_CACHE_TTL:
+        return entry[1]
+    return None
+
+def _cache_set(key, value):
+    with _search_cache_lock:
+        _search_cache[key] = (time.time(), value)
+        # Evict oldest entries if cache grows too large
+        if len(_search_cache) > 200:
+            oldest = sorted(_search_cache, key=lambda k: _search_cache[k][0])[:50]
+            for k in oldest:
+                _search_cache.pop(k, None)
 
 # ── Cookie file ───────────────────────────────────────────────────────────────
 COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yt_cookies.txt")
@@ -497,17 +533,20 @@ def logout():
 
 @app.route("/privacy")
 def privacy():
-    return render_template("privacy.html")
+    resp = render_template("privacy.html")
+    return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
 @app.route("/terms")
 def terms():
-    return render_template("terms.html")
+    resp = render_template("terms.html")
+    return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
 @app.route("/")
 def landing():
     if current_user.is_authenticated:
         return redirect("/app")
-    return render_template("landing.html")
+    resp = render_template("landing.html")
+    return resp, 200, {"Cache-Control": "public, max-age=300"}
 
 # Google Search Console domain verification — set GOOGLE_SITE_VERIFY env var to your token
 @app.route("/google<token>.html")
@@ -541,6 +580,12 @@ def search():
 
     prefix = {"YouTube": "ytsearch50:", "SoundCloud": "scsearch50:",
               "Dailymotion": "dmsearch50:"}.get(source, "ytsearch50:")
+
+    # ── Cache check ───────────────────────────────────────────────────────────
+    cache_key = (query, source, mode)
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return jsonify({"results": cached, "cached": True})
 
     try:
         search_opts = {"quiet": True, "no_warnings": True,
@@ -597,6 +642,7 @@ def search():
                 "thumbnail": thumb,
                 "filesize":  filesize,
             })
+        _cache_set(cache_key, results)
         return jsonify({"results": results})
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
