@@ -589,11 +589,11 @@ select:focus { border-color: var(--red); }
   <div class="panel active" id="panel-playlist">
     <div class="card">
       <div class="card-body">
-        <div class="sec-label"><i class="ri-play-list-fill"></i> Playlist URL</div>
+        <div class="sec-label"><i class="ri-play-list-fill"></i> Playlist / Video URL</div>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-links-line"></i>
-            <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=…">
+            <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=…" onkeydown="if(event.key==='Enter')ytFetch()">
           </div>
           <button class="btn btn-ghost" id="yt-fetch-btn" onclick="ytFetch()">
             <i class="ri-search-eye-line"></i> Check
@@ -601,8 +601,12 @@ select:focus { border-color: var(--red); }
         </div>
       </div>
       <div id="yt-info" style="display:none">
-        <div class="playlist-info">
-          <i class="ri-play-list-2-fill playlist-info-icon"></i>
+        <div class="playlist-info" id="yt-pl-banner" style="cursor:pointer;" onclick="ytPlaylistPreview()">
+          <div id="yt-pl-thumb-wrap" style="flex-shrink:0;position:relative;width:88px;height:52px;border-radius:8px;overflow:hidden;background:#000;display:none;">
+            <img id="yt-pl-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.15s;" id="yt-pl-play-overlay"><i class="ri-play-circle-fill" style="font-size:26px;color:#fff;"></i></div>
+          </div>
+          <i class="ri-play-list-2-fill playlist-info-icon" id="yt-pl-fallback-icon"></i>
           <div class="playlist-info-body">
             <div class="playlist-info-title" id="yt-pl-title"></div>
             <div class="playlist-info-meta" id="yt-pl-meta"></div>
@@ -640,6 +644,15 @@ select:focus { border-color: var(--red); }
           <button class="btn btn-primary" onclick="doSearch('music')">
             <i class="ri-search-line"></i> Search
           </button>
+        </div>
+        <!-- Format toggle -->
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Format</span>
+          <div style="display:flex;gap:4px;">
+            <button id="music-fmt-mp3" class="src-btn active" onclick="setMusicFmt('mp3',this)"><i class="ri-music-2-fill"></i> MP3 only</button>
+            <button id="music-fmt-mp4" class="src-btn" onclick="setMusicFmt('mp4',this)"><i class="ri-film-fill"></i> MP4 (video)</button>
+            <button id="music-fmt-both" class="src-btn" onclick="setMusicFmt('both',this)"><i class="ri-stack-fill"></i> Both</button>
+          </div>
         </div>
       </div>
       <div class="src-row">
@@ -721,11 +734,24 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-link"></i>
-            <input type="text" id="direct-url" placeholder="YouTube, TikTok, Instagram, Vimeo, 1000+ sites…" onkeydown="if(event.key==='Enter')directDownload()">
+            <input type="text" id="direct-url" placeholder="YouTube, TikTok, Instagram, Vimeo, 1000+ sites…" onkeydown="if(event.key==='Enter')directFetch()">
           </div>
-          <button class="btn btn-teal" onclick="directDownload()">
-            <i class="ri-download-cloud-fill"></i> Download
+          <button class="btn btn-ghost" id="direct-fetch-btn" onclick="directFetch()">
+            <i class="ri-search-eye-line"></i> Check
           </button>
+        </div>
+        <!-- Prefetch info panel -->
+        <div id="direct-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1.5px solid var(--border);display:none;">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div id="direct-thumb-wrap" style="flex-shrink:0;width:80px;height:46px;border-radius:7px;overflow:hidden;background:#000;display:none;position:relative;cursor:pointer;" onclick="directPreview()">
+              <img id="direct-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.28);"><i class="ri-play-circle-fill" style="font-size:22px;color:#fff;"></i></div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div id="direct-info-title" style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+              <div id="direct-info-meta" style="font-size:11px;color:var(--muted);margin-top:2px;"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="quality-row">
@@ -739,6 +765,9 @@ select:focus { border-color: var(--red); }
           <option>360p</option>
           <option>Audio Only (MP3)</option>
         </select>
+        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto">
+          <i class="ri-download-cloud-fill"></i> Download
+        </button>
       </div>
       <div class="card-body" style="padding-top:0">
         <p class="hint">Supports YouTube, TikTok, Instagram, Facebook, Twitter/X, SoundCloud, Vimeo, Dailymotion, Reddit, Twitch, Pinterest &amp; 1000+ other sites.</p>
@@ -1041,11 +1070,19 @@ function clearFilesHistory() {
   if (empty) { list.appendChild(empty); empty.style.display = ''; }
 }
 
-const searchSources = { music: 'YouTube', movies: 'YouTube' };
-const searchResults = { music: [], movies: [] };
-const selectedItems = { music: new Set(), movies: new Set() };
-let   currentTaskId = null;
-let   isDownloading = false;
+const searchSources  = { music: 'YouTube', movies: 'YouTube' };
+const searchResults  = { music: [], movies: [] };
+const selectedItems  = { music: new Set(), movies: new Set() };
+let   currentTaskId  = null;
+let   isDownloading  = false;
+let   _musicFormat   = 'mp3';   // 'mp3' | 'mp4' | 'both'
+let   _directUrlData = null;    // cached prefetch data for direct tab
+
+function setMusicFmt(fmt, btn) {
+  _musicFormat = fmt;
+  document.querySelectorAll('#music-fmt-mp3,#music-fmt-mp4,#music-fmt-both').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
 
 function switchTab(tab, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -1195,10 +1232,10 @@ async function startDownload(payload) {
 
 async function ytFetch() {
   const url = document.getElementById('yt-url').value.trim();
-  if (!url) { log('⚠  Paste a playlist URL first.', 'warn'); return; }
+  if (!url) { log('⚠️  Paste a playlist URL first.', 'warn'); return; }
   const btn = document.getElementById('yt-fetch-btn');
   btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Fetching…';
-  log('🔍  Fetching playlist info…', 'info');
+  log('🔍  Fetching info…', 'info');
   try {
     const res  = await fetch('/api/prefetch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url}) });
     const data = await res.json();
@@ -1207,11 +1244,32 @@ async function ytFetch() {
     document.getElementById('yt-pl-title').textContent = data.title;
     const dur  = data.duration ? '  ·  ' + fmtDur(data.duration) : '';
     const size = data.filesize ? '  ·  ' + fmtSize(data.filesize) : '';
-    document.getElementById('yt-pl-meta').textContent = `${data.count} video(s)${data.uploader ? '  ·  ' + data.uploader : ''}${dur}${size}`;
-    log(`✔  Found: "${data.title}" — ${data.count} videos`, 'ok');
+    const cnt  = data.count > 1 ? `${data.count} videos` : '1 video';
+    document.getElementById('yt-pl-meta').textContent = `${cnt}${data.uploader ? '  ·  ' + data.uploader : ''}${dur}${size}`;
+    // Show thumbnail for YouTube video/playlist
+    const vidMatch = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    const thumbWrap = document.getElementById('yt-pl-thumb-wrap');
+    const thumbImg  = document.getElementById('yt-pl-thumb');
+    const fallback  = document.getElementById('yt-pl-fallback-icon');
+    if (vidMatch) {
+      thumbImg.src = `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg`;
+      thumbWrap.style.display = 'block';
+      if (fallback) fallback.style.display = 'none';
+      document.getElementById('yt-pl-banner').dataset.ytid = vidMatch[1];
+    } else {
+      thumbWrap.style.display = 'none';
+      if (fallback) fallback.style.display = '';
+    }
+    log(`✔  Found: "${data.title}" — ${data.count} video(s)`, 'ok');
   } finally {
     btn.disabled = false; btn.innerHTML = '<i class="ri-search-eye-line"></i> Check';
   }
+}
+function ytPlaylistPreview() {
+  const banner = document.getElementById('yt-pl-banner');
+  const ytid   = banner ? banner.dataset.ytid : '';
+  if (!ytid) return;
+  showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('yt-pl-title').textContent || '');
 }
 
 function ytStartDownload() {
@@ -1326,23 +1384,83 @@ function clearAll(mode) {
 }
 async function downloadSelected(mode) {
   const sel = [...selectedItems[mode]];
-  if (!sel.length) { log('⚠  Select at least one item.', 'warn'); return; }
-  const quality = mode === 'movies' ? document.getElementById('movies-quality').value : 'Audio Only (MP3)';
+  if (!sel.length) { log('⚠️  Select at least one item.', 'warn'); return; }
+  let quality;
+  if (mode === 'movies') {
+    quality = document.getElementById('movies-quality').value;
+  } else if (mode === 'music') {
+    if (_musicFormat === 'mp3') quality = 'Audio Only (MP3)';
+    else if (_musicFormat === 'mp4') quality = 'Best Quality';
+    else quality = 'Audio Only (MP3)'; // 'both' handled below
+  } else {
+    quality = 'Audio Only (MP3)';
+  }
   const urls = sel.map(i => searchResults[mode][i].url);
   log(`⬇  Queuing ${urls.length} item(s)…`, 'info');
-  for (const url of urls) {
+  async function dlOne(url, q, m) {
     await new Promise(resolve => {
-      startDownload({ url, quality, mode });
-      const check = setInterval(() => { if (!isDownloading) { clearInterval(check); resolve(); } }, 500);
+      startDownload({ url, quality: q, mode: m });
+      const check = setInterval(() => { if (!isDownloading) { clearInterval(check); resolve(); } }, 400);
     });
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 300));
+  }
+  if (mode === 'music' && _musicFormat === 'both') {
+    for (const url of urls) {
+      await dlOne(url, 'Audio Only (MP3)', 'music');
+      await dlOne(url, 'Best Quality', 'direct');
+    }
+  } else {
+    for (const url of urls) {
+      await dlOne(url, quality, mode);
+    }
   }
 }
 
+async function directFetch() {
+  const url = document.getElementById('direct-url').value.trim();
+  if (!url) { log('⚠️  Paste a URL first.', 'warn'); return; }
+  const btn = document.getElementById('direct-fetch-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Fetching…';
+  const infoEl = document.getElementById('direct-info');
+  infoEl.style.display = 'none';
+  _directUrlData = null;
+  try {
+    const res  = await fetch('/api/prefetch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+    const data = await res.json();
+    if (data.error) { log('✘  ' + data.error, 'err'); return; }
+    _directUrlData = { url, ...data };
+    document.getElementById('direct-info-title').textContent = data.title || url;
+    const dur  = data.duration ? fmtDur(data.duration) + '  ·  ' : '';
+    const size = data.filesize ? '~' + fmtSize(data.filesize) + '  ·  ' : '';
+    const cnt  = data.count > 1 ? `${data.count} items  ·  ` : '';
+    const upl  = data.uploader || '';
+    document.getElementById('direct-info-meta').textContent = (dur + size + cnt + upl).replace(/\s*·\s*$/, '');
+    const vidMatch = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    const thumbWrap = document.getElementById('direct-thumb-wrap');
+    const thumbImg  = document.getElementById('direct-thumb');
+    if (vidMatch) {
+      thumbImg.src = `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg`;
+      thumbWrap.style.display = 'block';
+      thumbWrap.dataset.ytid = vidMatch[1];
+    } else {
+      thumbWrap.style.display = 'none';
+    }
+    infoEl.style.display = 'block';
+    log(`✔  Found: "${data.title}"`, 'ok');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="ri-search-eye-line"></i> Check';
+  }
+}
+function directPreview() {
+  const wrap = document.getElementById('direct-thumb-wrap');
+  const ytid = wrap ? wrap.dataset.ytid : '';
+  if (!ytid) return;
+  showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('direct-info-title').textContent || '');
+}
 function directDownload() {
   const url = document.getElementById('direct-url').value.trim();
   const quality = document.getElementById('direct-quality').value;
-  if (!url) { log('⚠  Paste a URL first.', 'warn'); return; }
+  if (!url) { log('⚠️  Paste a URL first.', 'warn'); return; }
   startDownload({ url, quality, mode: 'direct' });
 }
 
