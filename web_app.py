@@ -2,6 +2,16 @@ import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipad
 from functools import lru_cache
 import requests as _requests
 from urllib.parse import urlparse
+
+# ── ffmpeg: try static-ffmpeg bundle first, fall back to system PATH ──────────
+_FFMPEG_LOCATION = None
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()          # adds bundled ffmpeg/ffprobe to PATH
+    import shutil as _shutil
+    _FFMPEG_LOCATION = _shutil.which("ffmpeg") or None
+except Exception:
+    pass  # will use system ffmpeg if available
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -379,6 +389,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str) -> dict:
         # ── Let yt-dlp pick the best available format even if DASH fails ──────
         "compat_opts": {"no-youtube-unavailable-videos"},
     }
+    if _FFMPEG_LOCATION:
+        opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
     _inject_cookies(opts)
 
     if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
