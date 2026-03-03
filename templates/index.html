@@ -3,431 +3,414 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BRAINIAC Downloader — YouTube Playlist Downloader</title>
-<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
+<title>BRAINIAC Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:     #0a0e14;
-  --panel:  #111620;
-  --card:   #161d2a;
-  --card2:  #1c2333;
-  --border: #252f42;
-  --red:    #e63946;
-  --red2:   #c1121f;
-  --green:  #2ec27e;
-  --blue:   #4dabf7;
-  --purple: #9775fa;
-  --orange: #e67700;
-  --fg:     #e8edf5;
-  --muted:  #a8b5cc;
-  --white:  #ffffff;
-  --input:  #0d1320;
+  --bg:        #07080d;
+  --bg2:       #0e0f17;
+  --surface:   #13141f;
+  --surface2:  #1a1b28;
+  --surface3:  #21223280;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --fg:        #eaecf5;
+  --fg2:       #bbbfd4;
+  --muted:     #666a84;
+  --purple:    #7c6ff7;
+  --purple2:   #9d8fff;
+  --pink:      #f06292;
+  --green:     #00e5a0;
+  --blue:      #4fc3f7;
+  --orange:    #ffb74d;
+  --red:       #ef5350;
+  --grad1:     linear-gradient(135deg,#7c6ff7,#f06292);
+  --grad2:     linear-gradient(135deg,#4fc3f7,#00e5a0);
+  --grad3:     linear-gradient(135deg,#ffb74d,#ef5350);
+  --shadow:    0 8px 32px rgba(0,0,0,0.5);
+  --shadow2:   0 2px 12px rgba(0,0,0,0.4);
+  --radius:    16px;
+  --radius2:   10px;
+  --radius3:   8px;
 }
 
+html { scroll-behavior: smooth; }
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Montserrat', sans-serif;
   background: var(--bg);
   color: var(--fg);
   min-height: 100vh;
-}
-
-/* ── Toolbar ── */
-.toolbar {
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 56px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-}
-.logo img {
-  height: 36px;
-  width: auto;
-  object-fit: contain;
-  display: block;
-}
-.logo-text {
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--red);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-.tabs { display: flex; gap: 6px; }
-.tab-btn {
-  background: var(--card2);
-  color: var(--muted);
-  border: none;
-  border-radius: 6px;
-  padding: 7px 14px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .15s;
-  white-space: nowrap;
-}
-.tab-btn:hover { background: var(--border); color: var(--fg); }
-.tab-btn.active { background: var(--red); color: var(--white); }
-.tab-btn.active-movies  { background: var(--orange); color: var(--white); }
-.tab-btn.active-direct  { background: var(--purple);  color: var(--white); }
-
-/* ── Main content ── */
-.content { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
-
-/* ── Section label ── */
-.sec-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-  margin-bottom: 10px;
-  margin-top: 24px;
-}
-
-/* ── Card ── */
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-.card-body { padding: 16px; }
-
-/* ── Inputs & buttons ── */
-.input-row { display: flex; gap: 10px; align-items: center; }
-input[type=text], select {
-  flex: 1;
-  background: var(--input);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 11px 14px;
+  overflow-x: hidden;
   font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color .15s;
 }
-input[type=text]:focus { border-color: var(--red); }
-select { cursor: pointer; }
-select option { background: var(--card2); }
 
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 10px; }
+
+/* ── Animated bg mesh ───────────────────────────────────────── */
+.bg-mesh {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(124,111,247,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(240,98,146,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 60% 50%, rgba(79,195,247,0.06) 0%, transparent 60%);
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.wrapper { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 16px 60px; }
+
+/* ── Header ─────────────────────────────────────────────────── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.logo-img { width: 42px; height: 42px; object-fit: contain; border-radius: 10px; }
+.logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+.logo-text span { background: var(--grad1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.header-tag {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); background: var(--surface2); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 20px;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 6px; margin-bottom: 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 5px; overflow-x: auto;
+}
+.tabs::-webkit-scrollbar { height: 0; }
+.tab-btn {
+  flex: 1; min-width: 120px; display: flex; align-items: center; justify-content: center;
+  gap: 7px; padding: 10px 12px; border-radius: 10px; border: none;
+  background: transparent; color: var(--muted); font-family: 'Montserrat', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: all 0.2s ease; letter-spacing: 0.2px;
+}
+.tab-btn i { font-size: 17px; }
+.tab-btn:hover { color: var(--fg2); background: var(--surface2); }
+.tab-btn.active {
+  background: var(--grad1); color: #fff !important;
+  box-shadow: 0 4px 16px rgba(124,111,247,0.35);
+}
+.tab-btn.active-movies { background: var(--grad3); color: #fff !important; box-shadow: 0 4px 16px rgba(255,110,64,0.35); }
+.tab-btn.active-direct { background: var(--grad2); color: #1a1b28 !important; box-shadow: 0 4px 16px rgba(0,229,160,0.3); }
+
+/* ── Panel ──────────────────────────────────────────────────── */
+.panel { display: none; animation: fadeIn 0.3s ease; }
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ── Card ───────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: var(--shadow2); margin-bottom: 16px;
+}
+.card-header {
+  padding: 18px 20px 0;
+}
+.card-body { padding: 16px 20px; }
+.sec-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+}
+.sec-label::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* ── Input row ──────────────────────────────────────────────── */
+.input-row {
+  display: flex; gap: 10px; align-items: stretch;
+}
+.input-wrap { flex: 1; position: relative; }
+.input-wrap i {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 18px; pointer-events: none;
+}
+input[type=text] {
+  width: 100%; padding: 13px 14px 13px 42px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--radius3); color: var(--fg);
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 500;
+  transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+}
+input[type=text]::placeholder { color: var(--muted); font-weight: 400; }
+input[type=text]:focus {
+  border-color: var(--purple); background: var(--bg2);
+  box-shadow: 0 0 0 3px rgba(124,111,247,0.15);
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
 .btn {
-  border: none;
-  border-radius: 7px;
-  padding: 11px 22px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity .15s, background .15s;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 12px 20px; border-radius: var(--radius3); border: none;
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: all 0.2s ease;
+  text-decoration: none; letter-spacing: 0.2px;
 }
-.btn:hover { opacity: .88; }
-.btn-red    { background: var(--red);    color: var(--white); }
-.btn-blue   { background: var(--blue);   color: #0a0e14; }
-.btn-purple { background: var(--purple); color: var(--white); }
-.btn-muted  { background: var(--card2);  color: var(--muted); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn i { font-size: 17px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--grad1); color: #fff; box-shadow: 0 4px 16px rgba(124,111,247,0.4); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(124,111,247,0.55); transform: translateY(-1px); }
+.btn-green2 { background: linear-gradient(135deg,#00e5a0,#00b8d4); color: #0a0b0d; box-shadow: 0 4px 16px rgba(0,229,160,0.35); }
+.btn-green2:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(0,229,160,0.5); transform: translateY(-1px); }
+.btn-orange { background: var(--grad3); color: #fff; box-shadow: 0 4px 16px rgba(255,90,64,0.35); }
+.btn-orange:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-teal { background: var(--grad2); color: #0d1117; box-shadow: 0 4px 16px rgba(79,195,247,0.3); }
+.btn-teal:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-ghost { background: var(--surface2); color: var(--fg2); border: 1px solid var(--border); }
+.btn-ghost:hover:not(:disabled) { background: var(--surface3); border-color: var(--border2); color: var(--fg); }
+.btn-danger { background: linear-gradient(135deg,#ef5350,#c62828); color: #fff; }
+.btn-sm { padding: 8px 14px; font-size: 12px; }
+.btn-sm i { font-size: 15px; }
+.btn-gdrive  { background: #fff; color: #202124; border: 1px solid #dadce0; }
+.btn-gdrive:hover:not(:disabled)  { background: #f0f4ff; }
+.btn-onedrive { background: #0078d4; color: #fff; }
+.btn-onedrive:hover:not(:disabled) { background: #106ebe; }
 
-/* ── Hint text ── */
-.hint {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 0 16px 12px;
-  line-height: 1.5;
-}
-
-/* ── Quality row ── */
+/* ── Quality row ────────────────────────────────────────────── */
 .quality-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px 16px;
-  flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 14px 20px; background: var(--surface2); border-top: 1px solid var(--border);
 }
-.quality-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
-.quality-row select { flex: 0 0 auto; width: auto; padding: 8px 12px; }
+.quality-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+select {
+  padding: 9px 12px; background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius3); color: var(--fg); font-family: 'Montserrat', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer; outline: none;
+}
+select:focus { border-color: var(--purple); }
 
-/* ── Search sources ── */
+/* ── Playlist info ──────────────────────────────────────────── */
+.playlist-info {
+  margin: 0 20px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius2);
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.playlist-info-icon { font-size: 26px; color: var(--purple2); flex-shrink: 0; }
+.playlist-info-body { flex: 1; min-width: 0; }
+.playlist-info-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.playlist-info-meta  { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 500; }
+
+/* ── Source buttons ──────────────────────────────────────────── */
 .src-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px 14px;
-  flex-wrap: wrap;
+  padding: 12px 20px; display: flex; align-items: center; gap: 8px;
+  border-top: 1px solid var(--border); flex-wrap: wrap;
 }
-.src-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-right: 4px; }
+.src-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
 .src-btn {
-  background: var(--card2);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
+  padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border);
+  background: transparent; color: var(--muted); font-family: 'Montserrat', sans-serif;
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;
 }
-.src-btn:hover { color: var(--fg); }
-.src-btn.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.src-btn:hover { border-color: var(--border2); color: var(--fg2); }
+.src-btn.active { background: var(--purple); border-color: var(--purple); color: #fff; box-shadow: 0 2px 10px rgba(124,111,247,0.3); }
 
-/* ── Search results ── */
-.results-area { display: none; }
-.results-list { max-height: 340px; overflow-y: auto; }
+/* ── Results ─────────────────────────────────────────────────── */
+.results-area { display: none; border-top: 1px solid var(--border); }
+.results-list { max-height: 400px; overflow-y: auto; }
 .result-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-  transition: background .12s;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s; position: relative;
 }
-.result-item:hover { background: var(--card2); }
-.result-item.selected { background: rgba(230,57,70,.1); }
+.result-item:last-child { border-bottom: none; }
+.result-item:hover { background: var(--surface2); }
+.result-item.selected { background: rgba(124,111,247,0.08); }
+.result-item.selected::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--grad1); border-radius: 0 3px 3px 0;
+}
 .result-thumb {
-  width: 72px;
-  height: 42px;
-  object-fit: cover;
-  border-radius: 4px;
-  flex-shrink: 0;
-  background: var(--card2);
+  width: 68px; height: 44px; object-fit: cover;
+  border-radius: 6px; flex-shrink: 0; background: var(--surface2);
 }
 .result-thumb-placeholder {
-  width: 72px; height: 42px; border-radius: 4px;
-  background: var(--card2); flex-shrink: 0;
+  width: 68px; height: 44px; background: var(--surface2);
+  border-radius: 6px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 20px; color: var(--muted);
 }
 .result-info { flex: 1; min-width: 0; }
-.result-title { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.result-meta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.result-check { font-size: 18px; color: var(--muted); flex-shrink: 0; }
-.result-item.selected .result-check { color: var(--green); }
-
+.result-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-meta  { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 500; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.result-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: transparent; transition: all 0.15s; font-size: 13px; }
+.result-item.selected .result-check { background: var(--grad1); border-color: transparent; color: #fff; }
+.size-badge { font-size: 10px; background: rgba(124,111,247,0.15); color: var(--purple2); border-radius: 5px; padding: 2px 7px; font-weight: 600; flex-shrink: 0; }
 .results-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border);
-  flex-wrap: wrap;
-  gap: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; background: var(--surface2); border-top: 1px solid var(--border);
+  gap: 10px; flex-wrap: wrap;
 }
 .results-action-left { display: flex; gap: 8px; }
 
-/* ── Progress ── */
-.progress-card { display: none; }
-.file-lbl { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+/* ── Progress card ───────────────────────────────────────────── */
+.progress-card { margin-bottom: 16px; }
+.progress-header {
+  padding: 18px 20px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.file-lbl-wrap { flex: 1; min-width: 0; }
+.file-lbl { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-lbl-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.status-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+  background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 5px;
+}
+.status-badge.downloading { background: rgba(124,111,247,0.15); color: var(--purple2); border-color: rgba(124,111,247,0.3); animation: pulse 2s infinite; }
+.status-badge.done        { background: rgba(0,229,160,0.12); color: var(--green); border-color: rgba(0,229,160,0.3); }
+.status-badge.error       { background: rgba(239,83,80,0.12); color: var(--red); border-color: rgba(239,83,80,0.3); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
 .pbar-outer {
-  background: var(--input);
-  border-radius: 99px;
-  height: 8px;
-  overflow: hidden;
-  margin-bottom: 10px;
+  height: 5px; background: var(--surface2);
+  overflow: hidden; position: relative;
 }
 .pbar-inner {
-  height: 100%;
-  background: var(--red);
-  border-radius: 99px;
-  width: 0%;
-  transition: width .3s;
+  height: 100%; width: 0%;
+  background: var(--grad1);
+  border-radius: 0 3px 3px 0;
+  transition: width 0.4s ease;
+  position: relative;
 }
-.pbar-stats { display: flex; gap: 20px; font-size: 12px; font-weight: 600; color: var(--muted); }
-.dl-btn-row { margin-top: 14px; display: none; gap: 8px; flex-wrap: wrap; }
-.btn-gdrive  { background: #fff; color: #202124; border: 1.5px solid #dadce0; }
-.btn-gdrive:hover { background: #f8f9fa; }
-.btn-onedrive { background: #0078d4; color: #fff; border: none; }
-.btn-onedrive:hover { background: #106ebe; }
-.size-badge { font-size: 10px; background: var(--card2); color: var(--muted); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+.pbar-inner::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+.pbar-stats {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 20px 4px; font-size: 11px; font-weight: 600; color: var(--muted);
+}
+.pbar-stats span:first-child { color: var(--purple2); font-size: 13px; font-weight: 700; }
+.dl-btn-row {
+  display: none; padding: 14px 20px 18px;
+  gap: 10px; flex-wrap: wrap;
+}
 
-/* ── Log ── */
-.log-card { display: block; }
+/* ── Log ─────────────────────────────────────────────────────── */
+.log-card { margin-bottom: 16px; }
 .log-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 6px;
+  padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid var(--border);
 }
-.log-header span { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted); }
-.log-body {
-  background: var(--input);
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 12px;
-  padding: 10px 14px;
-  max-height: 200px;
-  overflow-y: auto;
-  line-height: 1.6;
-}
-.log-body p { margin: 0; }
+.log-title { font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+.log-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.log-body { max-height: 180px; overflow-y: auto; padding: 10px 20px; font-size: 12px; font-weight: 500; font-family: 'Montserrat', monospace; line-height: 1.7; }
+.log-info { color: var(--fg2); }
 .log-ok   { color: var(--green); }
-.log-err  { color: #f85149; }
-.log-warn { color: #f0ad4e; }
-.log-info { color: var(--muted); }
+.log-warn { color: var(--orange); }
+.log-err  { color: var(--red); }
 
-/* ── Panels ── */
-.panel { display: none; }
-.panel.active { display: block; }
+/* ── Hint ─────────────────────────────────────────────────────── */
+.hint { font-size: 12px; color: var(--muted); line-height: 1.6; font-weight: 400; margin-bottom: 14px; }
 
-/* ── Status badge ── */
-.status-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 99px;
-  background: var(--card2);
-  color: var(--muted);
-}
-.status-badge.downloading { background: rgba(230,57,70,.2); color: var(--red); }
-.status-badge.done        { background: rgba(46,194,126,.2); color: var(--green); }
-.status-badge.error       { background: rgba(248,81,73,.2);  color: #f85149; }
+/* ── Footer ──────────────────────────────────────────────────── */
+.footer { text-align: center; padding: 28px 0 8px; font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.3px; }
+.footer span { color: var(--purple2); font-weight: 700; }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--input); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-/* ── Responsive ── */
-@media (max-width: 640px) {
-  /* Viewport base */
-  html { font-size: 15px; }
-
-  /* Toolbar */
-  .toolbar {
-    flex-direction: column;
-    height: auto;
-    padding: 10px 12px;
-    gap: 8px;
-  }
-  .logo { font-size: 14px; }
-  .tabs { flex-wrap: wrap; justify-content: center; gap: 5px; }
-  .tab-btn { font-size: 11px; padding: 6px 10px; }
-
-  /* Content */
-  .content { padding: 14px 10px 50px; }
-  .sec-label { margin-top: 18px; }
-
-  /* Input rows — stack input above button */
-  .input-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .input-row input[type=text] { width: 100%; }
-  .input-row .btn { width: 100%; justify-content: center; }
-
-  /* Prevent iOS auto-zoom on focus */
-  input[type=text], select { font-size: 16px; }
-
-  /* Buttons — full width in certain contexts */
-  .cookie-upload-row { flex-direction: column; align-items: stretch; }
-  .cookie-upload-row .btn,
-  .cookie-file-label { width: 100%; justify-content: center; text-align: center; }
-
-  /* Quality row */
-  .quality-row { padding: 0 12px 12px; gap: 8px; }
-  .quality-row select { width: 100%; }
-
-  /* Search source row */
-  .src-row { padding: 0 12px 12px; gap: 6px; }
-
-  /* Result items */
-  .results-list { max-height: 260px; }
-  .result-thumb,
-  .result-thumb-placeholder { width: 56px; height: 34px; }
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .header { padding: 16px 0 14px; margin-bottom: 18px; }
+  .logo-text { font-size: 16px; }
+  .logo-img  { width: 34px; height: 34px; }
+  .header-tag { display: none; }
+  .tabs { gap: 4px; border-radius: 12px; padding: 4px; }
+  .tab-btn { min-width: 0; flex: 1; padding: 9px 6px; font-size: 10px; gap: 4px; }
+  .tab-btn i { font-size: 16px; }
+  .input-row { flex-direction: column; }
+  .input-row .btn { width: 100%; }
+  input[type=text] { font-size: 14px; }
+  .result-thumb { width: 56px; height: 38px; }
   .result-title { font-size: 12px; }
   .result-meta  { font-size: 10px; }
-  .results-action { padding: 8px 12px; }
-
-  /* Progress */
-  .pbar-stats { flex-wrap: wrap; gap: 8px; font-size: 11px; }
-  .file-lbl { font-size: 12px; }
-
-  /* Log */
-  .log-body { font-size: 11px; max-height: 160px; }
-
-  /* Cookie card */
-  .cookie-instructions { font-size: 11px; padding: 8px 10px; }
-  .cookie-instructions ol { padding-left: 14px; }
-
-  /* Download button rows */
+  .quality-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .quality-row .btn { width: 100%; }
+  select { width: 100%; }
   .results-action { flex-direction: column; }
-  .results-action-left { width: 100%; }
-  .results-action-left .btn { flex: 1; }
-  .results-action > .btn { width: 100%; }
-
-  /* Hint text */
-  .hint { padding: 0 12px 10px; font-size: 11px; }
-
-  /* Card body */
-  .card-body { padding: 12px; }
+  .results-action .btn { width: 100%; }
+  .dl-btn-row { flex-direction: column; }
+  .dl-btn-row .btn, .dl-btn-row a { width: 100%; text-align: center; }
+  .pbar-stats { font-size: 10px; }
+  .card-body, .quality-row, .src-row, .results-action, .log-header, .log-body { padding-left: 14px; padding-right: 14px; }
+  .result-item { padding: 9px 14px; }
+  .playlist-info { margin: 0 14px 14px; }
+  .progress-header { padding: 14px 14px 10px; }
+  .pbar-stats { padding: 6px 14px 2px; }
+  .dl-btn-row { padding: 10px 14px 14px; }
 }
-
-.footer {
-  text-align: center;
-  padding: 24px 0 16px;
-  font-size: 12px;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-  margin-top: 12px;
-}
-.footer span { color: var(--fg); font-weight: 600; }
 </style>
 </head>
 <body>
+<div class="bg-mesh"></div>
+<div class="wrapper">
 
-<!-- Toolbar -->
-<div class="toolbar">
-  <div class="logo">
-    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC logo">
-    <span class="logo-text">BRAINIAC Downloader</span>
-  </div>
+  <!-- ═══ HEADER ═══ -->
+  <header class="header">
+    <div class="logo">
+      <img class="logo-img" src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC">
+      <div class="logo-text">BRAIN<span>IAC</span></div>
+    </div>
+    <div class="header-tag">Downloader v2</div>
+  </header>
+
+  <!-- ═══ TABS ═══ -->
   <div class="tabs">
-    <button class="tab-btn active"       data-tab="playlist" onclick="switchTab('playlist',this)">📺 YouTube Playlist</button>
-    <button class="tab-btn"              data-tab="music"    onclick="switchTab('music',this)"   >🎵 Music</button>
-    <button class="tab-btn"              data-tab="movies"   onclick="switchTab('movies',this)"  >🎬 Movies</button>
-    <button class="tab-btn"              data-tab="direct"   onclick="switchTab('direct',this)"  >🔗 Direct Download</button>
+    <button class="tab-btn active" data-tab="playlist" onclick="switchTab('playlist',this)">
+      <i class="ri-youtube-fill"></i> YouTube
+    </button>
+    <button class="tab-btn" data-tab="music" onclick="switchTab('music',this)">
+      <i class="ri-music-2-fill"></i> Music
+    </button>
+    <button class="tab-btn" data-tab="movies" onclick="switchTab('movies',this)">
+      <i class="ri-film-fill"></i> Movies
+    </button>
+    <button class="tab-btn" data-tab="direct" onclick="switchTab('direct',this)">
+      <i class="ri-link"></i> Direct
+    </button>
   </div>
-</div>
 
-<div class="content">
-
-  <!-- ═══ YOUTUBE PLAYLIST PANEL ═══ -->
+  <!-- ═══ YOUTUBE PLAYLIST ═══ -->
   <div class="panel active" id="panel-playlist">
-    <div class="sec-label">YOUTUBE PLAYLIST URL</div>
     <div class="card">
       <div class="card-body">
-        <div class="hint" style="padding:0 0 12px">Paste a YouTube playlist URL to download every video.</div>
+        <div class="sec-label"><i class="ri-play-list-fill"></i> Playlist URL</div>
         <div class="input-row">
-          <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=..." />
-          <button class="btn btn-red" id="yt-fetch-btn" onclick="ytFetch()">🔍 Check</button>
+          <div class="input-wrap">
+            <i class="ri-links-line"></i>
+            <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=…">
+          </div>
+          <button class="btn btn-ghost" id="yt-fetch-btn" onclick="ytFetch()">
+            <i class="ri-search-eye-line"></i> Check
+          </button>
         </div>
       </div>
-      <!-- Playlist info (hidden until fetch) -->
-      <div id="yt-info" style="display:none; padding: 0 16px 4px;">
-        <div style="background:var(--card2);border-radius:8px;padding:12px 16px;margin-bottom:12px;">
-          <div style="font-size:14px;font-weight:700;color:var(--fg)" id="yt-pl-title"></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px" id="yt-pl-meta"></div>
+      <div id="yt-info" style="display:none">
+        <div class="playlist-info">
+          <i class="ri-play-list-2-fill playlist-info-icon"></i>
+          <div class="playlist-info-body">
+            <div class="playlist-info-title" id="yt-pl-title"></div>
+            <div class="playlist-info-meta"  id="yt-pl-meta"></div>
+          </div>
         </div>
       </div>
       <div class="quality-row">
-        <span class="quality-label">VIDEO QUALITY:</span>
+        <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
+        <span class="quality-label">Quality</span>
         <select id="yt-quality">
           <option>Best Quality</option>
           <option>1080p</option>
@@ -436,23 +419,30 @@ select option { background: var(--card2); }
           <option>360p</option>
           <option>Audio Only (MP3)</option>
         </select>
-        <button class="btn btn-red" id="yt-dl-btn" onclick="ytStartDownload()" style="margin-left:auto">⬇ Start Download</button>
+        <button class="btn btn-primary" id="yt-dl-btn" onclick="ytStartDownload()" style="margin-left:auto">
+          <i class="ri-download-cloud-2-fill"></i> Download
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- ═══ MUSIC PANEL ═══ -->
+  <!-- ═══ MUSIC ═══ -->
   <div class="panel" id="panel-music">
-    <div class="sec-label">SEARCH MUSIC</div>
     <div class="card">
       <div class="card-body">
+        <div class="sec-label"><i class="ri-search-line"></i> Search Music</div>
         <div class="input-row">
-          <input type="text" id="music-q" placeholder="Search for a song, artist…" onkeydown="if(event.key==='Enter')doSearch('music')" />
-          <button class="btn btn-blue" onclick="doSearch('music')">🔍 Search</button>
+          <div class="input-wrap">
+            <i class="ri-music-search-line" style="font-size:17px"></i>
+            <input type="text" id="music-q" placeholder="Song, artist, album…" onkeydown="if(event.key==='Enter')doSearch('music')">
+          </div>
+          <button class="btn btn-primary" onclick="doSearch('music')">
+            <i class="ri-search-line"></i> Search
+          </button>
         </div>
       </div>
       <div class="src-row">
-        <span class="src-label">Search on:</span>
+        <span class="src-label">Source</span>
         <button class="src-btn active" data-src-group="music" onclick="setSrc('music',this,'YouTube')">YouTube</button>
         <button class="src-btn"        data-src-group="music" onclick="setSrc('music',this,'SoundCloud')">SoundCloud</button>
         <button class="src-btn"        data-src-group="music" onclick="setSrc('music',this,'Dailymotion')">Dailymotion</button>
@@ -461,33 +451,41 @@ select option { background: var(--card2); }
         <div class="results-list" id="results-list-music"></div>
         <div class="results-action">
           <div class="results-action-left">
-            <button class="btn btn-muted" onclick="selectAll('music')" style="font-size:12px;padding:7px 12px">☑ All</button>
-            <button class="btn btn-muted" onclick="clearAll('music')"  style="font-size:12px;padding:7px 12px">☐ None</button>
+            <button class="btn btn-ghost btn-sm" onclick="selectAll('music')"><i class="ri-checkbox-multiple-fill"></i> All</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearAll('music')"><i class="ri-checkbox-multiple-blank-line"></i> None</button>
           </div>
-          <button class="btn btn-red" onclick="downloadSelected('music')">⬇ Download Selected</button>
+          <button class="btn btn-primary" onclick="downloadSelected('music')">
+            <i class="ri-download-2-fill"></i> Download Selected
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ═══ MOVIES PANEL ═══ -->
+  <!-- ═══ MOVIES ═══ -->
   <div class="panel" id="panel-movies">
-    <div class="sec-label">SEARCH MOVIES &amp; VIDEOS</div>
     <div class="card">
       <div class="card-body">
+        <div class="sec-label"><i class="ri-search-line"></i> Search Movies &amp; Videos</div>
         <div class="input-row">
-          <input type="text" id="movies-q" placeholder="Search for a movie, show, video clip…" onkeydown="if(event.key==='Enter')doSearch('movies')" />
-          <button class="btn" style="background:var(--orange);color:#fff" onclick="doSearch('movies')">🔍 Search</button>
+          <div class="input-wrap">
+            <i class="ri-movie-search-line" style="font-size:17px"></i>
+            <input type="text" id="movies-q" placeholder="Movie, show, video clip…" onkeydown="if(event.key==='Enter')doSearch('movies')">
+          </div>
+          <button class="btn btn-orange" onclick="doSearch('movies')">
+            <i class="ri-search-line"></i> Search
+          </button>
         </div>
       </div>
       <div class="src-row">
-        <span class="src-label">Search on:</span>
+        <span class="src-label">Source</span>
         <button class="src-btn active" data-src-group="movies" onclick="setSrc('movies',this,'YouTube')">YouTube</button>
         <button class="src-btn"        data-src-group="movies" onclick="setSrc('movies',this,'SoundCloud')">SoundCloud</button>
         <button class="src-btn"        data-src-group="movies" onclick="setSrc('movies',this,'Dailymotion')">Dailymotion</button>
       </div>
       <div class="quality-row">
-        <span class="quality-label">VIDEO QUALITY:</span>
+        <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
+        <span class="quality-label">Quality</span>
         <select id="movies-quality">
           <option>Best Quality</option>
           <option>1080p</option>
@@ -501,27 +499,35 @@ select option { background: var(--card2); }
         <div class="results-list" id="results-list-movies"></div>
         <div class="results-action">
           <div class="results-action-left">
-            <button class="btn btn-muted" onclick="selectAll('movies')" style="font-size:12px;padding:7px 12px">☑ All</button>
-            <button class="btn btn-muted" onclick="clearAll('movies')"  style="font-size:12px;padding:7px 12px">☐ None</button>
+            <button class="btn btn-ghost btn-sm" onclick="selectAll('movies')"><i class="ri-checkbox-multiple-fill"></i> All</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearAll('movies')"><i class="ri-checkbox-multiple-blank-line"></i> None</button>
           </div>
-          <button class="btn" style="background:var(--orange);color:#fff" onclick="downloadSelected('movies')">⬇ Download Selected</button>
+          <button class="btn btn-orange" onclick="downloadSelected('movies')">
+            <i class="ri-download-2-fill"></i> Download Selected
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ═══ DIRECT DOWNLOAD PANEL ═══ -->
+  <!-- ═══ DIRECT ═══ -->
   <div class="panel" id="panel-direct">
-    <div class="sec-label">DIRECT FILE DOWNLOAD</div>
     <div class="card">
       <div class="card-body">
+        <div class="sec-label"><i class="ri-global-line"></i> Direct URL Download</div>
         <div class="input-row">
-          <input type="text" id="direct-url" placeholder="Paste any URL — YouTube, TikTok, Instagram, Vimeo…" onkeydown="if(event.key==='Enter')directDownload()" />
-          <button class="btn btn-purple" onclick="directDownload()">⬇ Download</button>
+          <div class="input-wrap">
+            <i class="ri-link"></i>
+            <input type="text" id="direct-url" placeholder="YouTube, TikTok, Instagram, Vimeo, 1000+ sites…" onkeydown="if(event.key==='Enter')directDownload()">
+          </div>
+          <button class="btn btn-teal" onclick="directDownload()">
+            <i class="ri-download-cloud-fill"></i> Download
+          </button>
         </div>
       </div>
       <div class="quality-row">
-        <span class="quality-label">FORMAT:</span>
+        <i class="ri-file-video-line" style="color:var(--muted);font-size:18px"></i>
+        <span class="quality-label">Format</span>
         <select id="direct-quality">
           <option>Best Quality</option>
           <option>1080p</option>
@@ -531,44 +537,44 @@ select option { background: var(--card2); }
           <option>Audio Only (MP3)</option>
         </select>
       </div>
-      <p class="hint">Supports YouTube, TikTok, Instagram, Facebook, Twitter/X, SoundCloud, Vimeo, Dailymotion, Reddit, Twitch, Pinterest, and 1000+ other sites. Paste any URL and hit Download.</p>
+      <div class="card-body" style="padding-top:0">
+        <p class="hint">Supports YouTube, TikTok, Instagram, Facebook, Twitter/X, SoundCloud, Vimeo, Dailymotion, Reddit, Twitch, Pinterest &amp; 1000+ other sites.</p>
+      </div>
     </div>
   </div>
 
   <!-- ═══ PROGRESS ═══ -->
-  <div class="sec-label" id="prog-sec-label" style="display:none">DOWNLOAD PROGRESS</div>
-  <div class="card progress-card" id="progress-card">
-    <div class="card-body">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+  <div class="card progress-card" id="progress-card" style="display:none">
+    <div class="progress-header">
+      <div class="file-lbl-wrap">
         <div class="file-lbl" id="file-lbl">Waiting…</div>
-        <span class="status-badge" id="status-badge">Idle</span>
       </div>
-      <div class="pbar-outer"><div class="pbar-inner" id="pbar"></div></div>
-      <div class="pbar-stats">
-        <span id="pct-lbl">0%</span>
-        <span id="speed-lbl">—</span>
-        <span id="eta-lbl">—</span>
-      </div>
-      <div class="dl-btn-row" id="dl-btn-row"></div>
+      <div class="status-badge" id="status-badge"><i class="ri-wireless-charging-line"></i> Idle</div>
     </div>
+    <div class="pbar-outer"><div class="pbar-inner" id="pbar"></div></div>
+    <div class="pbar-stats">
+      <span id="pct-lbl">0%</span>
+      <span id="speed-lbl">—</span>
+      <span id="eta-lbl">—</span>
+    </div>
+    <div class="dl-btn-row" id="dl-btn-row"></div>
   </div>
 
   <!-- ═══ LOG ═══ -->
-  <div class="sec-label">ACTIVITY LOG</div>
   <div class="card log-card">
     <div class="log-header">
-      <span>LOG</span>
-      <button class="btn btn-muted" onclick="clearLog()" style="font-size:11px;padding:4px 10px">Clear</button>
+      <div class="log-title"><div class="log-dot"></div> Activity Log</div>
+      <button class="btn btn-ghost btn-sm" onclick="clearLog()"><i class="ri-delete-bin-5-line"></i> Clear</button>
     </div>
     <div class="log-body" id="log-body">
-      <p class="log-info">Ready.</p>
+      <p class="log-info">Ready. Paste a URL or search above.</p>
     </div>
   </div>
 
   <!-- ═══ FOOTER ═══ -->
   <div class="footer">Developed by <span>Francis Kusi</span> &mdash; BRAINIAC Downloader &copy; 2026</div>
 
-</div><!-- /content -->
+</div><!-- /wrapper -->
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -619,21 +625,25 @@ function clearLog() {
 
 // ── Progress UI ───────────────────────────────────────────────────────────────
 function showProgress() {
-  document.getElementById('prog-sec-label').style.display = '';
-  document.getElementById('progress-card').style.display  = 'block';
+  document.getElementById('progress-card').style.display = 'block';
 }
 function setProgress(pct, speed, eta, filename) {
   document.getElementById('pbar').style.width = pct + '%';
   document.getElementById('pct-lbl').textContent   = pct + '%';
   document.getElementById('speed-lbl').textContent = speed || '—';
   document.getElementById('eta-lbl').textContent   = eta   ? 'ETA ' + eta : '—';
-  if (filename) document.getElementById('file-lbl').textContent = '📄 ' + filename;
+  if (filename) document.getElementById('file-lbl').textContent = filename;
 }
 function setBadge(state) {
   const b = document.getElementById('status-badge');
   b.className = 'status-badge ' + state;
-  const labels = { downloading: '⬇ Downloading…', done: '✔ Done', error: '✘ Error', idle: 'Idle' };
-  b.textContent = labels[state] || state;
+  const map = {
+    downloading: '<i class="ri-loader-4-line"></i> Downloading',
+    done:        '<i class="ri-checkbox-circle-fill"></i> Done',
+    error:       '<i class="ri-error-warning-fill"></i> Error',
+    idle:        '<i class="ri-wireless-charging-line"></i> Idle',
+  };
+  b.innerHTML = map[state] || state;
 }
 
 // ── SSE subscription ──────────────────────────────────────────────────────────
@@ -642,38 +652,32 @@ function subscribeProgress(taskId, onDone) {
   es.onmessage = e => {
     const d = JSON.parse(e.data);
     if (d.type === 'progress') {
-      setProgress(d.pct, d.speed, d.eta, d.filename);
+      setProgress(d.pct, d.speed, d.eta, d.filename ? '⬇  ' + d.filename : null);
       setBadge('downloading');
     } else if (d.type === 'log') {
       log(d.msg, d.level || 'info');
     } else if (d.type === 'done') {
       es.close();
-      setProgress(100, '', '', '✔  All complete!');
-      document.getElementById('file-lbl').textContent = '✔  Download complete!';
+      setProgress(100, '', '', '✔  Download complete!');
       setBadge('done');
       isDownloading = false;
-      // Show download button
       const row = document.getElementById('dl-btn-row');
       row.style.display = 'flex';
-      const saveLabel = `💾 Save File${d.count > 1 ? 's (' + d.count + ' as .zip)' : ''}`;
-      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green" style="background:var(--green);color:#0a0e14;text-decoration:none;display:inline-flex;align-items:center">${saveLabel}</a>`;
-      log(`🎉 Done! ${d.count} file(s) ready. Click "Save File" to download.`, 'ok');
-      // Show cloud upload buttons if configured
+      const saveLabel = `Save File${d.count > 1 ? 's  (' + d.count + ' as .zip)' : ''}`;
+      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
+      log(`🎉 Done! ${d.count} file(s) ready.`, 'ok');
       showCloudButtons(row, taskId);
       if (onDone) onDone();
     } else if (d.type === 'error') {
       es.close();
       setBadge('error');
       isDownloading = false;
-      document.getElementById('file-lbl').textContent = '✘ Error — see log.';
+      document.getElementById('file-lbl').textContent = '✘  Error — see log.';
       log('✘  ' + d.msg, 'err');
       if (onDone) onDone();
     }
   };
-  es.onerror = () => {
-    es.close();
-    isDownloading = false;
-  };
+  es.onerror = () => { es.close(); isDownloading = false; };
 }
 
 // ── Generic download starter ──────────────────────────────────────────────────
@@ -682,7 +686,7 @@ async function startDownload(payload) {
   isDownloading = true;
   showProgress();
   setBadge('downloading');
-  setProgress(0, '', '', 'Starting…');
+  setProgress(0, '', '', '⏳  Starting…');
   document.getElementById('dl-btn-row').style.display = 'none';
   document.getElementById('dl-btn-row').innerHTML     = '';
 
@@ -697,23 +701,23 @@ async function startDownload(payload) {
 async function ytFetch() {
   const url = document.getElementById('yt-url').value.trim();
   if (!url) { log('⚠  Paste a playlist URL first.', 'warn'); return; }
-
   const btn = document.getElementById('yt-fetch-btn');
-  btn.disabled = true; btn.textContent = '⏳ Fetching…';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ri-loader-4-line"></i> Fetching…';
   log('🔍  Fetching playlist info…', 'info');
-
   try {
     const res  = await fetch('/api/prefetch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url}) });
     const data = await res.json();
     if (data.error) { log('✘  ' + data.error, 'err'); return; }
-    document.getElementById('yt-info').style.display  = 'block';
+    document.getElementById('yt-info').style.display = 'block';
     document.getElementById('yt-pl-title').textContent = data.title;
-    const dur  = data.duration  ? '  ·  ' + fmtDur(data.duration)  : '';
-    const size = data.filesize  ? '  ·  ' + fmtSize(data.filesize) : '';
-    document.getElementById('yt-pl-meta').textContent  = `${data.count} video(s)${data.uploader ? '  ·  ' + data.uploader : ''}${dur}${size}`;
+    const dur  = data.duration ? '  ·  ' + fmtDur(data.duration)  : '';
+    const size = data.filesize ? '  ·  ' + fmtSize(data.filesize) : '';
+    document.getElementById('yt-pl-meta').textContent = `${data.count} video(s)${data.uploader ? '  ·  ' + data.uploader : ''}${dur}${size}`;
     log(`✔  Found: "${data.title}" — ${data.count} videos`, 'ok');
   } finally {
-    btn.disabled = false; btn.textContent = '🔍 Check';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ri-search-eye-line"></i> Check';
   }
 }
 
@@ -729,11 +733,9 @@ async function doSearch(mode) {
   const q   = document.getElementById(mode + '-q').value.trim();
   const src = searchSources[mode];
   if (!q) { log('⚠  Enter a search term.', 'warn'); return; }
-
   log(`🔍  Searching ${src} for "${q}"…`, 'info');
   const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
   const data = await res.json();
-
   if (data.error) { log('✘  ' + data.error, 'err'); return; }
   searchResults[mode] = data.results;
   selectedItems[mode].clear();
@@ -754,15 +756,21 @@ function renderResults(mode, results) {
 
     const thumb = r.thumbnail
       ? `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="this.style.display='none'">`
-      : `<div class="result-thumb-placeholder">🎵</div>`;
+      : `<div class="result-thumb-placeholder"><i class="ri-music-2-fill"></i></div>`;
+
+    const sizeBadge = r.filesize > 0 ? `<span class="size-badge">${fmtSize(r.filesize)}</span>` : '';
 
     item.innerHTML = `
       ${thumb}
       <div class="result-info">
         <div class="result-title">${escHtml(r.title)}</div>
-        <div class="result-meta">${escHtml(r.uploader)}${r.duration ? ' · ' + r.duration : ''}${r.filesize > 0 ? '<span class="size-badge">' + fmtSize(r.filesize) + '</span>' : ''}</div>
+        <div class="result-meta">
+          ${r.uploader ? '<span>' + escHtml(r.uploader) + '</span>' : ''}
+          ${r.duration  ? '<span>· ' + r.duration + '</span>' : ''}
+          ${sizeBadge}
+        </div>
       </div>
-      <span class="result-check">☐</span>
+      <div class="result-check"><i class="ri-check-line" style="font-size:13px"></i></div>
     `;
     item.onclick = () => toggleResult(mode, i, item);
     list.appendChild(item);
@@ -773,49 +781,32 @@ function toggleResult(mode, idx, el) {
   if (selectedItems[mode].has(idx)) {
     selectedItems[mode].delete(idx);
     el.classList.remove('selected');
-    el.querySelector('.result-check').textContent = '☐';
   } else {
     selectedItems[mode].add(idx);
     el.classList.add('selected');
-    el.querySelector('.result-check').textContent = '☑';
   }
 }
 
 function selectAll(mode) {
   searchResults[mode].forEach((_, i) => selectedItems[mode].add(i));
-  document.querySelectorAll(`#results-list-${mode} .result-item`).forEach(el => {
-    el.classList.add('selected');
-    el.querySelector('.result-check').textContent = '☑';
-  });
+  document.querySelectorAll(`#results-list-${mode} .result-item`).forEach(el => el.classList.add('selected'));
 }
 
 function clearAll(mode) {
   selectedItems[mode].clear();
-  document.querySelectorAll(`#results-list-${mode} .result-item`).forEach(el => {
-    el.classList.remove('selected');
-    el.querySelector('.result-check').textContent = '☐';
-  });
+  document.querySelectorAll(`#results-list-${mode} .result-item`).forEach(el => el.classList.remove('selected'));
 }
 
 async function downloadSelected(mode) {
   const sel = [...selectedItems[mode]];
   if (!sel.length) { log('⚠  Select at least one item.', 'warn'); return; }
-
-  const quality = mode === 'movies'
-    ? document.getElementById('movies-quality').value
-    : 'Audio Only (MP3)';
-
-  // Download one at a time sequentially (queue them)
+  const quality = mode === 'movies' ? document.getElementById('movies-quality').value : 'Audio Only (MP3)';
   const urls = sel.map(i => searchResults[mode][i].url);
   log(`⬇  Queuing ${urls.length} item(s)…`, 'info');
-
   for (const url of urls) {
     await new Promise(resolve => {
       startDownload({ url, quality, mode });
-      // Wait for SSE done/error via polling task
-      const check = setInterval(() => {
-        if (!isDownloading) { clearInterval(check); resolve(); }
-      }, 500);
+      const check = setInterval(() => { if (!isDownloading) { clearInterval(check); resolve(); } }, 500);
     });
     await new Promise(r => setTimeout(r, 500));
   }
@@ -833,7 +824,6 @@ function directDownload() {
 function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function fmtSize(bytes) {
   if (!bytes || bytes <= 0) return '';
   if (bytes >= 1e9)  return (bytes / 1e9).toFixed(1) + ' GB';
@@ -841,19 +831,14 @@ function fmtSize(bytes) {
   if (bytes >= 1e3)  return (bytes / 1e3).toFixed(0) + ' KB';
   return bytes + ' B';
 }
-
 function fmtDur(secs) {
   if (!secs) return '';
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  return h > 0
-    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-    : `${m}:${String(s).padStart(2,'0')}`;
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
 }
 
-// ── Cloud Upload ─────────────────────────────────────────────────────────────
-let _cloudStatus = null;   // cached {gdrive:{configured,authed}, onedrive:{configured,authed}}
+// ── Cloud Upload ──────────────────────────────────────────────────────────────
+let _cloudStatus = null;
 
 async function showCloudButtons(row, taskId) {
   if (!_cloudStatus) {
@@ -867,7 +852,7 @@ async function showCloudButtons(row, taskId) {
     const btn = document.createElement('button');
     btn.id = 'gdrive-btn-' + taskId;
     btn.className = 'btn btn-gdrive';
-    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/24px-Google_Drive_icon_%282020%29.svg.png" style="height:16px;vertical-align:middle;margin-right:5px"> Google Drive';
+    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/18px-Google_Drive_icon_%282020%29.svg.png" style="height:16px;vertical-align:middle;margin-right:6px"> Google Drive';
     btn.onclick = () => uploadToCloud('gdrive', taskId);
     row.appendChild(btn);
   }
@@ -875,7 +860,7 @@ async function showCloudButtons(row, taskId) {
     const btn = document.createElement('button');
     btn.id = 'onedrive-btn-' + taskId;
     btn.className = 'btn btn-onedrive';
-    btn.innerHTML = '☁ OneDrive';
+    btn.innerHTML = '<i class="ri-cloud-fill"></i> OneDrive';
     btn.onclick = () => uploadToCloud('onedrive', taskId);
     row.appendChild(btn);
   }
@@ -883,70 +868,51 @@ async function showCloudButtons(row, taskId) {
 
 function openOAuthPopup(service, taskId) {
   return new Promise((resolve, reject) => {
-    const url = `/api/${service}/auth?task_id=${taskId}`;
-    const popup = window.open(url, `${service}_auth`, 'width=520,height=640,resizable=yes');
+    const popup = window.open(`/api/${service}/auth?task_id=${taskId}`, `${service}_auth`, 'width=520,height=640,resizable=yes');
     const evtType = service === 'gdrive' ? 'gdrive_authed' : 'od_authed';
     const errType = service === 'gdrive' ? 'gdrive_error'  : 'od_error';
     function onMsg(e) {
-      if (e.data?.type === evtType) {
-        window.removeEventListener('message', onMsg);
-        popup?.close();
-        _cloudStatus = null; // invalidate cache so it re-checks authed state
-        resolve();
-      } else if (e.data?.type === errType) {
-        window.removeEventListener('message', onMsg);
-        popup?.close();
-        reject(new Error(e.data.msg || 'OAuth failed'));
-      }
+      if (e.data?.type === evtType) { window.removeEventListener('message', onMsg); popup?.close(); _cloudStatus = null; resolve(); }
+      else if (e.data?.type === errType) { window.removeEventListener('message', onMsg); popup?.close(); reject(new Error(e.data.msg || 'OAuth failed')); }
     }
     window.addEventListener('message', onMsg);
-    // If popup is closed without completing, reject after a timeout check
-    const timer = setInterval(() => {
-      if (popup && popup.closed) {
-        clearInterval(timer);
-        window.removeEventListener('message', onMsg);
-        reject(new Error('Popup was closed'));
-      }
-    }, 500);
+    const timer = setInterval(() => { if (popup && popup.closed) { clearInterval(timer); window.removeEventListener('message', onMsg); reject(new Error('Popup was closed')); } }, 500);
   });
 }
 
 async function uploadToCloud(service, taskId) {
   const btn = document.getElementById(`${service}-btn-${taskId}`);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Uploading…'; }
-
-  // Try upload — if 401, open OAuth popup then retry once
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Uploading…'; }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res  = await fetch(`/api/${service}/upload/${taskId}`, { method: 'POST' });
       const data = await res.json();
       if (res.status === 401 || data.error === 'not_authed') {
         if (attempt === 0) {
-          if (btn) btn.textContent = '🔐 Sign in…';
+          if (btn) btn.innerHTML = '<i class="ri-key-2-fill"></i> Sign in…';
           await openOAuthPopup(service, taskId);
-          if (btn) btn.textContent = '⏳ Uploading…';
-          continue; // retry
+          if (btn) btn.innerHTML = '<i class="ri-loader-4-line"></i> Uploading…';
+          continue;
         }
         throw new Error('Authentication failed');
       }
       if (data.ok) {
         const label = service === 'gdrive' ? 'Google Drive' : 'OneDrive';
-        if (btn) { btn.disabled = false; btn.textContent = `✔ Saved to ${label}`; }
-        const linkHtml = data.url ? ` <a href="${escHtml(data.url)}" target="_blank" style="color:var(--accent);text-decoration:underline">Open ↗</a>` : '';
-        logHtml(`✔ File uploaded to ${label}.${linkHtml}`, 'ok');
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="ri-checkbox-circle-fill"></i> Saved to ${label}`; }
+        const linkHtml = data.url ? ` <a href="${escHtml(data.url)}" target="_blank" style="color:var(--purple2);text-decoration:underline">Open ↗</a>` : '';
+        logHtml(`✔ Uploaded to ${label}.${linkHtml}`, 'ok');
         return;
       }
       throw new Error(data.error || 'Upload failed');
     } catch (err) {
       if (attempt === 1 || err.message === 'Popup was closed') {
-        if (btn) { btn.disabled = false; btn.textContent = '✘ Upload failed'; }
-        log('✘ Cloud upload error: ' + err.message, 'err');
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="ri-error-warning-line"></i> Failed`; }
+        log('✘ Cloud upload: ' + err.message, 'err');
         return;
       }
     }
   }
 }
-
 </script>
 </body>
 </html>
