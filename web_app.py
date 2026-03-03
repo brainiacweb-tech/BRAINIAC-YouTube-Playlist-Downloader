@@ -1115,13 +1115,6 @@ def onedrive_upload(task_id):
         return jsonify({"ok": True, "url": web_url})
 
 
-# ── Cloud disconnect ──────────────────────────────────────────────────────────
-@app.route("/api/gdrive/disconnect", methods=["POST"])
-@login_required
-def gdrive_disconnect():
-    session.pop("gdrive_token", None)
-    return jsonify({"ok": True})
-
 @app.route("/api/onedrive/disconnect", methods=["POST"])
 @login_required
 def onedrive_disconnect():
