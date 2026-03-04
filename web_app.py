@@ -595,11 +595,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ios client bypasses YouTube bot-detection without cookies.
-        # skip_webpage skips the JS-heavy page that triggers the sign-in check.
+        # tv client uses a Smart-TV endpoint that bypasses datacenter IP blocks.
+        # web_creator uses YouTube Studio endpoint — also less restricted.
+        # ios/mweb kept as fallbacks. android_creator/tv_embedded removed (unsupported).
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                "player_client": ["tv", "web_creator", "ios", "mweb"],
                 "skip_webpage":  ["1"],
             },
             "twitter": {"api": ["syndication"]},
@@ -991,7 +992,9 @@ def _run_download(task_id: str, data: dict):
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
                 error_msg = str(ex)
                 if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
-                    user_msg = "Download failed: YouTube is blocking this server's IP. Please try again in a few minutes."
+                    user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
+                                "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
+                                "it may work via a different extraction path.")
                 elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
                     user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
                 elif "region-locked" in error_msg or "not available in your country" in error_msg:
@@ -1364,7 +1367,7 @@ def search():
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                           "player_client": ["tv", "web_creator", "ios", "mweb"],
                            "skip_webpage":  ["1"],
                        }}}
         _inject_cookies(search_opts)
@@ -1502,7 +1505,7 @@ def playlist_items_route():
             "noplaylist": False,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["ios", "mweb"],
+                "player_client": ["tv", "ios", "mweb"],
                 "skip_webpage":  ["1"],
             }},
         }
@@ -1640,7 +1643,7 @@ def prefetch():
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                             "player_client": ["tv", "web_creator", "ios", "mweb"],
                              "skip_webpage":  ["1"],
                          }}}
         _inject_cookies(prefetch_opts)
