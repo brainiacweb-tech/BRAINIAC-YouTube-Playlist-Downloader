@@ -263,6 +263,15 @@ def _validate_url(url: str) -> str | None:
     if p.scheme not in ("http", "https"):
         return "Only http/https URLs are allowed."
     hostname = p.hostname or ""
+    # Block non-media pages (search results, image viewers, etc.)
+    _non_media_patterns = [
+        (r"google\.com", r"/(search|imgres|imghp)"),
+        (r"bing\.com",   r"/search"),
+        (r"yahoo\.com",  r"/search"),
+    ]
+    for host_pat, path_pat in _non_media_patterns:
+        if re.search(host_pat, hostname, re.I) and re.match(path_pat, p.path or "/", re.I):
+            return "This looks like a search results page, not a media URL. Please paste a direct link to the video or audio."
     # Block localhost names
     if re.match(r"^(localhost|.*\.local)$", hostname, re.I):
         return "Access to local addresses is not allowed."
@@ -998,6 +1007,12 @@ def _run_download(task_id: str, data: dict):
                 json.dump({"status": "done", "files": files, "zip": zip_name}, f)
             _push(task_id, {"type": "done", "filename": zip_name, "count": len(files)})
 
+    except RecursionError:
+        user_msg = "Download failed: yt-dlp hit a recursion loop on this URL. This usually means the page is not a supported media source (e.g. a Google Images or search result page). Please paste a direct link to the video or audio."
+        with _tasks_lock:
+            _tasks[task_id]["status"] = "error"
+            _tasks[task_id]["error"]  = user_msg
+        _push(task_id, {"type": "error", "msg": user_msg})
     except Exception as ex:
         with _tasks_lock:
             _tasks[task_id]["status"] = "error"
