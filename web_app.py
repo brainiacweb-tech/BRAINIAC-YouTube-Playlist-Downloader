@@ -1333,8 +1333,8 @@ def search():
     if source not in ("YouTube", "SoundCloud", "Dailymotion"):
         source = "YouTube"
 
-    prefix = {"YouTube": "ytsearch50:", "SoundCloud": "scsearch50:",
-              "Dailymotion": "dmsearch50:"}.get(source, "ytsearch50:")
+    prefix = {"YouTube": "ytsearch200:", "SoundCloud": "scsearch200:",
+              "Dailymotion": "dmsearch200:"}.get(source, "ytsearch200:")
 
     # ── Cache check ───────────────────────────────────────────────────────────
     cache_key = (query, source, mode)
@@ -1483,7 +1483,7 @@ def web_search_route():
                 snippet_idx += 1
 
             results.append({"title": title, "url": href, "snippet": snippet})
-            if len(results) >= 10:
+            if len(results) >= 30:
                 break
 
         return jsonify({"results": results})
