@@ -1308,14 +1308,19 @@ async function ytFetch() {
     const thumbWrap = document.getElementById('yt-pl-thumb-wrap');
     const thumbImg  = document.getElementById('yt-pl-thumb');
     const fallback  = document.getElementById('yt-pl-fallback-icon');
-    if (vidMatch) {
-      thumbImg.src = `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg`;
+    // Prefer API thumbnail (works for playlists too), fall back to ytimg URL
+    const thumbSrc = data.thumbnail ||
+      (vidMatch ? `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg` : '');
+    if (thumbSrc) {
+      thumbImg.src = thumbSrc;
       thumbWrap.style.display = 'block';
       if (fallback) fallback.style.display = 'none';
-      document.getElementById('yt-pl-banner').dataset.ytid = vidMatch[1];
     } else {
       thumbWrap.style.display = 'none';
       if (fallback) fallback.style.display = '';
+    }
+    if (vidMatch) {
+      document.getElementById('yt-pl-banner').dataset.ytid = vidMatch[1];
     }
     log(`✔  Found: "${data.title}" — ${data.count} video(s)`, 'ok');
   } catch(e) {
@@ -1535,18 +1540,30 @@ async function doWebSearch() {
     const data = await res.json();
     if (data.error) { box.innerHTML = `<p style="color:#e53935;font-size:12px;">${escHtml(data.error)}</p>`; return; }
     if (!data.results || !data.results.length) { box.innerHTML = '<p style="color:var(--muted);font-size:12px;">No results found.</p>'; return; }
-    box.innerHTML = data.results.map(r => `
+    box.innerHTML = data.results.map(r => {
+      let domain = '';
+      try { domain = new URL(r.url).hostname.replace(/^www\./, ''); } catch(e) {}
+      const faviconUrl = domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : '';
+      const faviconHtml = faviconUrl
+        ? `<img src="${faviconUrl}" width="16" height="16" style="border-radius:3px;flex-shrink:0;margin-top:1px;object-fit:contain;" onerror="this.style.display='none'" loading="lazy">`
+        : `<i class="ri-global-line" style="font-size:15px;color:var(--muted);flex-shrink:0;"></i>`;
+      return `
       <div style="padding:9px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-        <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--red);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(r.title)}">${escHtml(r.title)}</a>
-        <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">${escHtml(r.url)}</div>
-        ${r.snippet ? `<div style="font-size:11px;color:var(--fg);margin-top:3px;opacity:.75;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(r.snippet)}</div>` : ''}
-        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-          <button onclick="event.stopPropagation();document.getElementById('direct-url').value=this.dataset.url;directFetch()" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.3);color:var(--red);cursor:pointer;font-weight:700;"><i class="ri-download-2-line"></i> Download</button>
-          <button onclick="navigator.clipboard.writeText(this.dataset.url)" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;"><i class="ri-file-copy-line"></i> Copy</button>
-          <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;text-decoration:none;"><i class="ri-external-link-line"></i> Visit</a>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <div style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-top:1px;">${faviconHtml}</div>
+          <div style="flex:1;min-width:0;">
+            <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--red);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(r.title)}">${escHtml(r.title)}</a>
+            <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">${escHtml(r.url)}</div>
+            ${r.snippet ? `<div style="font-size:11px;color:var(--fg);margin-top:3px;opacity:.75;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(r.snippet)}</div>` : ''}
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="event.stopPropagation();document.getElementById('direct-url').value=this.dataset.url;directFetch()" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.3);color:var(--red);cursor:pointer;font-weight:700;"><i class="ri-download-2-line"></i> Download</button>
+              <button onclick="navigator.clipboard.writeText(this.dataset.url)" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;"><i class="ri-file-copy-line"></i> Copy</button>
+              <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;text-decoration:none;"><i class="ri-external-link-line"></i> Visit</a>
+            </div>
+          </div>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
     box.innerHTML = `<p style="color:#e53935;font-size:12px;">Search failed: ${escHtml(e.message)}</p>`;
   } finally {

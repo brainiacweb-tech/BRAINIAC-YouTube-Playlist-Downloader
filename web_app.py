@@ -383,8 +383,12 @@ def _yt_api_prefetch(url: str) -> dict | None:
             pl    = pl_items[0]
             count = (pl.get("contentDetails") or {}).get("itemCount") or 0
             snip  = pl.get("snippet") or {}
+            thumbs = snip.get("thumbnails") or {}
+            thumb  = (thumbs.get("maxres") or thumbs.get("high") or
+                      thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
             return {"title": snip.get("title") or url, "count": count,
-                    "uploader": snip.get("channelTitle") or "", "duration": 0, "filesize": 0}
+                    "uploader": snip.get("channelTitle") or "", "duration": 0, "filesize": 0,
+                    "thumbnail": thumb}
 
         if video_id:
             vr = _requests.get(f"{_YT_API_BASE}/videos", params={
@@ -396,8 +400,12 @@ def _yt_api_prefetch(url: str) -> dict | None:
             v       = v_items[0]
             snip    = v.get("snippet") or {}
             dur_sec, _ = _iso_duration((v.get("contentDetails") or {}).get("duration", ""))
+            thumbs = snip.get("thumbnails") or {}
+            thumb  = (thumbs.get("maxres") or thumbs.get("high") or
+                      thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
             return {"title": snip.get("title") or url, "count": 1,
-                    "uploader": snip.get("channelTitle") or "", "duration": dur_sec, "filesize": 0}
+                    "uploader": snip.get("channelTitle") or "", "duration": dur_sec, "filesize": 0,
+                    "thumbnail": thumb}
     except Exception:
         return None
 
