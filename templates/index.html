@@ -325,6 +325,13 @@ select:focus { border-color: var(--red); }
 #preview-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #preview-close { position: static; font-size: 20px; cursor: pointer; color: var(--muted); background: none; border: none; line-height: 1; padding: 0; }
 #preview-close:hover { color: var(--red); }
+#preview-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; display: block; cursor: pointer; overflow: hidden; }
+#preview-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#preview-thumb-wrap .play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.28); transition: background 0.15s; }
+#preview-thumb-wrap:hover .play-overlay { background: rgba(0,0,0,0.45); }
+#preview-thumb-wrap .play-overlay i { font-size: 64px; color: #fff; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
+#preview-player-wrap { display: none; width: 100%; aspect-ratio: 16/9; background: #000; }
+#preview-player-wrap iframe { width: 100%; height: 100%; border: none; }
 /* ── Clipboard toolbar ─────────────────────────── */
 .cb-toolbar { display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
 .cb-btn { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px; border: 1.5px solid var(--border2); background: var(--surface2); color: var(--fg2); cursor: pointer; display: flex; align-items: center; gap: 3px; transition: all 0.12s; }
@@ -1486,19 +1493,36 @@ function imgError(el, icon) {
 function showPreview(src, title) {
   const modal = document.getElementById('preview-modal');
   document.getElementById('preview-title').textContent = title;
-  document.getElementById('preview-player').src = src;
-  // Derive watch URL from embed src
   const vidMatch = src.match(/\/embed\/([A-Za-z0-9_-]{11})/);
-  const watchUrl = vidMatch ? `https://www.youtube.com/watch?v=${vidMatch[1]}` : src;
   const watchBtn = document.getElementById('preview-watch-btn');
-  if (watchBtn) { watchBtn.href = watchUrl; watchBtn.style.display = 'inline-flex'; }
+  const thumbWrap = document.getElementById('preview-thumb-wrap');
+  const playerWrap = document.getElementById('preview-player-wrap');
+  const thumbImg = document.getElementById('preview-thumb-img');
+
+  if (vidMatch) {
+    // YouTube: show thumbnail + play button → opens YouTube on click (always works)
+    const ytid = vidMatch[1];
+    const watchUrl = `https://www.youtube.com/watch?v=${ytid}`;
+    thumbImg.src = `https://i.ytimg.com/vi/${ytid}/maxresdefault.jpg`;
+    thumbImg.onerror = function() { this.src = `https://i.ytimg.com/vi/${ytid}/hqdefault.jpg`; this.onerror=null; };
+    thumbWrap.href = watchUrl;
+    thumbWrap.style.display = 'block';
+    playerWrap.style.display = 'none';
+    if (watchBtn) { watchBtn.href = watchUrl; watchBtn.style.display = 'inline-flex'; }
+  } else {
+    // Non-YouTube: use iframe
+    thumbWrap.style.display = 'none';
+    playerWrap.style.display = 'block';
+    playerWrap.querySelector('iframe').src = src;
+    if (watchBtn) { watchBtn.href = src; watchBtn.style.display = 'inline-flex'; }
+  }
   modal.classList.add('open');
 }
 function closePreview() {
   const modal = document.getElementById('preview-modal');
   modal.classList.remove('open');
-  const pl = document.getElementById('preview-player');
-  if (pl) pl.src = '';
+  const ifr = document.querySelector('#preview-player-wrap iframe');
+  if (ifr) ifr.src = '';
 }
 
 function cbAction(inputId, action) {
@@ -1534,7 +1558,17 @@ function cbAction(inputId, action) {
       </a>
       <button id="preview-close" onclick="closePreview()" style="flex-shrink:0"><i class="ri-close-line"></i></button>
     </div>
-    <iframe id="preview-player" style="width:100%;aspect-ratio:16/9;border:none;background:#000" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    <!-- YouTube thumbnail with play overlay (always works, no embed restrictions) -->
+    <a id="preview-thumb-wrap" href="#" target="_blank" rel="noopener" style="display:none;position:relative;width:100%;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;text-decoration:none;">
+      <img id="preview-thumb-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">
+      <div class="play-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.28);transition:background .15s;">
+        <i class="ri-play-circle-fill" style="font-size:72px;color:#fff;filter:drop-shadow(0 2px 12px rgba(0,0,0,.7));"></i>
+      </div>
+    </a>
+    <!-- Non-YouTube iframe fallback -->
+    <div id="preview-player-wrap" style="display:none;width:100%;aspect-ratio:16/9;background:#000;">
+      <iframe style="width:100%;height:100%;border:none;" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    </div>
   </div>
 </div>
 
