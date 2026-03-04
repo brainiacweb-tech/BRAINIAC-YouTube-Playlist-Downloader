@@ -87,10 +87,10 @@ class AppSetting(db.Model):
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
 PLAN_LIMITS = {
-    #         daily_downloads  max_quality    drive_sync  batch_playlist
-    "free":  {"daily": 50,     "quality": "720p",  "drive": False, "batch": True},
-    "plus":  {"daily": 500,    "quality": "1080p", "drive": False, "batch": True},
-    "pro":   {"daily": 999999, "quality": "4K",    "drive": True,  "batch": True},
+    #         daily_downloads  max_quality  batch_playlist
+    "free":  {"daily": 50,     "quality": "720p",  "batch": True},
+    "plus":  {"daily": 500,    "quality": "1080p", "batch": True},
+    "pro":   {"daily": 999999, "quality": "4K",    "batch": True},
 }
 
 def _get_user_plan(user) -> str:
@@ -882,23 +882,22 @@ def google_callback():
         db.session.add(user)
         db.session.commit()
 
-    # Auto-connect Google Drive — the login token already carries drive.file scope.
-    _drive_access  = token.get("access_token", "")
-    _drive_refresh = token.get("refresh_token", "")
-    if _drive_access:
-        user.gdrive_token = _drive_access
-    if _drive_refresh:          # Google only sends this on first consent
-        user.gdrive_refresh = _drive_refresh
-    if _drive_access or _drive_refresh:
+    # Save the Google OAuth access token for YouTube auth in yt-dlp
+    _yt_access  = token.get("access_token", "")
+    _yt_refresh = token.get("refresh_token", "")
+    if _yt_access:
+        user.gdrive_token = _yt_access     # column reused for YT OAuth token
+    if _yt_refresh:
+        user.gdrive_refresh = _yt_refresh
+    if _yt_access or _yt_refresh:
         db.session.commit()
 
     # Clear any previous session (different account) before logging in
     logout_user()
     session.clear()
     login_user(user, remember=True)
-    # Put Drive token straight into session so it works immediately
     if user.gdrive_token:
-        session["gdrive_token"] = user.gdrive_token
+        session["gdrive_token"] = user.gdrive_token   # used as YT OAuth token in yt-dlp
     return redirect("/app")
 
 
@@ -1010,7 +1009,6 @@ def api_plan_status():
         "used_today":    used,
         "remaining":     max(0, limits["daily"] - used),
         "max_quality":   limits["quality"],
-        "drive_sync":    limits["drive"],
         "batch":         limits["batch"],
     })
 
@@ -1414,333 +1412,12 @@ def clear_cookies():
     return jsonify({"ok": True})
 
 
-# ── Google Drive Integration ──────────────────────────────────────────────────
-_GDRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file"
-_GDRIVE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-_GDRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+# ── (Google Drive and OneDrive integration removed) ─────────────────────────
 
 
-def _gdrive_redirect_uri():
-    # Always use the custom domain — Railway's APP_URL points to the internal
-    # domain which doesn't match the registered OAuth redirect URI.
-    return "https://franciskusi.dev/api/gdrive/callback"
 
 
-@app.route("/api/gdrive/status")
-def gdrive_status():
-    gdrive_id  = os.environ.get("GDRIVE_CLIENT_ID", "")
-    google_id  = os.environ.get("GOOGLE_CLIENT_ID", "")
-    eff_id     = gdrive_id or google_id
-    configured = bool(eff_id and (os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")))
-    authed     = bool(session.get("gdrive_token") or (current_user.is_authenticated and current_user.gdrive_token))
-    return jsonify({
-        "configured": configured,
-        "authed": authed,
-        "has_gdrive_creds": bool(gdrive_id),
-        "has_google_creds": bool(google_id),
-        "redirect_uri": _gdrive_redirect_uri(),
-    })
 
-
-@app.route("/api/gdrive/auth")
-def gdrive_auth():
-    # Accept GDRIVE_CLIENT_ID or fall back to the Google login client (same app)
-    client_id = os.environ.get("GDRIVE_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID", "")
-    if not client_id:
-        _err = "Google OAuth client ID is not configured on this server."
-        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:{repr(_err)}}}, '*');window.close();</script>", 503
-    task_id = request.args.get("task_id", "")
-    redir = _gdrive_redirect_uri()
-    from urllib.parse import quote
-    auth_url = (
-        f"{_GDRIVE_AUTH_URL}?client_id={client_id}"
-        f"&redirect_uri={quote(redir, safe='')}"
-        "&response_type=code"
-        f"&scope={quote(_GDRIVE_SCOPES, safe='')}"
-        f"&state={task_id}"
-        "&access_type=offline&prompt=consent"
-    )
-    return redirect(auth_url)
-
-
-@app.route("/api/gdrive/callback")
-def gdrive_callback():
-    code    = request.args.get("code", "")
-    task_id = request.args.get("state", "")
-    error   = request.args.get("error", "")
-    if error:
-        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:{repr(error)}}}, '*');window.close();</script>"
-
-    # Fall back to the Google login credentials if GDRIVE-specific ones aren't set
-    client_id     = os.environ.get("GDRIVE_CLIENT_ID")     or os.environ.get("GOOGLE_CLIENT_ID", "")
-    client_secret = os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    redir         = _gdrive_redirect_uri()
-
-    resp = _requests.post(_GDRIVE_TOKEN_URL, data={
-        "code": code, "client_id": client_id, "client_secret": client_secret,
-        "redirect_uri": redir, "grant_type": "authorization_code",
-    }, timeout=15)
-    token_data = resp.json()
-    access_token  = token_data.get("access_token", "")
-    refresh_token = token_data.get("refresh_token", "")
-    if not access_token:
-        err_msg = token_data.get("error_description", "Token exchange failed")
-        return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_error',msg:'{err_msg}'}}, '*');window.close();</script>"
-
-    # Persist tokens in DB so they survive server restarts / redeploys
-    if current_user.is_authenticated:
-        current_user.gdrive_token   = access_token
-        if refresh_token:  # Google only sends refresh_token on first auth
-            current_user.gdrive_refresh = refresh_token
-        db.session.commit()
-
-    session["gdrive_token"] = access_token
-    return f"<script>window.opener&&window.opener.postMessage({{type:'gdrive_authed',taskId:'{task_id}'}}, '*');window.close();</script>"
-
-
-@app.route("/api/gdrive/disconnect", methods=["POST"])
-@login_required
-def gdrive_disconnect():
-    session.pop("gdrive_token", None)
-    if current_user.is_authenticated:
-        current_user.gdrive_token   = None
-        current_user.gdrive_refresh = None
-        db.session.commit()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/gdrive/upload/<task_id>", methods=["POST"])
-@limiter.limit("20 per hour")
-def gdrive_upload(task_id):
-    # 1. Try session (fastest)
-    token = session.get("gdrive_token", "")
-
-    # 2. Fall back to DB-stored token
-    if not token and current_user.is_authenticated and current_user.gdrive_token:
-        token = current_user.gdrive_token
-        session["gdrive_token"] = token  # warm up session cache
-
-    # 3. Try to refresh using the stored refresh token
-    if not token and current_user.is_authenticated and current_user.gdrive_refresh:
-        client_id     = os.environ.get("GDRIVE_CLIENT_ID")     or os.environ.get("GOOGLE_CLIENT_ID", "")
-        client_secret = os.environ.get("GDRIVE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET", "")
-        r = _requests.post(_GDRIVE_TOKEN_URL, data={
-            "grant_type":    "refresh_token",
-            "refresh_token": current_user.gdrive_refresh,
-            "client_id":     client_id,
-            "client_secret": client_secret,
-        }, timeout=15)
-        new_token = r.json().get("access_token", "")
-        if new_token:
-            token = new_token
-            current_user.gdrive_token = new_token
-            db.session.commit()
-            session["gdrive_token"] = new_token
-
-    if not token:
-        return jsonify({"error": "not_authed"}), 401
-
-    t = _get_task(task_id)
-    if not t or t["status"] != "done":
-        return jsonify({"error": "File not ready"}), 404
-
-    task_dir = os.path.join(DOWNLOAD_BASE, task_id)
-    zip_name = t.get("zip")
-    if zip_name:
-        fpath = os.path.join(task_dir, zip_name)
-    else:
-        files = t.get("files", [])
-        if not files:
-            return jsonify({"error": "No files"}), 404
-        fpath = os.path.join(task_dir, files[0])
-
-    filename = os.path.basename(fpath)
-    file_size = os.path.getsize(fpath)
-
-    # Resumable upload for files > 5 MB, multipart for smaller
-    if file_size > 5 * 1024 * 1024:
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "X-Upload-Content-Type": "application/octet-stream",
-            "X-Upload-Content-Length": str(file_size),
-        }
-        init_resp = _requests.post(
-            "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
-            headers=headers, json={"name": filename}, timeout=30
-        )
-        if init_resp.status_code != 200:
-            return jsonify({"error": f"Drive init failed: {init_resp.text}"}), 500
-        upload_url = init_resp.headers.get("Location")
-        with open(fpath, "rb") as f:
-            up_resp = _requests.put(upload_url, data=f, headers={
-                "Content-Length": str(file_size),
-                "Content-Type": "application/octet-stream",
-            }, timeout=600)
-    else:
-        with open(fpath, "rb") as f:
-            up_resp = _requests.post(
-                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-                headers={"Authorization": f"Bearer {token}"},
-                files={
-                    "metadata": ("metadata", json.dumps({"name": filename}), "application/json"),
-                    "file": (filename, f, "application/octet-stream"),
-                }, timeout=120
-            )
-
-    if up_resp.status_code in (200, 201):
-        file_id = up_resp.json().get("id", "")
-        return jsonify({"ok": True, "url": f"https://drive.google.com/file/d/{file_id}/view"})
-    if up_resp.status_code == 401:
-        session.pop("gdrive_token", None)
-        return jsonify({"error": "not_authed"}), 401
-    return jsonify({"error": f"Upload failed ({up_resp.status_code})"}), 500
-
-
-# ── OneDrive Integration ────────────────────────────────────────────────────────
-_OD_AUTH_URL  = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-_OD_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-_OD_SCOPES    = "Files.ReadWrite offline_access"
-
-
-def _onedrive_redirect_uri():
-    base = os.environ.get("APP_URL", "").rstrip("/")
-    return f"{base}/api/onedrive/callback" if base else None
-
-
-@app.route("/api/onedrive/status")
-def onedrive_status():
-    configured = bool(os.environ.get("ONEDRIVE_CLIENT_ID"))
-    authed = bool(session.get("onedrive_token"))
-    return jsonify({"configured": configured, "authed": authed})
-
-
-@app.route("/api/onedrive/auth")
-def onedrive_auth():
-    client_id = os.environ.get("ONEDRIVE_CLIENT_ID", "")
-    if not client_id:
-        return jsonify({"error": "OneDrive is not configured on this server."}), 503
-    task_id = request.args.get("task_id", "")
-    redir = _onedrive_redirect_uri()
-    if not redir:
-        return jsonify({"error": "APP_URL env var not set — cannot build redirect URI."}), 503
-    auth_url = (
-        f"{_OD_AUTH_URL}?client_id={client_id}"
-        f"&redirect_uri={redir}"
-        "&response_type=code"
-        f"&scope={_OD_SCOPES.replace(' ', '%20')}"
-        f"&state={task_id}"
-    )
-    return redirect(auth_url)
-
-
-@app.route("/api/onedrive/callback")
-def onedrive_callback():
-    code    = request.args.get("code", "")
-    task_id = request.args.get("state", "")
-    error   = request.args.get("error", "")
-    if error:
-        return f"<script>window.opener&&window.opener.postMessage({{type:'od_error',msg:'{error}'}}, '*');window.close();</script>"
-
-    client_id = os.environ.get("ONEDRIVE_CLIENT_ID", "")
-    redir     = _onedrive_redirect_uri()
-
-    resp = _requests.post(_OD_TOKEN_URL, data={
-        "code": code, "client_id": client_id,
-        "redirect_uri": redir, "grant_type": "authorization_code",
-        "scope": _OD_SCOPES,
-    }, timeout=15)
-    token_data = resp.json()
-    access_token = token_data.get("access_token", "")
-    if not access_token:
-        err_msg = token_data.get("error_description", "Token exchange failed")
-        return f"<script>window.opener&&window.opener.postMessage({{type:'od_error',msg:'{err_msg}'}}, '*');window.close();</script>"
-
-    session["onedrive_token"] = access_token
-    return f"<script>window.opener&&window.opener.postMessage({{type:'od_authed',taskId:'{task_id}'}}, '*');window.close();</script>"
-
-
-@app.route("/api/onedrive/upload/<task_id>", methods=["POST"])
-@limiter.limit("20 per hour")
-def onedrive_upload(task_id):
-    token = session.get("onedrive_token", "")
-    if not token:
-        return jsonify({"error": "not_authed"}), 401
-
-    t = _get_task(task_id)
-    if not t or t["status"] != "done":
-        return jsonify({"error": "File not ready"}), 404
-
-    task_dir = os.path.join(DOWNLOAD_BASE, task_id)
-    zip_name = t.get("zip")
-    if zip_name:
-        fpath = os.path.join(task_dir, zip_name)
-    else:
-        files = t.get("files", [])
-        if not files:
-            return jsonify({"error": "No files"}), 404
-        fpath = os.path.join(task_dir, files[0])
-
-    filename = os.path.basename(fpath)
-    file_size = os.path.getsize(fpath)
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    if file_size <= 4 * 1024 * 1024:
-        # Simple upload (≤4 MB)
-        with open(fpath, "rb") as f:
-            up_resp = _requests.put(
-                f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/content",
-                headers={**headers, "Content-Type": "application/octet-stream"},
-                data=f, timeout=120
-            )
-        if up_resp.status_code in (200, 201):
-            web_url = up_resp.json().get("webUrl", "")
-            return jsonify({"ok": True, "url": web_url})
-        if up_resp.status_code == 401:
-            session.pop("onedrive_token", None)
-            return jsonify({"error": "not_authed"}), 401
-        return jsonify({"error": f"Upload failed ({up_resp.status_code})"}), 500
-    else:
-        # Create upload session for large files
-        sess_resp = _requests.post(
-            f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/createUploadSession",
-            headers={**headers, "Content-Type": "application/json"},
-            json={"item": {"@microsoft.graph.conflictBehavior": "rename", "name": filename}},
-            timeout=30
-        )
-        if sess_resp.status_code not in (200, 201):
-            return jsonify({"error": f"Session creation failed: {sess_resp.text}"}), 500
-        upload_url = sess_resp.json().get("uploadUrl")
-        # Upload in 10 MB chunks
-        chunk_size = 10 * 1024 * 1024
-        with open(fpath, "rb") as f:
-            offset = 0
-            web_url = ""
-            while offset < file_size:
-                chunk = f.read(chunk_size)
-                end = offset + len(chunk) - 1
-                chunk_resp = _requests.put(
-                    upload_url,
-                    headers={"Content-Range": f"bytes {offset}-{end}/{file_size}",
-                             "Content-Length": str(len(chunk))},
-                    data=chunk, timeout=300
-                )
-                if chunk_resp.status_code in (200, 201):
-                    web_url = chunk_resp.json().get("webUrl", "")
-                elif chunk_resp.status_code == 202:
-                    pass  # Continue uploading
-                else:
-                    return jsonify({"error": f"Chunk upload failed ({chunk_resp.status_code})"}), 500
-                offset += len(chunk)
-        return jsonify({"ok": True, "url": web_url})
-
-
-@app.route("/api/onedrive/disconnect", methods=["POST"])
-@login_required
-def onedrive_disconnect():
-    session.pop("onedrive_token", None)
-    return jsonify({"ok": True})
 
 
 # ── Change Password ───────────────────────────────────────────────────────────

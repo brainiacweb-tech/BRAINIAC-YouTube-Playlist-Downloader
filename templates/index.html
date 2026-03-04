@@ -237,10 +237,6 @@ input[type=text]:focus {
 .btn-sm       { padding: 8px 14px; font-size: 12px; }
 .btn-sm i     { font-size: 14px; }
 
-.btn-gdrive   { background: #fff; color: #202124; border: 1.5px solid var(--border); }
-.btn-gdrive:hover:not(:disabled)   { background: var(--bg2); border-color: var(--border2); }
-.btn-onedrive { background: #0078d4; color: #fff; }
-.btn-onedrive:hover:not(:disabled) { background: #005a9e; }
 
 /* ── Quality row ────────────────────────────────────────────── */
 .quality-row {
@@ -892,37 +888,6 @@ select:focus { border-color: var(--red); }
             <button onclick="clearFilesHistory()" class="btn btn-ghost btn-sm"><i class="ri-delete-bin-line"></i> Clear</button>
           </div>
 
-          <!-- Cloud Storage section -->
-          <div class="sec-label" style="margin-top:4px;margin-bottom:0;"><i class="ri-cloud-fill"></i> Cloud Storage</div>
-
-          <!-- Google Drive row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
-            <div style="display:flex;align-items:center;gap:11px;">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/22px-Google_Drive_icon_%282020%29.svg.png" style="height:22px;flex-shrink:0;">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--fg);">Google Drive</div>
-                <div id="gdrive-status-lbl" style="font-size:11px;color:var(--muted);margin-top:2px;">Not connected</div>
-              </div>
-            </div>
-            <div id="gdrive-action-wrap">
-              <button class="btn btn-gdrive btn-sm" onclick="connectCloud('gdrive')">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/14px-Google_Drive_icon_%282020%29.svg.png" style="height:13px;vertical-align:middle;margin-right:5px;"> Add Account
-              </button>
-            </div>
-          </div>
-
-          <!-- Auto-save destination -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);flex-wrap:wrap;gap:10px;">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-save-3-line" style="color:var(--red);"></i> Auto-Save Destination</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Automatically upload after each download finishes</div>
-            </div>
-            <select id="save-dest" onchange="localStorage.setItem('saveDest',this.value)">
-              <option value="local">Local only</option>
-              <option value="gdrive">Google Drive</option>
-            </select>
-          </div>
-
           <!-- YouTube Cookies section -->
           <div class="sec-label" style="margin-top:4px;margin-bottom:0;"><i class="ri-shield-keyhole-fill"></i> YouTube Authentication</div>
 
@@ -1058,18 +1023,6 @@ function toggleDarkModeFromSettings(on) {
         }
       }
     }).catch(() => {});
-  if (sd) { const s = document.getElementById('save-dest'); if (s) s.value = sd; }
-  // Restore GDrive connected state — check server so Google-login users are shown as connected
-  fetch('/api/gdrive/status', {credentials: 'same-origin', cache: 'no-store'})
-    .then(r => r.ok ? r.json() : null)
-    .then(d => {
-      if (!d) return;
-      const authed = d.authed;
-      if (authed) localStorage.setItem('gdrive_authed', '1');
-      else localStorage.removeItem('gdrive_authed');
-      _renderGdriveUI(authed);
-    })
-    .catch(() => _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1'));
   // Load cookies status
   loadCookiesStatus();
 })();
@@ -1148,8 +1101,8 @@ function showUpgradePrompt(currentPlan) {
       <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px;">Upgrade to ${next}</div>
       <div style="font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.6;">
         ${currentPlan === 'free'
-          ? 'Free plan supports up to 720p and 50 downloads/day. Upgrade to Plus for 500 downloads/day, 1080p, and Google Drive sync.'
-          : 'Plus plan supports up to 1080p and 500 downloads/day. Upgrade to Pro for unlimited 4K downloads and all features.'}
+          ? 'Free plan supports up to 720p and 50 downloads/day. Upgrade to Plus for 500 downloads/day and 1080p.'
+          : 'Plus plan supports up to 1080p and 500 downloads/day. Upgrade to Pro for unlimited 4K downloads and batch playlists.'}
       </div>
       <a href="/pricing" style="display:block;background:#e03131;color:#fff;padding:11px 0;border-radius:8px;font-weight:700;text-decoration:none;margin-bottom:10px;font-size:14px;">See Pricing Plans</a>
       <button onclick="document.getElementById('upgrade-modal').remove()" style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:#aaa;padding:9px 0;border-radius:8px;font-size:13px;cursor:pointer;width:100%;">Not now</button>
@@ -1233,8 +1186,6 @@ function subscribeProgress(taskId, onDone, _retries) {
       // add to files panel
       const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
       addFileToPanel(fname, taskId);
-      showCloudButtons(row, taskId);
-      autoSync(taskId);
       if (onDone) onDone();
     } else if (d.type === 'error') {
       es.close();
@@ -1548,98 +1499,6 @@ function fmtDur(secs) {
   return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
 }
 
-let _cloudStatus = null;
-
-function _renderGdriveUI(authed) {
-  const lbl  = document.getElementById('gdrive-status-lbl');
-  const wrap = document.getElementById('gdrive-action-wrap');
-  if (!lbl || !wrap) return;
-  if (authed) {
-    lbl.innerHTML = '<span style="color:#2e7d32;font-weight:700;">&#10003; Connected</span>';
-    wrap.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="disconnectCloud('gdrive')"><i class="ri-link-unlink"></i> Disconnect</button>`;
-  } else {
-    lbl.textContent = 'Not connected';
-    wrap.innerHTML = `<button class="btn btn-gdrive btn-sm" onclick="connectCloud('gdrive')"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/14px-Google_Drive_icon_%282020%29.svg.png" style="height:13px;vertical-align:middle;margin-right:5px;"> Add Account</button>`;
-  }
-}
-
-async function connectCloud(service) {
-  const wrap = document.getElementById(service+'-action-wrap');
-  if (wrap) wrap.innerHTML = `<span style="font-size:11px;font-weight:600;color:var(--muted);"><i class="ri-loader-4-line"></i> Opening…</span>`;
-  try {
-    await openOAuthPopup(service, '');
-    localStorage.setItem('gdrive_authed', '1');
-    _renderGdriveUI(true);
-    log('Google Drive connected!', 'ok');
-  } catch(e) {
-    log('Cloud connect: ' + e.message, 'err');
-    _renderGdriveUI(localStorage.getItem('gdrive_authed') === '1');
-  }
-}
-
-async function disconnectCloud(service) {
-  await fetch(`/api/${service}/disconnect`, {method:'POST'}).catch(()=>{});
-  localStorage.removeItem('gdrive_authed');
-  _renderGdriveUI(false);
-}
-
-async function autoSync(taskId) {
-  const dest = localStorage.getItem('saveDest') || 'local';
-  if (dest === 'local') return;
-  if (dest === 'gdrive') uploadToCloud('gdrive', taskId);
-}
-
-async function showCloudButtons(row, taskId) {
-  const authed = localStorage.getItem('gdrive_authed') === '1';
-  if (authed) {
-    const btn = document.createElement('button');
-    btn.id = 'gdrive-btn-' + taskId; btn.className = 'btn btn-gdrive btn-sm';
-    btn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/14px-Google_Drive_icon_%282020%29.svg.png" style="height:13px;vertical-align:middle;margin-right:5px;"> Drive';
-    btn.onclick = () => uploadToCloud('gdrive', taskId);
-    row.appendChild(btn);
-  }
-}
-function openOAuthPopup(service, taskId) {
-  return new Promise((resolve, reject) => {
-    const popup = window.open(`/api/${service}/auth?task_id=${taskId}`, `${service}_auth`, 'width=520,height=640,resizable=yes');
-    const evtType = service==='gdrive' ? 'gdrive_authed' : 'od_authed';
-    const errType = service==='gdrive' ? 'gdrive_error'  : 'od_error';
-    function onMsg(e) {
-      if (e.data?.type===evtType) { window.removeEventListener('message',onMsg); popup?.close(); _cloudStatus=null; resolve(); }
-      else if (e.data?.type===errType) { window.removeEventListener('message',onMsg); popup?.close(); reject(new Error(e.data.msg||'OAuth failed')); }
-    }
-    window.addEventListener('message', onMsg);
-    const timer = setInterval(()=>{ if(popup&&popup.closed){clearInterval(timer);window.removeEventListener('message',onMsg);reject(new Error('Popup was closed'));} },500);
-  });
-}
-async function uploadToCloud(service, taskId) {
-  const btn = document.getElementById(`${service}-btn-${taskId}`);
-  if (btn) { btn.disabled=true; btn.innerHTML='<i class="ri-loader-4-line"></i> Uploading…'; }
-  for (let attempt=0; attempt<2; attempt++) {
-    try {
-      const res  = await fetch(`/api/${service}/upload/${taskId}`, {method:'POST'});
-      const data = await res.json();
-      if (res.status===401 || data.error==='not_authed') {
-        if (attempt===0) { if(btn) btn.innerHTML='<i class="ri-key-2-fill"></i> Sign in…'; await openOAuthPopup(service,taskId); if(btn) btn.innerHTML='<i class="ri-loader-4-line"></i> Uploading…'; continue; }
-        throw new Error('Authentication failed');
-      }
-      if (data.ok) {
-        const label = service==='gdrive' ? 'Google Drive' : 'OneDrive';
-        if (btn) { btn.disabled=false; btn.innerHTML=`<i class="ri-checkbox-circle-fill"></i> Saved to ${label}`; }
-        const linkHtml = data.url ? ` <a href="${escHtml(data.url)}" target="_blank" style="color:var(--red);text-decoration:underline">Open ↗</a>` : '';
-        logHtml(`✔ Uploaded to ${label}.${linkHtml}`, 'ok');
-        return;
-      }
-      throw new Error(data.error || 'Upload failed');
-    } catch(err) {
-      if (attempt===1 || err.message==='Popup was closed') {
-        if (btn) { btn.disabled=false; btn.innerHTML=`<i class="ri-error-warning-line"></i> Failed`; }
-        log('✘ Cloud upload: '+err.message, 'err');
-        return;
-      }
-    }
-  }
-}
 
 function imgError(el, icon) {
   const ph = document.createElement('div');
