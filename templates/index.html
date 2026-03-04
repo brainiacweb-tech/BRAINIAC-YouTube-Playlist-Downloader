@@ -802,9 +802,9 @@ select:focus { border-color: var(--red); }
         <!-- Prefetch info panel -->
         <div id="direct-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1.5px solid var(--border);">
           <div style="display:flex;gap:10px;align-items:center;">
-            <div id="direct-thumb-wrap" style="flex-shrink:0;width:80px;height:46px;border-radius:7px;overflow:hidden;background:#000;display:none;position:relative;cursor:pointer;" onclick="directPreview()">
+            <div id="direct-thumb-wrap" style="flex-shrink:0;width:140px;height:79px;border-radius:8px;overflow:hidden;background:#111;display:none;position:relative;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.35);" onclick="directPreview()">
               <img id="direct-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
-              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.28);"><i class="ri-play-circle-fill" style="font-size:22px;color:#fff;"></i></div>
+              <div id="direct-thumb-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.30);transition:opacity 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.30)'"><i class="ri-play-circle-fill" style="font-size:28px;color:#fff;"></i></div>
             </div>
             <div style="flex:1;min-width:0;">
               <div id="direct-info-title" style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
@@ -1506,10 +1506,18 @@ async function directFetch() {
     const vidMatch = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
     const thumbWrap = document.getElementById('direct-thumb-wrap');
     const thumbImg  = document.getElementById('direct-thumb');
-    if (vidMatch) {
-      thumbImg.src = `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg`;
+    const overlay   = document.getElementById('direct-thumb-overlay');
+    // Prefer API thumbnail (works for Instagram, TikTok, Vimeo, etc.)
+    // Fall back to YouTube thumbnail URL for YT links
+    const thumbSrc = data.thumbnail ||
+      (vidMatch ? `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg` : '');
+    if (thumbSrc) {
+      thumbImg.src = thumbSrc;
       thumbWrap.style.display = 'block';
-      thumbWrap.dataset.ytid = vidMatch[1];
+      if (vidMatch) thumbWrap.dataset.ytid = vidMatch[1];
+      else delete thumbWrap.dataset.ytid;
+      // Show play icon only if it's a video (has duration or is YT)
+      if (overlay) overlay.style.display = (vidMatch || data.duration) ? 'flex' : 'none';
     } else {
       thumbWrap.style.display = 'none';
     }
@@ -1522,10 +1530,16 @@ async function directFetch() {
   }
 }
 function directPreview() {
-  const wrap = document.getElementById('direct-thumb-wrap');
-  const ytid = wrap ? wrap.dataset.ytid : '';
-  if (!ytid) return;
-  showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('direct-info-title').textContent || '');
+  const wrap  = document.getElementById('direct-thumb-wrap');
+  const title = document.getElementById('direct-info-title').textContent || '';
+  const ytid  = wrap ? wrap.dataset.ytid : '';
+  if (ytid) {
+    showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, title);
+  } else {
+    // Non-YouTube: show thumbnail image in the preview modal
+    const thumb = document.getElementById('direct-thumb');
+    if (thumb && thumb.src) showPreview(thumb.src, title, true);
+  }
 }
 async function doWebSearch() {
   const q   = document.getElementById('websearch-q').value.trim();
@@ -1601,7 +1615,7 @@ function imgError(el, icon) {
   el.replaceWith(ph);
 }
 
-function showPreview(src, title) {
+function showPreview(src, title, isImageOnly) {
   const modal = document.getElementById('preview-modal');
   document.getElementById('preview-title').textContent = title;
   const vidMatch = src.match(/\/embed\/([A-Za-z0-9_-]{11})/);
@@ -1610,13 +1624,23 @@ function showPreview(src, title) {
   const playerWrap = document.getElementById('preview-player-wrap');
   const thumbImg = document.getElementById('preview-thumb-img');
 
-  if (vidMatch) {
+  if (isImageOnly) {
+    // Generic thumbnail image (non-YouTube platforms)
+    thumbImg.src = src;
+    thumbImg.onerror = null;
+    thumbWrap.removeAttribute('href');
+    thumbWrap.style.cursor = 'default';
+    thumbWrap.style.display = 'block';
+    playerWrap.style.display = 'none';
+    if (watchBtn) watchBtn.style.display = 'none';
+  } else if (vidMatch) {
     // YouTube: show thumbnail + play button → opens YouTube on click (always works)
     const ytid = vidMatch[1];
     const watchUrl = `https://www.youtube.com/watch?v=${ytid}`;
     thumbImg.src = `https://i.ytimg.com/vi/${ytid}/maxresdefault.jpg`;
     thumbImg.onerror = function() { this.src = `https://i.ytimg.com/vi/${ytid}/hqdefault.jpg`; this.onerror=null; };
     thumbWrap.href = watchUrl;
+    thumbWrap.style.cursor = 'pointer';
     thumbWrap.style.display = 'block';
     playerWrap.style.display = 'none';
     if (watchBtn) { watchBtn.href = watchUrl; watchBtn.style.display = 'inline-flex'; }
