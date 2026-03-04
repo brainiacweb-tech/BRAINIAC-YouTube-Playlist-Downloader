@@ -419,38 +419,86 @@ select:focus { border-color: var(--red); }
 /* ── Mobile ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .wrapper { padding: 10px 10px 50px; }
-  .header { padding: 10px 12px; margin-bottom: 12px; }
-  .logo-text { font-size: 15px; }
-  .logo-sub { font-size: 8px; letter-spacing: 2.5px; }
-  .logo-img { width: 38px; height: 38px; }
-  .header-user-tag { font-size: 9px !important; padding: 4px 8px !important; }
-  .header-logout { font-size: 9px !important; padding: 4px 9px !important; }
+  .header { padding: 10px 12px; margin-bottom: 12px; gap: 8px; }
+  .logo { gap: 8px; }
+  .logo-text { font-size: 14px; letter-spacing: -0.5px; }
+  .logo-sub { font-size: 7.5px; letter-spacing: 2px; }
+  .logo-img { width: 34px; height: 34px; }
+  /* dropdown: don't overflow off screen */
+  .user-dd-btn { font-size: 9px; padding: 4px 8px 4px 6px; gap: 5px; }
+  .user-dd-btn span { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-dd-menu { min-width: 220px; right: 0; left: auto; max-width: calc(100vw - 16px); }
   #dm-btn { width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; }
-  .tabs { gap: 3px; padding: 4px; margin-bottom: 12px; }
-  .tab-btn { min-width: 0; flex: 1; padding: 8px 4px; font-size: 9px; gap: 3px; }
-  .tab-btn i { font-size: 15px; }
+
+  /* tabs: icons only on very small, text shown if space allows */
+  .tabs { gap: 3px; padding: 4px; margin-bottom: 12px; overflow-x: auto; }
+  .tab-btn { min-width: 0; flex: 1; padding: 9px 4px; font-size: 9px; gap: 2px; }
+  .tab-btn i { font-size: 16px; }
+
   .card-body { padding: 14px 14px; }
   .input-row { flex-direction: column; gap: 8px; }
   .input-row .btn { width: 100%; }
   input[type=text] { font-size: 13px; }
-  .result-thumb { width: 48px; height: 32px; }
-  .result-title { font-size: 12px; }
+
+  .result-item { padding: 6px 10px; gap: 7px; }
+  .result-thumb { width: 46px; height: 30px; }
+  .result-thumb-placeholder { width: 46px; height: 30px; }
+  .result-title { font-size: 11.5px; }
   .result-meta  { font-size: 10px; }
+  .size-badge, .source-badge { font-size: 9.5px; }
+
   .quality-row { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 14px; }
   .quality-row .btn { width: 100%; }
   select { width: 100%; }
-  .src-row { padding: 8px 14px; }
-  .results-action { flex-direction: column; padding: 10px 14px; }
+
+  .src-row { padding: 8px 14px; gap: 6px; flex-wrap: wrap; }
+  .src-btn { font-size: 10.5px; padding: 4px 10px; }
+
+  .results-action { flex-direction: column; padding: 10px 14px; gap: 8px; }
   .results-action .btn { width: 100%; }
-  .dl-btn-row { flex-direction: column; padding: 10px 14px 14px; }
+
+  .dl-btn-row { flex-direction: column; padding: 10px 14px 14px; gap: 8px; }
   .dl-btn-row .btn, .dl-btn-row a { width: 100%; text-align: center; }
+
+  .progress-header { padding: 12px 14px 10px; flex-wrap: wrap; gap: 8px; }
+  .file-lbl { font-size: 12px; }
+  .status-badge { font-size: 9.5px; padding: 4px 10px; }
   .pbar-stats { font-size: 10px; padding: 6px 14px 2px; }
-  .result-item { padding: 6px 10px; }
-  .playlist-info { margin: 0 14px 14px; }
-  .progress-header { padding: 12px 14px 10px; }
+  #autodismiss-strip { padding: 6px 14px 10px; }
+
+  .playlist-info { margin: 0 14px 14px; padding: 12px 14px; gap: 10px; }
+  .playlist-info-icon { font-size: 22px; }
+  .playlist-info-title { font-size: 13px; }
+
   .log-header { padding: 10px 14px; }
-  .log-body { padding: 10px 14px; }
+  .log-body { padding: 10px 14px; font-size: 11.5px; }
+
   .sec-label { font-size: 9px; letter-spacing: 1.5px; }
+
+  /* preview modal */
+  #preview-box { width: 96vw; border-radius: 12px; }
+  #preview-title { font-size: 12px; }
+  #preview-thumb-wrap .play-overlay i { font-size: 44px; }
+
+  /* cb toolbar */
+  .cb-toolbar { gap: 3px; }
+  .cb-btn { font-size: 9.5px; padding: 3px 7px; }
+
+  /* playlist video list bar */
+  #yt-video-list-wrap > div:first-child { gap: 6px; padding: 7px 10px !important; }
+  #yt-video-list-wrap button[onclick="downloadSelectedYT()"] { width: 100% !important; margin-left: 0 !important; justify-content: center; }
+}
+
+/* ── Very small (≤ 380px) ─────────────────────────────────────── */
+@media (max-width: 380px) {
+  .logo-text { font-size: 13px; }
+  .logo-sub { display: none; }
+  .logo-img { width: 30px; height: 30px; }
+  .tab-btn span { display: none; }   /* icons-only tabs */
+  .tab-btn { padding: 9px 6px; }
+  .tab-btn i { font-size: 18px; }
+  .user-dd-btn { padding: 4px 6px; gap: 4px; }
+  .user-dd-btn span { max-width: 56px; }
 }
 
 /* ── Doodles ─────────────────────────────────────────────────── */
