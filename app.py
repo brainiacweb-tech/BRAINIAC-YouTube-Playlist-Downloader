@@ -156,7 +156,7 @@ class App(tk.Tk):
         logo = tk.Frame(sb, bg=RED, height=70)
         logo.pack(fill="x")
         logo.pack_propagate(False)
-        tk.Label(logo, text="▶  BRAINIAC", bg=RED, fg=WHITE,
+        tk.Label(logo, text="▶  BRAINIAC Downloader", bg=RED, fg=WHITE,
                  font=_f(13,"bold")).place(relx=.5, rely=.5, anchor="center")
 
         tk.Frame(sb, bg=BORDER, height=1).pack(fill="x")
