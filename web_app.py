@@ -1,4 +1,4 @@
-import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
+import os, sys, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
 from functools import lru_cache
 import requests as _requests
 # Suppress InsecureRequestWarning from verify=False in direct HTTP downloads
@@ -917,15 +917,24 @@ def _run_download(task_id: str, data: dict):
                 opts, logger = _build_opts(task_id, task_dir, quality, mode,
                                            yt_token=yt_token, playlist_cap=playlist_cap)
                 ytdlp_failed = False
+                _old_rlimit = sys.getrecursionlimit()
+                sys.setrecursionlimit(500)
                 try:
                     with yt_dlp.YoutubeDL(opts) as ydl:
                         ydl.download([url])
+                except RecursionError:
+                    ytdlp_failed = True
+                    _push(task_id, {"type": "log",
+                                    "msg": "ℹ️  yt-dlp hit a recursion loop on this page — falling back to HTTP…",
+                                    "level": "info"})
                 except Exception as ex:
                     # In direct mode: treat ALL yt-dlp failures as "try HTTP"
                     ytdlp_failed = True
                     _push(task_id, {"type": "log",
                                     "msg": f"ℹ️  yt-dlp could not handle URL ({ex}), falling back to HTTP…",
                                     "level": "info"})
+                finally:
+                    sys.setrecursionlimit(_old_rlimit)
 
                 # 4. If yt-dlp failed OR produced no files → HTTP fallback
                 files_so_far = [
@@ -952,9 +961,19 @@ def _run_download(task_id: str, data: dict):
         else:
             opts, logger = _build_opts(task_id, task_dir, quality, mode,
                                        yt_token=yt_token, playlist_cap=playlist_cap)
+            _old_rlimit2 = sys.getrecursionlimit()
+            sys.setrecursionlimit(500)
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
+            except RecursionError:
+                sys.setrecursionlimit(_old_rlimit2)
+                user_msg = "Download failed: this page is not a supported media source (yt-dlp recursion loop). Please paste a direct link to the video or audio."
+                with _tasks_lock:
+                    _tasks[task_id]["status"] = "error"
+                    _tasks[task_id]["error"]  = user_msg
+                _push(task_id, {"type": "error", "msg": user_msg})
+                return
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
                 error_msg = str(ex)
                 if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
@@ -972,6 +991,8 @@ def _run_download(task_id: str, data: dict):
                     _tasks[task_id]["error"]  = user_msg
                 _push(task_id, {"type": "error", "msg": user_msg})
                 return
+            finally:
+                sys.setrecursionlimit(_old_rlimit2)
 
         files = [f for f in os.listdir(task_dir)
                  if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
