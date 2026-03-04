@@ -438,6 +438,85 @@ def _find_ffmpeg():
     return ff
 _FFMPEG_PATH = _find_ffmpeg()
 
+# ── Telegram / KDMusic_Bot fallback ──────────────────────────────────────────
+# Set these 3 env vars on Railway to enable automatic music fallback via
+# @KDMusic_Bot when yt-dlp is blocked by YouTube on the server IP.
+#   TELEGRAM_API_ID   — numeric API ID from https://my.telegram.org/apps
+#   TELEGRAM_API_HASH — API hash from the same page
+#   TELEGRAM_SESSION  — StringSession token (generate once; see /api/tg-gen)
+TELEGRAM_API_ID   = os.environ.get("TELEGRAM_API_ID",   "").strip()
+TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "").strip()
+TELEGRAM_SESSION  = os.environ.get("TELEGRAM_SESSION",  "").strip()
+_TG_LOCK          = threading.Lock()   # one KDMusic_Bot request at a time
+
+
+def _kdmusic_fallback(task_id: str, query: str, task_dir: str) -> bool:
+    """Send query to @KDMusic_Bot via Telegram and download the audio response.
+    Returns True if a file was saved into task_dir, False otherwise."""
+    if not (TELEGRAM_API_ID and TELEGRAM_API_HASH and TELEGRAM_SESSION):
+        return False
+    try:
+        import asyncio
+        from telethon import TelegramClient
+        from telethon.sessions import StringSession
+        from telethon.tl.types import DocumentAttributeAudio, DocumentAttributeFilename
+
+        _push(task_id, {"type": "log",
+                        "msg": "\U0001f3b5  yt-dlp blocked \u2014 trying KDMusic_Bot fallback\u2026",
+                        "level": "info"})
+
+        async def _run():
+            client = TelegramClient(StringSession(TELEGRAM_SESSION),
+                                    int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
+            await client.connect()
+            if not await client.is_user_authorized():
+                await client.disconnect()
+                return None
+            # Record the last message ID so we only look at *new* replies
+            history = await client.get_messages("KDMusic_Bot", limit=1)
+            last_id = history[0].id if history else 0
+            await client.send_message("KDMusic_Bot", query)
+            # Wait up to 60 s for an audio document in the reply
+            audio_msg = None
+            for _ in range(60):
+                await asyncio.sleep(1)
+                new_msgs = await client.get_messages("KDMusic_Bot", min_id=last_id, limit=10)
+                for msg in reversed(new_msgs):   # oldest first
+                    if msg.audio or (msg.document and any(
+                        isinstance(a, (DocumentAttributeAudio, DocumentAttributeFilename))
+                        for a in (getattr(msg.document, "attributes", None) or [])
+                    )):
+                        audio_msg = msg
+                        break
+                if audio_msg:
+                    break
+            if not audio_msg:
+                await client.disconnect()
+                return None
+            path = await client.download_media(audio_msg, task_dir)
+            await client.disconnect()
+            return path
+
+        with _TG_LOCK:    # serialize to avoid crossing messages between concurrent users
+            loop = asyncio.new_event_loop()
+            try:
+                result = loop.run_until_complete(_run())
+            finally:
+                loop.close()
+
+        if result and os.path.isfile(str(result)):
+            _push(task_id, {"type": "log",
+                            "msg": f"\u2714  KDMusic_Bot delivered: {os.path.basename(str(result))}",
+                            "level": "ok"})
+            return True
+        return False
+    except Exception as ex:
+        _push(task_id, {"type": "log",
+                        "msg": f"\u2139\ufe0f  KDMusic_Bot unavailable: {ex}",
+                        "level": "warn"})
+        return False
+
+
 # ── Search result cache ───────────────────────────────────────────────────────
 _search_cache: dict = {}      # key: (query, source, mode) → (timestamp, results)
 _search_cache_lock = threading.Lock()
@@ -983,38 +1062,44 @@ def _run_download(task_id: str, data: dict):
                                        yt_token=yt_token, playlist_cap=playlist_cap)
             _old_rlimit2 = sys.getrecursionlimit()
             sys.setrecursionlimit(500)
+            _ytdlp_failed   = False
+            _ytdlp_user_msg = ""
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
             except RecursionError:
-                sys.setrecursionlimit(_old_rlimit2)
-                user_msg = "Download failed: this page is not a supported media source (yt-dlp recursion loop). Please paste a direct link to the video or audio."
-                with _tasks_lock:
-                    _tasks[task_id]["status"] = "error"
-                    _tasks[task_id]["error"]  = user_msg
-                _push(task_id, {"type": "error", "msg": user_msg})
-                return
+                _ytdlp_failed   = True
+                _ytdlp_user_msg = ("Download failed: this page is not a supported media source "
+                                   "(yt-dlp recursion loop). Please paste a direct link to the video or audio.")
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
+                _ytdlp_failed = True
                 error_msg = str(ex)
                 if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
-                    user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
-                                "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
-                                "it may work via a different extraction path.")
+                    _ytdlp_user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
+                                       "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
+                                       "it may work via a different extraction path.")
                 elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
-                    user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
+                    _ytdlp_user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
                 elif "region-locked" in error_msg or "not available in your country" in error_msg:
-                    user_msg = "Download failed: This video is not available in the server's region."
+                    _ytdlp_user_msg = "Download failed: This video is not available in the server's region."
                 elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
-                    user_msg = "Download failed: YouTube is rate-limiting this server. Please try again in a few minutes."
+                    _ytdlp_user_msg = "Download failed: YouTube is rate-limiting this server. Please try again in a few minutes."
                 else:
-                    user_msg = f"Download failed: {error_msg}"
-                with _tasks_lock:
-                    _tasks[task_id]["status"] = "error"
-                    _tasks[task_id]["error"]  = user_msg
-                _push(task_id, {"type": "error", "msg": user_msg})
-                return
+                    _ytdlp_user_msg = f"Download failed: {error_msg}"
             finally:
                 sys.setrecursionlimit(_old_rlimit2)
+
+            # ── Telegram / KDMusic_Bot fallback for music when yt-dlp fails ──
+            if _ytdlp_failed:
+                tg_ok = False
+                if mode in ("music", "music_search"):
+                    tg_ok = _kdmusic_fallback(task_id, url, task_dir)
+                if not tg_ok:
+                    with _tasks_lock:
+                        _tasks[task_id]["status"] = "error"
+                        _tasks[task_id]["error"]  = _ytdlp_user_msg
+                    _push(task_id, {"type": "error", "msg": _ytdlp_user_msg})
+                    return
 
         files = [f for f in os.listdir(task_dir)
                  if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
