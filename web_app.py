@@ -468,7 +468,7 @@ def _tg_title_from_url(url: str) -> str:
                                "skip_download": True, "extract_flat": False,
                                "socket_timeout": 8,
                                "extractor_args": {"youtube": {
-                                   "player_client": ["mweb", "ios", "web_embedded"]}}}) as ydl:
+                                   "player_client": ["tv_embedded", "web_embedded"]}}}) as ydl:
             info = ydl.extract_info(url, download=False)
         title    = info.get("title") or ""
         uploader = info.get("uploader") or info.get("channel") or ""
@@ -744,10 +744,11 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "nocheckcertificate":      True,
 
         # ios uses Apple's private API path — YouTube almost never bot-blocks it on server IPs.
-        # tv_embedded + android are additional non-web fallbacks that don't need PO tokens.
+        # tv_embedded and web_embedded don't require GVS PO tokens — safest on server IPs.
+        # mweb and ios were removed: both now require GVS PO tokens → skipped entirely on servers.
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "ios", "web_embedded"],
+                "player_client": ["tv_embedded", "web_embedded"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -1542,7 +1543,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["mweb", "ios", "web_embedded"],
+                           "player_client": ["tv_embedded", "web_embedded"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1680,7 +1681,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["mweb", "ios", "web_embedded"],
+                "player_client": ["tv_embedded", "web_embedded"],
             }},
         }
         _inject_cookies(opts)
@@ -1818,7 +1819,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["mweb", "ios", "web_embedded"],
+                             "player_client": ["tv_embedded", "web_embedded"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
