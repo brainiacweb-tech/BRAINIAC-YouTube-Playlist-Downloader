@@ -772,12 +772,28 @@ select:focus { border-color: var(--red); }
   <!-- DIRECT -->
   <div class="panel" id="panel-direct">
     <div class="card">
+      <!-- SEARCH -->
       <div class="card-body">
-        <div class="sec-label"><i class="ri-global-line"></i> Direct URL Download</div>
+        <div class="sec-label"><i class="ri-search-2-line"></i> Find a Link</div>
+        <div class="input-row">
+          <div class="input-wrap">
+            <i class="ri-search-line"></i>
+            <input type="text" id="websearch-q" placeholder="Search anything — movies, songs, software, news, handles…" onkeydown="if(event.key==='Enter')doWebSearch()">
+          </div>
+          <button class="btn btn-ghost" id="websearch-btn" onclick="doWebSearch()">
+            <i class="ri-search-line"></i> Search
+          </button>
+        </div>
+        <div id="websearch-results" style="display:none;flex-direction:column;gap:6px;margin-top:10px;max-height:300px;overflow-y:auto;"></div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0 18px;"></div>
+      <!-- DOWNLOAD -->
+      <div class="card-body">
+        <div class="sec-label"><i class="ri-download-cloud-2-line"></i> Download Any URL</div>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-link"></i>
-            <input type="text" id="direct-url" placeholder="YouTube, TikTok, Instagram, Vimeo, 1000+ sites…" onkeydown="if(event.key==='Enter')directFetch()">
+            <input type="text" id="direct-url" placeholder="Paste any link — social media, video, audio, file…" onkeydown="if(event.key==='Enter')directFetch()">
           </div>
           <button class="btn btn-ghost" id="direct-fetch-btn" onclick="directFetch()">
             <i class="ri-search-eye-line"></i> Check
@@ -798,22 +814,9 @@ select:focus { border-color: var(--red); }
         </div>
       </div>
       <div class="quality-row">
-        <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
-        <span class="quality-label">Format</span>
-        <select id="direct-quality">
-          <option value="Best Quality">Best Quality (auto)</option>
-          <option value="1080p">1080p Video</option>
-          <option value="720p">720p Video</option>
-          <option value="480p">480p Video</option>
-          <option value="360p">360p Video</option>
-          <option value="Audio Only (MP3)">Audio Only (MP3)</option>
-        </select>
-        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto">
+        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto;width:100%">
           <i class="ri-download-cloud-fill"></i> Download
         </button>
-      </div>
-      <div class="card-body" style="padding-top:0">
-        <p class="hint">Supports YouTube, TikTok, Instagram, Facebook, Twitter/X, SoundCloud, Vimeo, Dailymotion, Reddit, Twitch, Pinterest &amp; 1000+ other sites.</p>
       </div>
     </div>
   </div>
@@ -1519,11 +1522,41 @@ function directPreview() {
   if (!ytid) return;
   showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('direct-info-title').textContent || '');
 }
+async function doWebSearch() {
+  const q   = document.getElementById('websearch-q').value.trim();
+  const btn = document.getElementById('websearch-btn');
+  const box = document.getElementById('websearch-results');
+  if (!q) { log('⚠️  Enter a search term.', 'warn'); return; }
+  btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Searching…';
+  box.style.display = 'flex';
+  box.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:6px 0;">Searching…</p>';
+  try {
+    const res  = await fetch('/api/web-search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q}) });
+    const data = await res.json();
+    if (data.error) { box.innerHTML = `<p style="color:#e53935;font-size:12px;">${escHtml(data.error)}</p>`; return; }
+    if (!data.results || !data.results.length) { box.innerHTML = '<p style="color:var(--muted);font-size:12px;">No results found.</p>'; return; }
+    box.innerHTML = data.results.map(r => `
+      <div style="padding:9px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+        <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--red);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(r.title)}">${escHtml(r.title)}</a>
+        <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">${escHtml(r.url)}</div>
+        ${r.snippet ? `<div style="font-size:11px;color:var(--fg);margin-top:3px;opacity:.75;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(r.snippet)}</div>` : ''}
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="event.stopPropagation();document.getElementById('direct-url').value=this.dataset.url;directFetch()" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.3);color:var(--red);cursor:pointer;font-weight:700;"><i class="ri-download-2-line"></i> Download</button>
+          <button onclick="navigator.clipboard.writeText(this.dataset.url)" data-url="${escHtml(r.url)}" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;"><i class="ri-file-copy-line"></i> Copy</button>
+          <a href="${escHtml(r.url)}" target="_blank" rel="noopener" style="font-size:10px;padding:3px 9px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-weight:700;text-decoration:none;"><i class="ri-external-link-line"></i> Visit</a>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#e53935;font-size:12px;">Search failed: ${escHtml(e.message)}</p>`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="ri-search-line"></i> Search';
+  }
+}
 function directDownload() {
-  const url     = document.getElementById('direct-url').value.trim();
-  const quality = document.getElementById('direct-quality').value;
+  const url = document.getElementById('direct-url').value.trim();
   if (!url) { log('⚠️  Paste a URL first.', 'warn'); return; }
-  startDownload({ url, quality, mode: 'direct' });
+  startDownload({ url, quality: 'Best Quality', mode: 'direct' });
 }
 
 function escHtml(s) {

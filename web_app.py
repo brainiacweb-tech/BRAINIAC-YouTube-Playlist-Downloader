@@ -1413,6 +1413,52 @@ def search():
         return jsonify({"error": str(ex)}), 500
 
 
+@app.route("/api/web-search", methods=["POST"])
+@limiter.limit("20 per minute")
+@login_required
+def web_search_route():
+    import urllib.parse
+    data  = request.get_json(force=True) or {}
+    query = (data.get("query") or "").strip()[:200]
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+    try:
+        ua  = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        r   = _requests.post(
+            "https://html.duckduckgo.com/html/",
+            data={"q": query, "kl": "us-en"},
+            headers={"User-Agent": ua,
+                     "Content-Type": "application/x-www-form-urlencoded",
+                     "Accept-Language": "en-US,en;q=0.9"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        html    = r.text
+        results = []
+        for block in re.findall(r'<div class="result[^"]*"[^>]*>(.*?)</div>\s*</div>', html, re.DOTALL):
+            href_m    = re.search(r'class="result__a"[^>]+href="([^"]+)"', block)
+            title_m   = re.search(r'class="result__a"[^>]*>(.*?)</a>', block, re.DOTALL)
+            snippet_m = re.search(r'class="result__snippet"[^>]*>(.*?)</(?:a|span)', block, re.DOTALL)
+            if not href_m or not title_m:
+                continue
+            href = href_m.group(1)
+            if 'uddg=' in href:
+                params = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(href).query))
+                href   = urllib.parse.unquote(params.get('uddg', href))
+            if href.startswith('//'):
+                href = 'https:' + href
+            title   = re.sub(r'<[^>]+>', '', title_m.group(1)).strip()
+            snippet = re.sub(r'<[^>]+>', '', snippet_m.group(1)).strip() if snippet_m else ''
+            if href.startswith('http') and title:
+                results.append({"title": title, "url": href, "snippet": snippet})
+            if len(results) >= 10:
+                break
+        return jsonify({"results": results})
+    except Exception as ex:
+        return jsonify({"error": str(ex)}), 500
+
+
 @app.route("/api/prefetch", methods=["POST"])
 @limiter.limit("30 per minute")
 def prefetch():
