@@ -441,7 +441,7 @@ _FFMPEG_PATH = _find_ffmpeg()
 # ── Search result cache ───────────────────────────────────────────────────────
 _search_cache: dict = {}      # key: (query, source, mode) → (timestamp, results)
 _search_cache_lock = threading.Lock()
-SEARCH_CACHE_TTL = 300        # seconds — cache search results for 5 minutes
+SEARCH_CACHE_TTL = 900        # seconds — cache search results for 15 minutes
 
 def _cache_get(key):
     with _search_cache_lock:
@@ -586,8 +586,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "progress_hooks":   [_make_hook(task_id)],
         "outtmpl":          os.path.join(task_dir, "%(title)s.%(ext)s"),
         "noplaylist":       mode == "direct",   # for direct tab: single item only
-        "retries":          10,
-        "fragment_retries": 10,
+        "retries":          3,
+        "fragment_retries": 3,
         "ignoreerrors":     mode in ("playlist",),  # only skip errors in playlists
         "no_color":         True,
 
@@ -1371,8 +1371,8 @@ def search():
     if source not in ("YouTube", "SoundCloud", "Dailymotion"):
         source = "YouTube"
 
-    prefix = {"YouTube": "ytsearch200:", "SoundCloud": "scsearch200:",
-              "Dailymotion": "dmsearch200:"}.get(source, "ytsearch200:")
+    prefix = {"YouTube": "ytsearch20:", "SoundCloud": "scsearch20:",
+              "Dailymotion": "dmsearch20:"}.get(source, "ytsearch20:")
 
     # ── Cache check ───────────────────────────────────────────────────────────
     cache_key = (query, source, mode)
@@ -1392,6 +1392,7 @@ def search():
                        "extract_flat": True, "skip_download": True,
                        "nocheckcertificate": True,
                        "geo_bypass": True,
+                       "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
                            "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
@@ -1529,6 +1530,7 @@ def playlist_items_route():
             "extract_flat": True, "skip_download": True,
             "nocheckcertificate": True, "geo_bypass": True,
             "noplaylist": False,
+            "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
                 "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
@@ -1666,6 +1668,7 @@ def prefetch():
                          "extract_flat": True, "skip_download": True,
                          "nocheckcertificate": True,
                          "geo_bypass": True,
+                         "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
                              "player_client": ["ios", "tv_embedded", "android", "web_embedded"],

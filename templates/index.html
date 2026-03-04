@@ -1681,55 +1681,38 @@ async function doSearch(mode) {
 function renderResults(mode, results) {
   const list = document.getElementById('results-list-' + mode);
   const area = document.getElementById('results-' + mode);
-  list.innerHTML = '';
-  area.style.display = results.length ? 'block' : 'none';
-  results.forEach((r, i) => {
-    const item = document.createElement('div');
-    item.className = 'result-item';
-    item.dataset.idx = i;
-
-    // Thumbnail with fallback
-    let thumbHtml;
-    const fallbackIcon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
-    if (r.thumbnail) {
-      thumbHtml = `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="imgError(this,'${fallbackIcon}')">`;
-    } else {
-      thumbHtml = `<div class="result-thumb-placeholder"><i class="${fallbackIcon}"></i></div>`;
-    }
-
+  if (!results.length) { list.innerHTML = ''; area.style.display = 'none'; return; }
+  const fallbackIcon = mode === 'movies' ? 'ri-film-line' : 'ri-music-2-fill';
+  // Build all HTML in one pass — single innerHTML write is ~5× faster than appending elements
+  const html = results.map((r, i) => {
+    const thumbHtml = r.thumbnail
+      ? `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="imgError(this,'${fallbackIcon}')">`
+      : `<div class="result-thumb-placeholder"><i class="${fallbackIcon}"></i></div>`;
     const sizeBadge = r.filesize > 0 ? `<span class="size-badge">~${fmtSize(r.filesize)}</span>` : '';
-
-    let srcCls = '';
-    if (r.source === 'SoundCloud') srcCls = ' sc';
-    else if (r.source === 'Dailymotion') srcCls = ' dm';
+    let srcCls = r.source === 'SoundCloud' ? ' sc' : r.source === 'Dailymotion' ? ' dm' : '';
     const srcLabel = r.source === 'YouTube' ? 'YT' : r.source === 'SoundCloud' ? 'SC' : r.source === 'Dailymotion' ? 'DM' : '';
     const srcBadge = srcLabel ? `<span class="source-badge${srcCls}">${srcLabel}</span>` : '';
-
-    // Preview button — YouTube iframe or placeholder
     const ytMatch = (r.url || '').match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
-    let previewBtn = '';
-    if (ytMatch) {
-      const safeTitle = escHtml(r.title).replace(/'/g, '&#39;');
-      previewBtn = `<button class="preview-btn" title="Preview" onclick="event.stopPropagation();showPreview('https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0','${safeTitle}')"><i class="ri-play-circle-line"></i></button>`;
-    }
-
-    item.innerHTML = `
+    const safeTitle = escHtml(r.title).replace(/'/g, '&#39;');
+    const previewBtn = ytMatch
+      ? `<button class="preview-btn" title="Preview" onclick="event.stopPropagation();showPreview('https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0','${safeTitle}')"><i class="ri-play-circle-line"></i></button>`
+      : '';
+    return `<div class="result-item" data-idx="${i}" onclick="toggleResult('${mode}',${i},this)">
       ${thumbHtml}
       <div class="result-info">
         <div class="result-title">${escHtml(r.title)}</div>
         <div class="result-meta">
           ${r.uploader ? '<span>' + escHtml(r.uploader) + '</span>' : ''}
           ${r.duration  ? '<span>· ' + r.duration + '</span>' : ''}
-          ${sizeBadge}
-          ${srcBadge}
+          ${sizeBadge}${srcBadge}
         </div>
       </div>
       ${previewBtn}
       <div class="result-check"><i class="ri-check-line" style="font-size:13px"></i></div>
-    `;
-    item.onclick = () => toggleResult(mode, i, item);
-    list.appendChild(item);
-  });
+    </div>`;
+  }).join('');
+  list.innerHTML = html;
+  area.style.display = 'block';
 }
 
 function toggleResult(mode, idx, el) {
@@ -1975,6 +1958,23 @@ function cbAction(inputId, action) {
     }).catch(() => document.execCommand('paste'));
   }
 }
+
+// ── Debounce: fire search after 500ms idle typing ────────────────────────────────
+const _searchTimers = {};
+function _debounceSearch(mode, ms) {
+  clearTimeout(_searchTimers[mode]);
+  _searchTimers[mode] = setTimeout(() => {
+    const q = document.getElementById(mode + '-q');
+    if (q && q.value.trim().length >= 2) doSearch(mode);
+  }, ms || 500);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const map = [['music-q','music'],['movies-q','movies']];
+  map.forEach(([id, mode]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => _debounceSearch(mode, 500));
+  });
+});
 </script>
 
 <!-- Preview Modal -->
