@@ -67,11 +67,90 @@ class User(UserMixin, db.Model):
     avatar              = db.Column(db.String(512), nullable=True)
     gdrive_token        = db.Column(db.String(512), nullable=True)   # access token
     gdrive_refresh      = db.Column(db.Text, nullable=True)          # refresh token (longer)
+    # ── Subscription plan ────────────────────────────────────────────────────
+    plan                = db.Column(db.String(20), nullable=False, default="free")
+    # plan_expires: UTC date string "YYYY-MM-DD", None = never expires / free
+    plan_expires        = db.Column(db.String(20), nullable=True)
+
+class DailyDownload(db.Model):
+    """Tracks how many downloads a user has done today."""
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    date_str   = db.Column(db.String(10), nullable=False)   # "YYYY-MM-DD" UTC
+    count      = db.Column(db.Integer, nullable=False, default=0)
+    __table_args__ = (db.UniqueConstraint("user_id", "date_str", name="uq_user_date"),)
 
 class AppSetting(db.Model):
     """Key-value store for app-wide settings that must survive restarts."""
     key   = db.Column(db.String(100), primary_key=True)
     value = db.Column(db.Text, nullable=True)
+
+# ── Plan definitions ──────────────────────────────────────────────────────────
+PLAN_LIMITS = {
+    #         daily_downloads  max_quality    drive_sync  batch_playlist
+    "free":  {"daily": 5,      "quality": "720p",  "drive": False, "batch": False},
+    "plus":  {"daily": 50,     "quality": "1080p", "drive": True,  "batch": False},
+    "pro":   {"daily": 999999, "quality": "4K",    "drive": True,  "batch": True},
+}
+
+def _get_user_plan(user) -> str:
+    """Return active plan, auto-downgrade to free if expired."""
+    if not user or not user.is_authenticated:
+        return "free"
+    plan = user.plan or "free"
+    if plan != "free" and user.plan_expires:
+        from datetime import datetime as _dt
+        try:
+            exp = _dt.strptime(user.plan_expires, "%Y-%m-%d").date()
+            if _dt.utcnow().date() > exp:
+                # Expired → downgrade silently (don't write to DB here, lazy)
+                return "free"
+        except Exception:
+            pass
+    return plan
+
+def _check_daily_limit(user) -> tuple[bool, int, int]:
+    """Returns (allowed, used_today, daily_limit)."""
+    from datetime import datetime as _dt
+    plan  = _get_user_plan(user)
+    limit = PLAN_LIMITS[plan]["daily"]
+    if not user or not user.is_authenticated:
+        # Unauthenticated: cap at 2 per day per session (rough guard)
+        return True, 0, limit
+    today = _dt.utcnow().strftime("%Y-%m-%d")
+    row = DailyDownload.query.filter_by(user_id=user.id, date_str=today).first()
+    used = row.count if row else 0
+    return (used < limit), used, limit
+
+def _increment_daily(user):
+    from datetime import datetime as _dt
+    if not user or not user.is_authenticated:
+        return
+    today = _dt.utcnow().strftime("%Y-%m-%d")
+    row = DailyDownload.query.filter_by(user_id=user.id, date_str=today).first()
+    if row:
+        row.count += 1
+    else:
+        row = DailyDownload(user_id=user.id, date_str=today, count=1)
+        db.session.add(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+def _quality_allowed(user, quality: str) -> bool:
+    """Check if the requested quality is within the user's plan."""
+    plan     = _get_user_plan(user)
+    max_qual = PLAN_LIMITS[plan]["quality"]
+    order    = ["360p", "480p", "720p", "1080p", "4K", "Best Quality"]
+    def _rank(q):
+        q = q.strip()
+        if q in order:
+            return order.index(q)
+        if q in ("Audio Only (MP3)",):
+            return -1   # audio is always allowed
+        return len(order)  # unknown → allow
+    return _rank(quality) <= _rank(max_qual)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -83,12 +162,14 @@ with app.app_context():
     except Exception:
         # Ignore "table already exists" race between gunicorn workers on first boot
         db.session.rollback()
-    # Add google_id / avatar columns if this is an existing DB without them
+    # Add columns if this is an existing DB without them (safe to re-run)
     for _col, _ddl in [
         ("google_id",      "ALTER TABLE user ADD COLUMN google_id VARCHAR(128) UNIQUE"),
         ("avatar",         "ALTER TABLE user ADD COLUMN avatar VARCHAR(512)"),
         ("gdrive_token",   "ALTER TABLE user ADD COLUMN gdrive_token VARCHAR(512)"),
         ("gdrive_refresh", "ALTER TABLE user ADD COLUMN gdrive_refresh TEXT"),
+        ("plan",           "ALTER TABLE user ADD COLUMN plan VARCHAR(20) NOT NULL DEFAULT 'free'"),
+        ("plan_expires",   "ALTER TABLE user ADD COLUMN plan_expires VARCHAR(20)"),
     ]:
         try:
             with db.engine.connect() as _conn:
@@ -451,7 +532,7 @@ def _make_hook(task_id: str):
     return hook
 
 
-def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: str = "") -> dict:
+def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: str = "", playlist_cap: int = 0) -> dict:
     logger = _YtLogger(task_id)
     _headers = {
         "User-Agent": (
@@ -565,6 +646,10 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         opts["merge_output_format"] = "mp4"
         opts["allow_unplayable_formats"] = True
 
+    # Cap playlist items for free users
+    if playlist_cap and playlist_cap > 0:
+        opts["playlistend"] = playlist_cap
+
     return opts, logger
 
 
@@ -621,17 +706,18 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str) -> str | None
 
 
 def _run_download(task_id: str, data: dict):
-    url      = data.get("url", "").strip()
-    quality  = data.get("quality", "Best Quality")
-    mode     = data.get("mode", "playlist")
-    yt_token = data.get("yt_token", "")
+    url          = data.get("url", "").strip()
+    quality      = data.get("quality", "Best Quality")
+    mode         = data.get("mode", "playlist")
+    yt_token     = data.get("yt_token", "")
+    playlist_cap = data.get("_playlist_cap", 0)
 
     task_dir = os.path.join(DOWNLOAD_BASE, task_id)
     os.makedirs(task_dir, exist_ok=True)
 
     try:
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
-        opts, logger = _build_opts(task_id, task_dir, quality, mode, yt_token=yt_token)
+        opts, logger = _build_opts(task_id, task_dir, quality, mode, yt_token=yt_token, playlist_cap=playlist_cap)
 
         ytdlp_failed = False
         try:
@@ -907,6 +993,56 @@ def pricing():
     resp = render_template("pricing.html")
     return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
+# ── Plan status API ───────────────────────────────────────────────────────────
+@app.route("/api/plan-status")
+@login_required
+def api_plan_status():
+    from datetime import datetime as _dt
+    plan    = _get_user_plan(current_user)
+    limits  = PLAN_LIMITS[plan]
+    today   = _dt.utcnow().strftime("%Y-%m-%d")
+    row     = DailyDownload.query.filter_by(user_id=current_user.id, date_str=today).first()
+    used    = row.count if row else 0
+    return jsonify({
+        "plan":          plan,
+        "plan_expires":  current_user.plan_expires,
+        "daily_limit":   limits["daily"],
+        "used_today":    used,
+        "remaining":     max(0, limits["daily"] - used),
+        "max_quality":   limits["quality"],
+        "drive_sync":    limits["drive"],
+        "batch":         limits["batch"],
+    })
+
+@app.route("/api/admin/set-plan", methods=["POST"])
+@login_required
+def api_admin_set_plan():
+    """Admin-only: manually upgrade/downgrade a user's plan.
+    Requires ADMIN_SECRET env var to match posted secret."""
+    admin_secret = os.environ.get("ADMIN_SECRET", "")
+    if not admin_secret:
+        return jsonify({"error": "Admin not configured"}), 403
+    data   = request.get_json(force=True) or {}
+    secret = data.get("secret", "")
+    if secret != admin_secret:
+        return jsonify({"error": "Forbidden"}), 403
+    email   = (data.get("email") or "").strip().lower()
+    plan    = (data.get("plan") or "free").strip().lower()
+    expires = data.get("expires")   # "YYYY-MM-DD" or null
+    if plan not in PLAN_LIMITS:
+        return jsonify({"error": f"Unknown plan: {plan}"}), 400
+    u = User.query.filter_by(email=email).first()
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+    u.plan         = plan
+    u.plan_expires = expires
+    try:
+        db.session.commit()
+        return jsonify({"ok": True, "email": email, "plan": plan, "expires": expires})
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({"error": str(ex)}), 500
+
 @app.route("/")
 def landing():
     if current_user.is_authenticated:
@@ -926,7 +1062,23 @@ def google_site_verify(token):
 @login_required
 @limiter.limit("120 per minute")
 def index():
-    resp = make_response(render_template("index.html", username=current_user.username, avatar=current_user.avatar, email=current_user.email))
+    from datetime import datetime as _dt
+    plan   = _get_user_plan(current_user)
+    today  = _dt.utcnow().strftime("%Y-%m-%d")
+    row    = DailyDownload.query.filter_by(user_id=current_user.id, date_str=today).first()
+    used   = row.count if row else 0
+    limits = PLAN_LIMITS[plan]
+    resp = make_response(render_template(
+        "index.html",
+        username=current_user.username,
+        avatar=current_user.avatar,
+        email=current_user.email,
+        user_plan=plan,
+        plan_used=used,
+        plan_limit=limits["daily"],
+        plan_max_quality=limits["quality"],
+        plan_drive=limits["drive"],
+    ))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -1074,10 +1226,12 @@ def prefetch():
 
 @app.route("/api/download", methods=["POST"])
 @limiter.limit("10 per minute; 50 per hour")
+@login_required
 def start_download():
     data = request.get_json(force=True) or {}
-    url  = (data.get("url") or "").strip()
-    mode = (data.get("mode") or "playlist").strip()
+    url     = (data.get("url") or "").strip()
+    mode    = (data.get("mode") or "playlist").strip()
+    quality = (data.get("quality") or "Best Quality").strip()
 
     # Validate URL for non-search modes
     if mode != "music_search" and mode != "movies_search":
@@ -1085,12 +1239,46 @@ def start_download():
         if err:
             return jsonify({"error": err}), 400
 
+    # ── Plan enforcement ──────────────────────────────────────────────────────
+    allowed, used, limit = _check_daily_limit(current_user)
+    if not allowed:
+        plan = _get_user_plan(current_user)
+        return jsonify({
+            "error": (
+                f"Daily download limit reached ({used}/{limit}). "
+                + ("Upgrade to Plus or Pro for more downloads." if plan == "free"
+                   else "Upgrade to Pro for unlimited downloads.")
+            ),
+            "limit_reached": True,
+            "plan": plan,
+        }), 429
+
+    if not _quality_allowed(current_user, quality):
+        plan      = _get_user_plan(current_user)
+        max_qual  = PLAN_LIMITS[plan]["quality"]
+        return jsonify({
+            "error": (
+                f"Your {plan.title()} plan supports up to {max_qual}. "
+                + ("Upgrade to Pro for 4K / Best Quality." if plan == "plus"
+                   else "Upgrade to Plus or Pro for higher quality.")
+            ),
+            "quality_blocked": True,
+            "plan": plan,
+        }), 403
+
+    # ── Batch / playlist guard ────────────────────────────────────────────────
+    if mode == "playlist" and not PLAN_LIMITS[_get_user_plan(current_user)]["batch"]:
+        # Free users: cap playlist at 5 items (set in yt-dlp opts via playlistend)
+        data["_playlist_cap"] = 5
+
     # Pass the user's Google/YouTube token to the download thread so yt-dlp
     # can authenticate via Authorization header — avoids bot-detection prompts.
-    if current_user.is_authenticated:
-        yt_tok = session.get("gdrive_token") or (current_user.gdrive_token or "")
-        if yt_tok:
-            data["yt_token"] = yt_tok
+    yt_tok = session.get("gdrive_token") or (current_user.gdrive_token or "")
+    if yt_tok:
+        data["yt_token"] = yt_tok
+
+    # Increment daily counter
+    _increment_daily(current_user)
 
     task_id = str(uuid.uuid4())
     _create_task(task_id)
