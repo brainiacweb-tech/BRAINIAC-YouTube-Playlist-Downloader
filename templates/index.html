@@ -400,6 +400,7 @@ select:focus { border-color: var(--red); }
 .log-title { font-size: 11px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; }
 .log-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+@keyframes spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 .log-body {
   padding: 14px 18px; max-height: 160px; overflow-y: auto;
   font-size: 12px; font-weight: 500; line-height: 1.7;
@@ -886,11 +887,13 @@ select:focus { border-color: var(--red); }
   <!-- FILES PANEL -->
   <div class="panel" id="panel-files">
     <div class="card">
-      <div class="card-body">
-        <div class="sec-label"><i class="ri-folder-3-fill"></i> Downloaded Files</div>
-        <p class="hint" style="margin-top:8px;">Files downloaded in this session appear here. Completed downloads show a link to open or save the file.</p>
+      <div class="card-body" style="padding-bottom:10px;">
+        <div class="sec-label"><i class="ri-folder-3-fill"></i> My Files
+          <button onclick="loadFiles()" title="Refresh" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 2px;" id="files-refresh-btn"><i class="ri-refresh-line"></i></button>
+        </div>
+        <p class="hint" style="margin-top:4px;">All your completed downloads are saved here automatically.</p>
       </div>
-      <div id="files-list" style="padding:0 18px 14px;">
+      <div id="files-list" style="padding:0 18px 16px;">
         <div id="files-empty" style="text-align:center;padding:32px 0;color:var(--muted);font-size:13px;font-weight:600;">
           <i class="ri-folder-open-line" style="font-size:36px;display:block;margin-bottom:8px;opacity:0.4;"></i>
           No files yet — start a download!
@@ -1092,25 +1095,72 @@ function toggleDarkModeFromSettings(on) {
 
 // ── Files history ──────────────────────────────────────────
 const downloadedFiles = [];
-function addFileToPanel(filename, taskId) {
+function fmtSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1048576)    return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
+  return (bytes/1073741824).toFixed(2) + ' GB';
+}
+async function loadFiles() {
   const list  = document.getElementById('files-list');
   const empty = document.getElementById('files-empty');
+  const btn   = document.getElementById('files-refresh-btn');
+  if (btn) btn.innerHTML = '<i class="ri-loader-4-line" style="animation:spin .8s linear infinite;display:inline-block"></i>';
+  let rows;
+  try {
+    const r = await fetch('/api/files');
+    rows = await r.json();
+  } catch(e) {
+    if (btn) btn.innerHTML = '<i class="ri-refresh-line"></i>';
+    return;
+  }
+  if (btn) btn.innerHTML = '<i class="ri-refresh-line"></i>';
+  // Clear existing file rows (keep empty placeholder)
+  Array.from(list.children).forEach(c => { if (c.id !== 'files-empty') c.remove(); });
+  if (!rows || !rows.length) {
+    if (empty) empty.style.display = '';
+    return;
+  }
   if (empty) empty.style.display = 'none';
-  downloadedFiles.push({ filename, taskId });
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(120,30,30,0.18);';
-  row.innerHTML = `<i class="ri-file-download-line" style="font-size:18px;color:var(--red);flex-shrink:0;"></i>
-    <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${filename}">${filename}</span>
-    <a href="/api/file/${taskId}" download style="padding:4px 12px;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.3);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;transition:all 0.18s;" onmouseover="this.style.background='rgba(229,57,53,0.25)'" onmouseout="this.style.background='rgba(229,57,53,0.12)'"><i class="ri-download-2-line"></i> Save</a>`;
-  list.appendChild(row);
+  rows.forEach(f => {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    const icon = ext === 'mp3' ? 'ri-music-2-fill' :
+                 ['mp4','mkv','webm','mov'].includes(ext) ? 'ri-video-fill' :
+                 ext === 'zip' ? 'ri-file-zip-fill' : 'ri-file-download-fill';
+    const iconColor = ext === 'mp3' ? '#7c3aed' :
+                      ['mp4','mkv','webm','mov'].includes(ext) ? 'var(--red)' :
+                      ext === 'zip' ? '#0284c7' : 'var(--red)';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);';
+    row.dataset.filename = f.name;
+    row.innerHTML = `
+      <i class="${icon}" style="font-size:20px;color:${iconColor};flex-shrink:0;"></i>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${f.name}">${f.name}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${fmtSize(f.size)} &bull; ${f.modified}</div>
+      </div>
+      <a href="/api/saved-file/${encodeURIComponent(f.name)}" download="${f.name}" style="padding:5px 12px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;flex-shrink:0;"><i class="ri-download-2-line"></i> Save</a>
+      <button onclick="deleteFile('${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}',this)" title="Delete" style="padding:5px 8px;background:none;border:1.5px solid rgba(229,57,53,0.20);border-radius:20px;font-size:13px;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all .15s;" onmouseover="this.style.background='rgba(229,57,53,0.10)';this.style.color='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--muted)'"><i class="ri-delete-bin-6-line"></i></button>
+    `;
+    list.appendChild(row);
+  });
 }
-function clearFilesHistory() {
-  downloadedFiles.length = 0;
-  const list  = document.getElementById('files-list');
-  const empty = document.getElementById('files-empty');
-  list.innerHTML = '';
-  if (empty) { list.appendChild(empty); empty.style.display = ''; }
+async function deleteFile(filename, btn) {
+  if (!confirm(`Delete "${filename}"?`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/delete-file', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filename}) });
+    if (r.ok) {
+      const row = btn.closest('[data-filename]');
+      if (row) row.remove();
+      const list = document.getElementById('files-list');
+      const hasRows = Array.from(list.children).some(c => c.id !== 'files-empty');
+      if (!hasRows) { const e = document.getElementById('files-empty'); if(e) e.style.display=''; }
+    }
+  } catch(e) { btn.disabled = false; }
 }
+function addFileToPanel(filename, taskId) { loadFiles(); }
 
 const searchSources  = { music: 'YouTube', movies: 'YouTube' };
 const searchResults  = { music: [], movies: [] };
@@ -1141,6 +1191,7 @@ function ddSwitchTab(tab) {
   document.getElementById('user-dd-btn').classList.remove('open');
   document.getElementById('user-dd-menu').classList.remove('open');
   switchTab(tab, null);
+  if (tab === 'files') loadFiles();
 }
 document.addEventListener('click', function(e) {
   var wrap = document.getElementById('user-dd-wrap');

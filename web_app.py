@@ -1025,9 +1025,10 @@ def _run_download(task_id: str, data: dict):
             with _tasks_lock:
                 _tasks[task_id]["files"]  = files
                 _tasks[task_id]["status"] = "done"
-            # Write to disk so any worker can serve the file
             with open(os.path.join(task_dir, "task.json"), "w") as f:
                 json.dump({"status": "done", "files": files, "zip": None}, f)
+            # ── Auto-save to user's persistent folder ──────────────────────
+            _autosave_file(data, os.path.join(task_dir, files[0]))
             _push(task_id, {"type": "done", "filename": files[0], "count": 1})
         else:
             zip_name = "playlist.zip"
@@ -1039,9 +1040,10 @@ def _run_download(task_id: str, data: dict):
                 _tasks[task_id]["files"]  = files
                 _tasks[task_id]["zip"]    = zip_name
                 _tasks[task_id]["status"] = "done"
-            # Write to disk so any worker can serve the file
             with open(os.path.join(task_dir, "task.json"), "w") as f:
                 json.dump({"status": "done", "files": files, "zip": zip_name}, f)
+            # ── Auto-save zip to user's persistent folder ──────────────────
+            _autosave_file(data, zip_path)
             _push(task_id, {"type": "done", "filename": zip_name, "count": len(files)})
 
     except RecursionError:
@@ -1055,6 +1057,26 @@ def _run_download(task_id: str, data: dict):
             _tasks[task_id]["status"] = "error"
             _tasks[task_id]["error"]  = str(ex)
         _push(task_id, {"type": "error", "msg": str(ex)})
+
+
+def _autosave_file(data: dict, src_path: str):
+    """Copy a completed download to the user's persistent saved folder."""
+    user_id = data.get("_user_id")
+    if not user_id or not os.path.isfile(src_path):
+        return
+    saved_dir = os.path.join(DOWNLOAD_BASE, "saved", str(user_id))
+    os.makedirs(saved_dir, exist_ok=True)
+    orig_name = os.path.basename(src_path)
+    base, ext = os.path.splitext(orig_name)
+    dst = os.path.join(saved_dir, orig_name)
+    counter = 1
+    while os.path.exists(dst):
+        dst = os.path.join(saved_dir, f"{base} ({counter}){ext}")
+        counter += 1
+    try:
+        shutil.copy2(src_path, dst)
+    except Exception:
+        pass  # never crash the download thread over a save failure
 
 
 def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
@@ -1718,6 +1740,9 @@ def start_download():
     # Increment daily counter
     _increment_daily(current_user)
 
+    # Pass user id so the download thread can persist files to the saved folder
+    data["_user_id"] = current_user.id
+
     task_id = str(uuid.uuid4())
     _create_task(task_id)
     threading.Thread(target=_run_download, args=(task_id, data), daemon=True).start()
@@ -1908,31 +1933,58 @@ def change_email():
                            current_email=current_user.email)
 
 
-# ── List downloaded files ─────────────────────────────────────────────────────
+# ── List / serve / delete persistent saved files ───────────────────────────
 @app.route("/api/files")
 @login_required
 def list_files():
     import datetime
+    saved_dir = os.path.join(DOWNLOAD_BASE, "saved", str(current_user.id))
     rows = []
-    dl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
-    if os.path.isdir(dl_dir):
-        for root, dirs, files in os.walk(dl_dir):
-            for fname in files:
-                if fname.endswith(".part"):
-                    continue
-                fpath = os.path.join(root, fname)
-                try:
-                    stat  = os.stat(fpath)
-                    rows.append({
-                        "name":     fname,
-                        "folder":   os.path.relpath(root, dl_dir),
-                        "size":     stat.st_size,
-                        "modified": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
-                    })
-                except OSError:
-                    pass
+    if os.path.isdir(saved_dir):
+        for fname in os.listdir(saved_dir):
+            fpath = os.path.join(saved_dir, fname)
+            if not os.path.isfile(fpath):
+                continue
+            try:
+                stat = os.stat(fpath)
+                rows.append({
+                    "name":     fname,
+                    "size":     stat.st_size,
+                    "modified": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                })
+            except OSError:
+                pass
     rows.sort(key=lambda x: x["modified"], reverse=True)
     return jsonify(rows)
+
+
+@app.route("/api/saved-file/<path:filename>")
+@login_required
+def serve_saved_file(filename):
+    saved_dir = os.path.realpath(os.path.join(DOWNLOAD_BASE, "saved", str(current_user.id)))
+    fpath     = os.path.realpath(os.path.join(saved_dir, filename))
+    if not fpath.startswith(saved_dir + os.sep) and fpath != saved_dir:
+        return jsonify({"error": "Forbidden"}), 403
+    if not os.path.isfile(fpath):
+        return jsonify({"error": "Not found"}), 404
+    return send_file(fpath, as_attachment=True, download_name=os.path.basename(fpath))
+
+
+@app.route("/api/delete-file", methods=["POST"])
+@login_required
+def delete_saved_file():
+    data     = request.get_json(force=True) or {}
+    filename = (data.get("filename") or "").strip()
+    if not filename or os.sep in filename or ".." in filename:
+        return jsonify({"error": "Invalid filename"}), 400
+    saved_dir = os.path.realpath(os.path.join(DOWNLOAD_BASE, "saved", str(current_user.id)))
+    fpath     = os.path.realpath(os.path.join(saved_dir, filename))
+    if not fpath.startswith(saved_dir + os.sep):
+        return jsonify({"error": "Forbidden"}), 403
+    if not os.path.isfile(fpath):
+        return jsonify({"error": "Not found"}), 404
+    os.remove(fpath)
+    return jsonify({"ok": True})
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
