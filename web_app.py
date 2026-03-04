@@ -1423,37 +1423,69 @@ def web_search_route():
     if not query:
         return jsonify({"error": "No query provided"}), 400
     try:
-        ua  = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        r   = _requests.post(
+        ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+              "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        headers = {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        # Use GET — more reliable than POST for DuckDuckGo HTML
+        r = _requests.get(
             "https://html.duckduckgo.com/html/",
-            data={"q": query, "kl": "us-en"},
-            headers={"User-Agent": ua,
-                     "Content-Type": "application/x-www-form-urlencoded",
-                     "Accept-Language": "en-US,en;q=0.9"},
-            timeout=10,
+            params={"q": query, "kl": "us-en"},
+            headers=headers,
+            timeout=12,
         )
         r.raise_for_status()
-        html    = r.text
-        results = []
-        for block in re.findall(r'<div class="result[^"]*"[^>]*>(.*?)</div>\s*</div>', html, re.DOTALL):
-            href_m    = re.search(r'class="result__a"[^>]+href="([^"]+)"', block)
-            title_m   = re.search(r'class="result__a"[^>]*>(.*?)</a>', block, re.DOTALL)
-            snippet_m = re.search(r'class="result__snippet"[^>]*>(.*?)</(?:a|span)', block, re.DOTALL)
-            if not href_m or not title_m:
-                continue
-            href = href_m.group(1)
+        html = r.text
+
+        results  = []
+        seen     = set()
+
+        # Strategy 1: extract result__a anchors directly (most reliable)
+        anchors = re.findall(
+            r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
+            html, re.DOTALL | re.IGNORECASE
+        )
+        # Also try reversed attr order
+        anchors += re.findall(
+            r'<a[^>]+href="([^"]+)"[^>]+class="[^"]*result__a[^"]*"[^>]*>(.*?)</a>',
+            html, re.DOTALL | re.IGNORECASE
+        )
+
+        # Extract snippets: collect all result__snippet spans in order
+        snippets = re.findall(
+            r'class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</(?:a|span|div)',
+            html, re.DOTALL | re.IGNORECASE
+        )
+        snippet_idx = 0
+
+        for href_raw, title_raw in anchors:
+            # Decode DDG redirect URL
+            href = href_raw.strip()
             if 'uddg=' in href:
                 params = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(href).query))
                 href   = urllib.parse.unquote(params.get('uddg', href))
             if href.startswith('//'):
                 href = 'https:' + href
-            title   = re.sub(r'<[^>]+>', '', title_m.group(1)).strip()
-            snippet = re.sub(r'<[^>]+>', '', snippet_m.group(1)).strip() if snippet_m else ''
-            if href.startswith('http') and title:
-                results.append({"title": title, "url": href, "snippet": snippet})
+            if not href.startswith('http'):
+                continue
+
+            title = re.sub(r'<[^>]+>', '', title_raw).strip()
+            if not title or href in seen:
+                continue
+            seen.add(href)
+
+            snippet = ''
+            if snippet_idx < len(snippets):
+                snippet = re.sub(r'<[^>]+>', '', snippets[snippet_idx]).strip()
+                snippet_idx += 1
+
+            results.append({"title": title, "url": href, "snippet": snippet})
             if len(results) >= 10:
                 break
+
         return jsonify({"results": results})
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
