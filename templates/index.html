@@ -645,9 +645,9 @@ select:focus { border-color: var(--red); }
       </div>
       <div id="yt-info" style="display:none">
         <div class="playlist-info" id="yt-pl-banner" style="cursor:pointer;" onclick="ytPlaylistPreview()">
-          <div id="yt-pl-thumb-wrap" style="flex-shrink:0;position:relative;width:88px;height:52px;border-radius:8px;overflow:hidden;background:#000;display:none;">
+          <div id="yt-pl-thumb-wrap" style="flex-shrink:0;position:relative;width:140px;height:79px;border-radius:9px;overflow:hidden;background:#000;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.35);">
             <img id="yt-pl-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.15s;" id="yt-pl-play-overlay"><i class="ri-play-circle-fill" style="font-size:26px;color:#fff;"></i></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.15s;" id="yt-pl-play-overlay"><i class="ri-play-circle-fill" style="font-size:30px;color:#fff;"></i></div>
           </div>
           <i class="ri-play-list-2-fill playlist-info-icon" id="yt-pl-fallback-icon"></i>
           <div class="playlist-info-body">
@@ -655,6 +655,20 @@ select:focus { border-color: var(--red); }
             <div class="playlist-info-meta" id="yt-pl-meta"></div>
           </div>
         </div>
+      </div>
+      <!-- Playlist video list -->
+      <div id="yt-video-list-wrap" style="display:none;border-top:1.5px solid var(--border);">
+        <div style="padding:8px 14px 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
+          <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Videos</span>
+          <span id="yt-selected-count" style="font-size:10px;color:var(--muted);font-weight:600;"></span>
+          <div style="display:flex;gap:4px;margin-left:4px;">
+            <button class="btn btn-ghost btn-sm" onclick="ytSelectAll(true)"><i class="ri-checkbox-multiple-fill"></i> All</button>
+            <button class="btn btn-ghost btn-sm" onclick="ytSelectAll(false)"><i class="ri-checkbox-multiple-blank-line"></i> None</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="downloadSelectedYT()" style="margin-left:auto;"><i class="ri-download-2-fill"></i> Download Selected</button>
+        </div>
+        <div id="yt-video-list-loading" style="display:none;padding:14px 18px;font-size:12px;color:var(--muted);"><i class="ri-loader-4-line"></i> Loading videos…</div>
+        <div id="yt-video-list" class="results-list" style="max-height:370px;"></div>
       </div>
       <div class="quality-row">
         <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
@@ -668,7 +682,7 @@ select:focus { border-color: var(--red); }
           <option>Audio Only (MP3)</option>
         </select>
         <button class="btn btn-primary" id="yt-dl-btn" onclick="ytStartDownload()" style="margin-left:auto">
-          <i class="ri-download-cloud-2-fill"></i> Download
+          <i class="ri-download-cloud-2-fill"></i> Download All
         </button>
       </div>
     </div>
@@ -1243,7 +1257,7 @@ function subscribeProgress(taskId, onDone, _retries) {
 function showCookieAlert() {}
 function hideCookieAlert() {}
 
-async function startDownload(payload) {
+async function startDownload(payload, onDone) {
   if (isDownloading) { log('⚠  A download is already in progress.', 'warn'); return; }
   isDownloading = true;
   showProgress();
@@ -1261,25 +1275,29 @@ async function startDownload(payload) {
       if (data.limit_reached) {
         log('🚫  ' + data.error, 'err');
         showUpgradePrompt(data.plan);
+        if (onDone) onDone();
         return;
       }
       if (data.quality_blocked) {
         setBadge('error');
         isDownloading = false;
         log('🔒  ' + data.error, 'err');
+        if (onDone) onDone();
         return;
       }
       log('✘  ' + (data.error || ('Server error ' + res.status)), 'err');
+      if (onDone) onDone();
       return;
     }
     if (!data.task_id) {
       setBadge('error');
       isDownloading = false;
       log('✘  No task ID returned from server.', 'err');
+      if (onDone) onDone();
       return;
     }
     currentTaskId = data.task_id;
-    subscribeProgress(currentTaskId);
+    subscribeProgress(currentTaskId, onDone);
   } catch (err) {
     setBadge('error');
     isDownloading = false;
@@ -1293,6 +1311,9 @@ async function ytFetch() {
   const btn = document.getElementById('yt-fetch-btn');
   btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Fetching…';
   log('🔍  Fetching info…', 'info');
+  // Reset video list
+  document.getElementById('yt-video-list-wrap').style.display = 'none';
+  document.getElementById('yt-video-list').innerHTML = '';
   try {
     const res  = await fetch('/api/prefetch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url}) });
     const data = await res.json();
@@ -1323,6 +1344,11 @@ async function ytFetch() {
       document.getElementById('yt-pl-banner').dataset.ytid = vidMatch[1];
     }
     log(`✔  Found: "${data.title}" — ${data.count} video(s)`, 'ok');
+    // If it's a playlist, load the video list
+    const listMatch = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
+    if (listMatch) {
+      loadYtPlaylistItems(listMatch[1]);
+    }
   } catch(e) {
     log('✘  ' + (e.message || e), 'err');
   } finally {
@@ -1334,6 +1360,102 @@ function ytPlaylistPreview() {
   const ytid   = banner ? banner.dataset.ytid : '';
   if (!ytid) return;
   showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('yt-pl-title').textContent || '');
+}
+
+// ── Playlist item loading & selection ────────────────────────────────────────
+let ytPlaylistVideos = [];
+let ytDownloadQueue  = [];
+
+async function loadYtPlaylistItems(playlistId) {
+  const wrap    = document.getElementById('yt-video-list-wrap');
+  const loading = document.getElementById('yt-video-list-loading');
+  const list    = document.getElementById('yt-video-list');
+  wrap.style.display    = 'block';
+  loading.style.display = 'block';
+  list.innerHTML        = '';
+  ytPlaylistVideos      = [];
+  ytUpdateSelCount();
+  try {
+    const res  = await fetch('/api/playlist-items', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({playlist_id: playlistId}) });
+    const data = await res.json();
+    if (data.error) { log('⚠️  Could not load video list: ' + data.error, 'warn'); wrap.style.display = 'none'; return; }
+    ytPlaylistVideos = data.videos || [];
+    renderYtVideoList();
+    log(`✔  Loaded ${ytPlaylistVideos.length} video(s) in playlist.`, 'ok');
+  } catch(e) {
+    log('⚠️  Could not load video list: ' + e.message, 'warn');
+    wrap.style.display = 'none';
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function renderYtVideoList() {
+  const list = document.getElementById('yt-video-list');
+  list.innerHTML = '';
+  ytPlaylistVideos.forEach((v, i) => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.dataset.idx = i;
+    item.onclick = () => ytToggleItem(i);
+    const thumb = v.thumbnail
+      ? `<img class="result-thumb" src="${escHtml(v.thumbnail)}" loading="lazy" onerror="imgError(this,'ri-youtube-fill')">`
+      : `<div class="result-thumb-placeholder"><i class="ri-youtube-fill"></i></div>`;
+    const dur   = v.duration ? fmtDur(v.duration) : '';
+    const safeTitle = escHtml(v.title).replace(/'/g, '&#39;');
+    item.innerHTML = `
+      ${thumb}
+      <div class="result-info">
+        <div class="result-title">${escHtml(v.title)}</div>
+        <div class="result-meta">${dur ? '<span>' + dur + '</span>' : ''}${v.uploader ? '<span>· ' + escHtml(v.uploader) + '</span>' : ''}</div>
+      </div>
+      <button class="preview-btn" title="Preview" onclick="event.stopPropagation();showPreview('https://www.youtube-nocookie.com/embed/${escHtml(v.video_id)}?autoplay=1&rel=0','${safeTitle}')"><i class="ri-play-circle-line"></i></button>
+      <div class="result-check"><i class="ri-check-line" style="font-size:13px"></i></div>`;
+    list.appendChild(item);
+  });
+  ytSelectAll(true);
+}
+
+function ytToggleItem(idx) {
+  const list = document.getElementById('yt-video-list');
+  const item = list.querySelector(`[data-idx="${idx}"]`);
+  if (item) { item.classList.toggle('selected'); ytUpdateSelCount(); }
+}
+
+function ytSelectAll(select) {
+  document.querySelectorAll('#yt-video-list .result-item').forEach(el => {
+    if (select) el.classList.add('selected'); else el.classList.remove('selected');
+  });
+  ytUpdateSelCount();
+}
+
+function ytUpdateSelCount() {
+  const total = document.querySelectorAll('#yt-video-list .result-item').length;
+  const sel   = document.querySelectorAll('#yt-video-list .result-item.selected').length;
+  const el    = document.getElementById('yt-selected-count');
+  if (el) el.textContent = total ? `(${sel} / ${total} selected)` : '';
+}
+
+function downloadSelectedYT() {
+  const quality = document.getElementById('yt-quality').value;
+  const items   = document.querySelectorAll('#yt-video-list .result-item.selected');
+  if (!items.length) { log('⚠️  Select at least one video.', 'warn'); return; }
+  ytDownloadQueue = Array.from(items).map(el => {
+    const v = ytPlaylistVideos[+el.dataset.idx];
+    return { url: v.url, quality, mode: 'playlist', title: v.title };
+  });
+  log(`⬇  Queued ${ytDownloadQueue.length} video(s) for download.`, 'info');
+  processYtQueue();
+}
+
+function processYtQueue() {
+  if (!ytDownloadQueue.length) return;
+  if (isDownloading) { setTimeout(processYtQueue, 1200); return; }
+  const item = ytDownloadQueue.shift();
+  log(`⬇  [${ytDownloadQueue.length + 1} left] Downloading: "${item.title}"…`, 'info');
+  startDownload({ url: item.url, quality: item.quality, mode: item.mode },
+    () => { if (ytDownloadQueue.length) setTimeout(processYtQueue, 800); }
+  );
 }
 
 function ytStartDownload() {

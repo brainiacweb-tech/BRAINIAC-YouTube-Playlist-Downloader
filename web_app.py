@@ -1421,6 +1421,74 @@ def search():
         return jsonify({"error": str(ex)}), 500
 
 
+@app.route("/api/playlist-items", methods=["POST"])
+@limiter.limit("20 per minute")
+@login_required
+def playlist_items_route():
+    """Return all video details for a YouTube playlist using the Data API v3."""
+    if not YOUTUBE_API_KEY:
+        return jsonify({"error": "YouTube API key not configured"}), 400
+    data        = request.get_json(force=True) or {}
+    playlist_id = (data.get("playlist_id") or "").strip()
+    if not playlist_id:
+        return jsonify({"error": "No playlist_id provided"}), 400
+    try:
+        # ── Step 1: collect all video IDs from playlist (paginated) ──────────
+        video_ids  = []
+        page_token = None
+        while True:
+            params = {
+                "part": "snippet,contentDetails",
+                "playlistId": playlist_id,
+                "maxResults": 50,
+                "key": YOUTUBE_API_KEY,
+            }
+            if page_token:
+                params["pageToken"] = page_token
+            r    = _requests.get(f"{_YT_API_BASE}/playlistItems", params=params, timeout=15)
+            resp = r.json()
+            for item in (resp.get("items") or []):
+                vid_id = ((item.get("snippet") or {}).get("resourceId") or {}).get("videoId") or \
+                         (item.get("contentDetails") or {}).get("videoId")
+                if vid_id and vid_id not in ("deleted", None):
+                    video_ids.append(vid_id)
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+
+        # ── Step 2: batch-fetch video details (50 per request) ───────────────
+        videos = []
+        for i in range(0, len(video_ids), 50):
+            batch = video_ids[i:i + 50]
+            vr    = _requests.get(f"{_YT_API_BASE}/videos", params={
+                "part": "snippet,contentDetails",
+                "id":   ",".join(batch),
+                "key":  YOUTUBE_API_KEY,
+            }, timeout=15)
+            # preserve playlist order
+            detail_map = {v["id"]: v for v in (vr.json().get("items") or [])}
+            for vid_id in batch:
+                v = detail_map.get(vid_id)
+                if not v:
+                    continue
+                snip   = v.get("snippet") or {}
+                thumbs = snip.get("thumbnails") or {}
+                thumb  = (thumbs.get("maxres") or thumbs.get("high") or
+                          thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
+                dur_sec, _ = _iso_duration((v.get("contentDetails") or {}).get("duration", ""))
+                videos.append({
+                    "video_id": vid_id,
+                    "title":    snip.get("title") or vid_id,
+                    "thumbnail": thumb,
+                    "duration": dur_sec,
+                    "uploader": snip.get("channelTitle") or "",
+                    "url":      f"https://www.youtube.com/watch?v={vid_id}",
+                })
+        return jsonify({"videos": videos})
+    except Exception as ex:
+        return jsonify({"error": str(ex)}), 500
+
+
 @app.route("/api/web-search", methods=["POST"])
 @limiter.limit("20 per minute")
 @login_required
