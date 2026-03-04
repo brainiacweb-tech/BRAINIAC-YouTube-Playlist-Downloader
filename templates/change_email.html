@@ -20,6 +20,253 @@
   --red-dark:  #b71c1c;
   --red-light: #ffebee;
   --red-mid:   #ef9a9a;
+  --radius:    16px;
+}
+html, body {
+  font-family: 'Montserrat', sans-serif;
+  background: #fceaea;
+  min-height: 100vh;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 60px;
+  position: relative;
+  overflow-x: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(229,57,53,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(183,28,28,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 60% 10%, rgba(229,57,53,0.10) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── DOODLES ── */
+.doodles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.doodle { position: absolute; opacity: 0.10; color: #e53935; user-select: none; animation: floatDoodle ease-in-out infinite alternate; }
+.doodle.spin  { animation: spinDoodle linear infinite; }
+.doodle.drift { animation: driftDoodle ease-in-out infinite alternate; }
+@keyframes floatDoodle { 0%{transform:translateY(0) rotate(0deg)} 100%{transform:translateY(-20px) rotate(8deg)} }
+@keyframes spinDoodle  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes driftDoodle { 0%{transform:translate(0,0) rotate(-5deg)} 100%{transform:translate(14px,-18px) rotate(5deg)} }
+
+/* ── TOP NAV ── */
+.top-nav {
+  position: relative; z-index: 10;
+  width: 100%; max-width: 480px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0;
+}
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--red);
+  text-decoration: none; letter-spacing: 0.3px;
+  background: var(--red-light); border: 1.5px solid var(--red-mid);
+  padding: 6px 14px; border-radius: 20px;
+  transition: background 0.16s;
+}
+.back-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.nav-logo-mini {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.nav-logo-mini img {
+  height: 28px; object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(22%) sepia(96%) saturate(2800%) hue-rotate(343deg) brightness(105%);
+}
+.nav-logo-mini span {
+  font-size: 13px; font-weight: 900; color: var(--red); letter-spacing: -0.3px;
+}
+
+/* ── CARD ── */
+.auth-card {
+  position: relative; z-index: 1;
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(255,255,255,0.90);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 48px rgba(229,57,53,0.13), 0 2px 10px rgba(0,0,0,0.07);
+  padding: 40px 40px 36px;
+  width: 100%; max-width: 440px;
+  margin-top: 8px;
+}
+
+/* ── LOGO ── */
+.auth-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; justify-content: center; }
+.auth-logo-img {
+  width: 46px; height: 46px; object-fit: contain; border-radius: 12px;
+  filter: brightness(0) saturate(100%) invert(26%) sepia(85%) saturate(2290%) hue-rotate(340deg) brightness(100%);
+}
+.auth-logo-text { font-size: 21px; font-weight: 900; letter-spacing: -0.5px; color: var(--fg); }
+.auth-logo-text span { color: var(--red); }
+.auth-logo-sub { font-size: 8px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--red); margin-top: 2px; line-height: 1; }
+
+/* ── DIVIDER ── */
+.card-divider { height: 1.5px; background: var(--border); margin: 0 -40px 28px; }
+
+/* ── HEADING ── */
+.auth-title { font-size: 18px; font-weight: 800; color: var(--fg); text-align: center; margin-bottom: 5px; letter-spacing: -0.4px; }
+.auth-subtitle { font-size: 12px; font-weight: 500; color: var(--muted); text-align: center; margin-bottom: 20px; }
+
+/* ── CURRENT EMAIL CHIP ── */
+.current-email-wrap { text-align: center; margin-bottom: 22px; }
+.current-email-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(229,57,53,0.08); border: 1.5px solid rgba(229,57,53,0.20);
+  border-radius: 20px; padding: 6px 16px;
+  font-size: 12px; font-weight: 700; color: var(--red-dark);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.current-email-chip i { font-size: 14px; flex-shrink: 0; }
+
+/* ── ALERTS ── */
+.alert-box { border-radius: 10px; padding: 11px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+.alert-box i { font-size: 15px; flex-shrink: 0; }
+.alert-error   { background: var(--red-light); border: 1.5px solid var(--red-mid); color: var(--red-dark); }
+.alert-success { background: #e8f5e9; border: 1.5px solid #a5d6a7; color: #2e7d32; }
+
+/* ── FORM ── */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--fg2); margin-bottom: 7px; }
+.input-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.85); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 0 12px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.input-wrap:focus-within { border-color: var(--red); box-shadow: 0 0 0 3px rgba(229,57,53,0.10); }
+.input-wrap > i { font-size: 17px; color: var(--muted); flex-shrink: 0; pointer-events: none; }
+.form-input {
+  flex: 1; min-width: 0; padding: 12px 0;
+  background: transparent; border: none; outline: none;
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 500; color: var(--fg);
+}
+.form-input::placeholder { color: var(--muted); }
+.eye-toggle { flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px 0 4px 4px; font-size: 1.1rem; display: flex; align-items: center; }
+.eye-toggle:hover { color: var(--red); }
+
+/* ── BUTTON ── */
+.btn-primary {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
+  color: #fff; border: none; border-radius: 10px;
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
+  cursor: pointer; transition: opacity 0.18s, transform 0.12s;
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px;
+}
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+
+@media (max-width: 480px) {
+  .auth-card { padding: 32px 22px 28px; }
+  .card-divider { margin: 0 -22px 24px; }
+  .form-input { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- DOODLES -->
+<div class="doodles" aria-hidden="true">
+  <svg class="doodle drift" style="width:38px;top:5%;left:8%;animation-duration:9s;animation-delay:0s"    viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 2-8 5-8-5V6l8 5 8-5v.001z"/></svg>
+  <svg class="doodle spin"  style="width:32px;top:12%;left:91%;animation-duration:11s;animation-delay:1s"  viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>
+  <svg class="doodle"       style="width:45px;top:68%;left:4%;animation-duration:13s;animation-delay:2s"   viewBox="0 0 24 24" fill="currentColor"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l5.5-3.5L10 8.5v7z"/></svg>
+  <svg class="doodle drift" style="width:30px;top:85%;left:87%;animation-duration:8s;animation-delay:3s"   viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+  <svg class="doodle"       style="width:40px;top:44%;left:93%;animation-duration:10s;animation-delay:0.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h4V3H9z"/></svg>
+  <svg class="doodle drift" style="width:36px;top:58%;left:2%;animation-duration:12s;animation-delay:4s"   viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zM11 18.944V21H9v1h6v-1h-2v-2.056A7.003 7.003 0 0 0 19 12v-1h-2v1a5 5 0 0 1-10 0v-1H5v1a7.003 7.003 0 0 0 6 6.944z"/></svg>
+  <svg class="doodle spin"  style="width:28px;top:28%;left:50%;animation-duration:15s;animation-delay:2s"  viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l.01 10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+  <svg class="doodle"       style="width:42px;top:30%;left:1%;animation-duration:7s;animation-delay:1s"    viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 6 0v-4a3 3 0 0 0-3-3V12a6 6 0 1 1 12 0v-.003a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0v-6a9 9 0 0 0-9-9z"/></svg>
+  <svg class="doodle drift" style="width:34px;top:92%;left:45%;animation-duration:10s;animation-delay:2.5s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+</div>
+
+<!-- TOP NAV -->
+<nav class="top-nav">
+  <a href="/" class="back-btn"><i class="ri-arrow-left-line"></i> Back</a>
+  <a href="/" class="nav-logo-mini">
+    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC Downloader">
+    <span>BRAINIAC</span>
+  </a>
+</nav>
+
+<!-- CARD -->
+<div class="auth-card">
+
+  <!-- Logo -->
+  <div class="auth-logo">
+    <img class="auth-logo-img" src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC Downloader">
+    <div>
+      <div class="auth-logo-text">BRAIN<span>IAC</span></div>
+      <div class="auth-logo-sub">Downloader</div>
+    </div>
+  </div>
+
+  <div class="card-divider"></div>
+
+  <div class="auth-title">Change Email</div>
+  <div class="auth-subtitle">Update your account email address</div>
+
+  <div class="current-email-wrap">
+    <div class="current-email-chip"><i class="ri-mail-check-line"></i> {{ current_email }}</div>
+  </div>
+
+  {% if error %}
+  <div class="alert-box alert-error"><i class="ri-error-warning-fill"></i> {{ error }}</div>
+  {% endif %}
+  {% if success %}
+  <div class="alert-box alert-success"><i class="ri-checkbox-circle-fill"></i> {{ success }}</div>
+  {% endif %}
+
+  <form method="POST" action="/change-email" autocomplete="off">
+    <div class="form-group">
+      <label class="form-label" for="new_email">New Email Address</label>
+      <div class="input-wrap">
+        <i class="ri-mail-line"></i>
+        <input class="form-input" type="email" id="new_email" name="new_email" placeholder="Enter new email" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Confirm with Password</label>
+      <div class="input-wrap">
+        <i class="ri-lock-2-line"></i>
+        <input class="form-input" type="password" id="password" name="password" placeholder="Your current password" required>
+        <button type="button" class="eye-toggle" onclick="togglePw('password',this)" tabindex="-1" aria-label="Show"><i class="ri-eye-off-line"></i></button>
+      </div>
+    </div>
+    <button type="submit" class="btn-primary"><i class="ri-save-line"></i> Update Email</button>
+  </form>
+
+</div>
+
+<script>
+function togglePw(id, btn) {
+  var inp = document.getElementById(id);
+  var ico = btn.querySelector('i');
+  if (inp.type === 'password') { inp.type = 'text'; ico.className = 'ri-eye-line'; }
+  else { inp.type = 'password'; ico.className = 'ri-eye-off-line'; }
+}
+</script>
+</body>
+</html>
+
+<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --border:    #e8e8e8;
+  --fg:        #111111;
+  --fg2:       #444444;
+  --muted:     #888888;
+  --red:       #e53935;
+  --red-dark:  #b71c1c;
+  --red-light: #ffebee;
+  --red-mid:   #ef9a9a;
   --radius:    14px;
 }
 body {
