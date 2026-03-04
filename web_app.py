@@ -564,7 +564,6 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     if mode == "direct":
         opts["merge_output_format"] = "mp4"
         opts["allow_unplayable_formats"] = True
-        opts["noplaylist"] = True
 
     return opts, logger
 

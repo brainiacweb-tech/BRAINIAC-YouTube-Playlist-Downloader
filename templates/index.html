@@ -744,7 +744,7 @@ select:focus { border-color: var(--red); }
           </button>
         </div>
         <!-- Prefetch info panel -->
-        <div id="direct-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1.5px solid var(--border);display:none;">
+        <div id="direct-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1.5px solid var(--border);">
           <div style="display:flex;gap:10px;align-items:center;">
             <div id="direct-thumb-wrap" style="flex-shrink:0;width:80px;height:46px;border-radius:7px;overflow:hidden;background:#000;display:none;position:relative;cursor:pointer;" onclick="directPreview()">
               <img id="direct-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
@@ -1254,6 +1254,8 @@ async function ytFetch() {
       if (fallback) fallback.style.display = '';
     }
     log(`✔  Found: "${data.title}" — ${data.count} video(s)`, 'ok');
+  } catch(e) {
+    log('✘  ' + (e.message || e), 'err');
   } finally {
     btn.disabled = false; btn.innerHTML = '<i class="ri-search-eye-line"></i> Check';
   }
@@ -1298,14 +1300,18 @@ async function doSearch(mode) {
     log(`✔  Found ${merged.length} result(s) from all sources.`, 'ok');
   } else {
     log(`🔍  Searching ${src} for "${q}"…`, 'info');
-    const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
-    const data = await res.json();
-    if (data.error) { log('✘  ' + data.error, 'err'); return; }
-    const results = (data.results || []).map(r => ({...r, source: src}));
-    searchResults[mode] = results;
-    selectedItems[mode].clear();
-    renderResults(mode, results);
-    log(`✔  Found ${results.length} result(s).`, 'ok');
+    try {
+      const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
+      const data = await res.json();
+      if (data.error) { log('✘  ' + data.error, 'err'); return; }
+      const results = (data.results || []).map(r => ({...r, source: src}));
+      searchResults[mode] = results;
+      selectedItems[mode].clear();
+      renderResults(mode, results);
+      log(`✔  Found ${results.length} result(s).`, 'ok');
+    } catch(e) {
+      log('✘  Search failed: ' + (e.message || e), 'err');
+    }
   }
 }
 
@@ -1440,6 +1446,8 @@ async function directFetch() {
     }
     infoEl.style.display = 'block';
     log(`✔  Found: "${data.title}"`, 'ok');
+  } catch(e) {
+    log('✘  ' + (e.message || e), 'err');
   } finally {
     btn.disabled = false; btn.innerHTML = '<i class="ri-search-eye-line"></i> Check';
   }
