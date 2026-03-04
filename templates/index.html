@@ -344,7 +344,13 @@ select:focus { border-color: var(--red); }
 .results-action-left { display: flex; gap: 8px; }
 
 /* ── Progress card ───────────────────────────────────────────── */
-.progress-card { margin-bottom: 16px; }
+.progress-card { margin-bottom: 16px; transition: opacity 0.6s ease, transform 0.6s ease; }
+.progress-card.fading { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+#autodismiss-strip { display: none; padding: 8px 20px 12px; }
+#autodismiss-track { height: 3px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 5px; }
+#autodismiss-fill  { height: 100%; border-radius: 99px; background: var(--green, #2f9e44); width: 100%; transition: width 1s linear; }
+#autodismiss-lbl   { font-size: 11px; color: var(--muted); text-align: right; cursor: pointer; user-select: none; }
+#autodismiss-lbl:hover { color: var(--fg); }
 .progress-header {
   padding: 18px 20px 14px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -915,6 +921,10 @@ select:focus { border-color: var(--red); }
       <span id="eta-lbl">—</span>
     </div>
     <div class="dl-btn-row" id="dl-btn-row"></div>
+    <div id="autodismiss-strip">
+      <div id="autodismiss-track"><div id="autodismiss-fill"></div></div>
+      <div id="autodismiss-lbl" onclick="cancelAutoDismiss()" title="Click to keep open">Closing in 30s — click to keep</div>
+    </div>
   </div>
 
   <!-- LOG -->
@@ -1116,7 +1126,51 @@ function logHtml(html, level = 'info') {
 }
 function clearLog() { document.getElementById('log-body').innerHTML = ''; }
 
-function showProgress() { document.getElementById('progress-card').style.display = 'block'; }
+let _autoDismissTimer = null;
+let _autoDismissInterval = null;
+function startAutoDismiss() {
+  const SECS = 30;
+  const strip = document.getElementById('autodismiss-strip');
+  const fill  = document.getElementById('autodismiss-fill');
+  const lbl   = document.getElementById('autodismiss-lbl');
+  if (!strip) return;
+  strip.style.display = 'block';
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+  // Trigger reflow so transition fires
+  fill.getBoundingClientRect();
+  fill.style.transition = `width ${SECS}s linear`;
+  fill.style.width = '0%';
+  let remaining = SECS;
+  lbl.textContent = `Closing in ${remaining}s \u2014 click to keep`;
+  _autoDismissInterval = setInterval(() => {
+    remaining--;
+    lbl.textContent = `Closing in ${remaining}s \u2014 click to keep`;
+    if (remaining <= 0) clearInterval(_autoDismissInterval);
+  }, 1000);
+  _autoDismissTimer = setTimeout(() => {
+    const card = document.getElementById('progress-card');
+    card.classList.add('fading');
+    setTimeout(() => {
+      card.style.display = 'none';
+      card.classList.remove('fading');
+      strip.style.display = 'none';
+      fill.style.width = '100%';
+      document.getElementById('dl-btn-row').style.display = 'none';
+      document.getElementById('dl-btn-row').innerHTML = '';
+    }, 650);
+  }, SECS * 1000);
+}
+function cancelAutoDismiss() {
+  clearTimeout(_autoDismissTimer);
+  clearInterval(_autoDismissInterval);
+  _autoDismissTimer = null;
+  const strip = document.getElementById('autodismiss-strip');
+  if (strip) strip.style.display = 'none';
+  const fill = document.getElementById('autodismiss-fill');
+  if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
+}
+function showProgress() { cancelAutoDismiss(); document.getElementById('progress-card').style.display = 'block'; }
 function setProgress(pct, speed, eta, filename) {
   document.getElementById('pbar').style.width = pct + '%';
   document.getElementById('pct-lbl').textContent   = pct + '%';
@@ -1161,12 +1215,13 @@ function subscribeProgress(taskId, onDone, _retries) {
       const row = document.getElementById('dl-btn-row');
       row.style.display = 'flex';
       const saveLabel = `Save File${d.count > 1 ? 's  (' + d.count + ' as .zip)' : ''}`;
-      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
+      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none" onclick="cancelAutoDismiss()"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
       log(`🎉 Done! ${d.count} file(s) ready.`, 'ok');
       // add to files panel
       const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
       addFileToPanel(fname, taskId);
       if (onDone) onDone();
+      startAutoDismiss();
     } else if (d.type === 'error') {
       es.close();
       setBadge('error');
