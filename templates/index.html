@@ -1235,7 +1235,7 @@ function subscribeProgress(taskId, onDone, _retries) {
       const row = document.getElementById('dl-btn-row');
       row.style.display = 'flex';
       const saveLabel = `Save File${d.count > 1 ? 's  (' + d.count + ' as .zip)' : ''}`;
-      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none" onclick="cancelAutoDismiss()"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
+      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none" onclick="cancelAutoDismiss();setTimeout(()=>{const r=document.getElementById('dl-btn-row');if(r)r.style.display='none';},400)"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
       log(`🎉 Done! ${d.count} file(s) ready.`, 'ok');
       // add to files panel
       const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
