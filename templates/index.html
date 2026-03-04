@@ -581,9 +581,7 @@ select:focus { border-color: var(--red); }
             {% else %}
             <span style="background:rgba(255,255,255,0.12);color:#ccc;font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;">FREE PLAN</span>
             {% endif %}
-            {% if user_plan != 'pro' %}
-            <a href="/pricing" style="margin-left:6px;font-size:10px;color:#e03131;text-decoration:none;font-weight:600;">Upgrade ↗</a>
-            {% endif %}
+            <span style="margin-left:6px;font-size:10px;color:#aaa;font-weight:600;">All features unlocked</span>
           </div>
           <!-- Downloads today -->
           <div style="padding:6px 14px 8px;border-bottom:1px solid rgba(255,255,255,0.08);">
@@ -602,7 +600,7 @@ select:focus { border-color: var(--red); }
           <button class="user-dd-item" onclick="ddSwitchTab('files')"><i class="ri-folder-3-fill"></i> Files</button>
           <button class="user-dd-item" onclick="ddSwitchTab('settings')"><i class="ri-settings-3-fill"></i> Settings</button>
           <div class="user-dd-divider"></div>
-          <a href="/pricing" class="user-dd-item"><i class="ri-price-tag-3-line"></i> Pricing</a>
+          <a href="/pricing" class="user-dd-item"><i class="ri-price-tag-3-line"></i> Pricing <span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:700;">SOON</span></a>
           <div class="user-dd-divider"></div>
           <a href="/change-password" class="user-dd-item"><i class="ri-lock-password-line"></i> Change Password</a>
           <a href="/change-email" class="user-dd-item"><i class="ri-mail-settings-line"></i> Change Email</a>
@@ -1078,24 +1076,18 @@ document.addEventListener('click', function(e) {
 });
 
 function showUpgradePrompt(currentPlan) {
-  // Remove any existing prompt
+  // Pricing not yet live — show Coming Soon notice instead
   var old = document.getElementById('upgrade-modal');
   if (old) old.remove();
-  var next = currentPlan === 'free' ? 'Plus (₵20/mo)' : 'Pro (₵45/mo)';
   var modal = document.createElement('div');
   modal.id = 'upgrade-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
   modal.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
       <div style="font-size:36px;margin-bottom:8px;">🚀</div>
-      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px;">Upgrade to ${next}</div>
-      <div style="font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.6;">
-        ${currentPlan === 'free'
-          ? 'Free plan supports up to 720p and 50 downloads/day. Upgrade to Plus for 500 downloads/day and 1080p.'
-          : 'Plus plan supports up to 1080p and 500 downloads/day. Upgrade to Pro for unlimited 4K downloads and batch playlists.'}
-      </div>
-      <a href="/pricing" style="display:block;background:#e03131;color:#fff;padding:11px 0;border-radius:8px;font-weight:700;text-decoration:none;margin-bottom:10px;font-size:14px;">See Pricing Plans</a>
-      <button onclick="document.getElementById('upgrade-modal').remove()" style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:#aaa;padding:9px 0;border-radius:8px;font-size:13px;cursor:pointer;width:100%;">Not now</button>
+      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px;">Pricing Coming Soon</div>
+      <div style="font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.6;">All features — including 1080p, 4K, and unlimited downloads — are <strong style="color:#fff;">free for everyone</strong> while we set up our payment system. Enjoy full access!</div>
+      <button onclick="document.getElementById('upgrade-modal').remove()" style="background:#e03131;color:#fff;padding:11px 0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;width:100%;border:none;">Got it!</button>
     </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
@@ -1259,7 +1251,6 @@ async function startDownload(payload) {
       }
       if (data.quality_blocked) {
         log('🔒  ' + data.error, 'err');
-        showUpgradePrompt(data.plan);
         return;
       }
       log('✘  ' + (data.error || ('Server error ' + res.status)), 'err');

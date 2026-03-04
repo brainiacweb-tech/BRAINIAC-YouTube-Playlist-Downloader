@@ -89,10 +89,12 @@ class AppSetting(db.Model):
     value = db.Column(db.Text, nullable=True)
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
+# NOTE: Pricing is not yet live — all plans are unlocked at Pro level for now.
+# Restore individual limits once payment is implemented.
 PLAN_LIMITS = {
     #         daily_downloads  max_quality  batch_playlist
-    "free":  {"daily": 50,     "quality": "720p",  "batch": True},
-    "plus":  {"daily": 500,    "quality": "1080p", "batch": True},
+    "free":  {"daily": 999999, "quality": "4K",    "batch": True},
+    "plus":  {"daily": 999999, "quality": "4K",    "batch": True},
     "pro":   {"daily": 999999, "quality": "4K",    "batch": True},
 }
 
