@@ -599,8 +599,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # android_vr works on datacenter IPs without PO tokens.
         "extractor_args": {
             "youtube": {
-                "player_client": ["web_embedded", "android_vr"],
-                "skip_webpage":  ["1"],
+                "player_client": ["web_embedded", "android_vr", "mweb"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -1388,8 +1387,7 @@ def search():
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["web_embedded", "android_vr"],
-                           "skip_webpage":  ["1"],
+                           "player_client": ["web_embedded", "android_vr", "mweb"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1526,8 +1524,7 @@ def playlist_items_route():
             "noplaylist": False,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["web_embedded", "android_vr"],
-                "skip_webpage":  ["1"],
+                "player_client": ["web_embedded", "android_vr", "mweb"],
             }},
         }
         _inject_cookies(opts)
@@ -1664,8 +1661,7 @@ def prefetch():
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["web_embedded", "android_vr"],
-                             "skip_webpage":  ["1"],
+                             "player_client": ["web_embedded", "android_vr", "mweb"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
