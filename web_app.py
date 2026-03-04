@@ -1425,65 +1425,116 @@ def search():
 @limiter.limit("20 per minute")
 @login_required
 def playlist_items_route():
-    """Return all video details for a YouTube playlist using the Data API v3."""
-    if not YOUTUBE_API_KEY:
-        return jsonify({"error": "YouTube API key not configured"}), 400
+    """Return all video details for a YouTube playlist.
+    Uses YouTube Data API v3 if key is available, otherwise falls back to yt-dlp.
+    """
     data        = request.get_json(force=True) or {}
     playlist_id = (data.get("playlist_id") or "").strip()
-    if not playlist_id:
+    playlist_url = (data.get("playlist_url") or "").strip()
+    if not playlist_id and not playlist_url:
         return jsonify({"error": "No playlist_id provided"}), 400
-    try:
-        # ── Step 1: collect all video IDs from playlist (paginated) ──────────
-        video_ids  = []
-        page_token = None
-        while True:
-            params = {
-                "part": "snippet,contentDetails",
-                "playlistId": playlist_id,
-                "maxResults": 50,
-                "key": YOUTUBE_API_KEY,
-            }
-            if page_token:
-                params["pageToken"] = page_token
-            r    = _requests.get(f"{_YT_API_BASE}/playlistItems", params=params, timeout=15)
-            resp = r.json()
-            for item in (resp.get("items") or []):
-                vid_id = ((item.get("snippet") or {}).get("resourceId") or {}).get("videoId") or \
-                         (item.get("contentDetails") or {}).get("videoId")
-                if vid_id and vid_id not in ("deleted", None):
-                    video_ids.append(vid_id)
-            page_token = resp.get("nextPageToken")
-            if not page_token:
-                break
 
-        # ── Step 2: batch-fetch video details (50 per request) ───────────────
-        videos = []
-        for i in range(0, len(video_ids), 50):
-            batch = video_ids[i:i + 50]
-            vr    = _requests.get(f"{_YT_API_BASE}/videos", params={
-                "part": "snippet,contentDetails",
-                "id":   ",".join(batch),
-                "key":  YOUTUBE_API_KEY,
-            }, timeout=15)
-            # preserve playlist order
-            detail_map = {v["id"]: v for v in (vr.json().get("items") or [])}
-            for vid_id in batch:
-                v = detail_map.get(vid_id)
-                if not v:
-                    continue
-                snip   = v.get("snippet") or {}
-                thumbs = snip.get("thumbnails") or {}
-                thumb  = (thumbs.get("maxres") or thumbs.get("high") or
-                          thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
-                dur_sec, _ = _iso_duration((v.get("contentDetails") or {}).get("duration", ""))
-                videos.append({
-                    "video_id": vid_id,
-                    "title":    snip.get("title") or vid_id,
-                    "thumbnail": thumb,
-                    "duration": dur_sec,
-                    "uploader": snip.get("channelTitle") or "",
-                    "url":      f"https://www.youtube.com/watch?v={vid_id}",
-                })
+    # ── YouTube Data API v3 fast-path ─────────────────────────────────────────
+    if YOUTUBE_API_KEY and playlist_id:
+        try:
+            video_ids  = []
+            page_token = None
+            while True:
+                params = {
+                    "part": "snippet,contentDetails",
+                    "playlistId": playlist_id,
+                    "maxResults": 50,
+                    "key": YOUTUBE_API_KEY,
+                }
+                if page_token:
+                    params["pageToken"] = page_token
+                r    = _requests.get(f"{_YT_API_BASE}/playlistItems", params=params, timeout=15)
+                resp = r.json()
+                if resp.get("error"):
+                    break  # fall through to yt-dlp
+                for item in (resp.get("items") or []):
+                    vid_id = ((item.get("snippet") or {}).get("resourceId") or {}).get("videoId") or \
+                             (item.get("contentDetails") or {}).get("videoId")
+                    if vid_id and vid_id not in ("deleted", None):
+                        video_ids.append(vid_id)
+                page_token = resp.get("nextPageToken")
+                if not page_token:
+                    break
+
+            if video_ids:
+                videos = []
+                for i in range(0, len(video_ids), 50):
+                    batch = video_ids[i:i + 50]
+                    vr    = _requests.get(f"{_YT_API_BASE}/videos", params={
+                        "part": "snippet,contentDetails",
+                        "id":   ",".join(batch),
+                        "key":  YOUTUBE_API_KEY,
+                    }, timeout=15)
+                    detail_map = {v["id"]: v for v in (vr.json().get("items") or [])}
+                    for vid_id in batch:
+                        v = detail_map.get(vid_id)
+                        if not v:
+                            continue
+                        snip   = v.get("snippet") or {}
+                        thumbs = snip.get("thumbnails") or {}
+                        thumb  = (thumbs.get("maxres") or thumbs.get("high") or
+                                  thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
+                        dur_sec, _ = _iso_duration((v.get("contentDetails") or {}).get("duration", ""))
+                        videos.append({
+                            "video_id":  vid_id,
+                            "title":     snip.get("title") or vid_id,
+                            "thumbnail": thumb,
+                            "duration":  dur_sec,
+                            "uploader":  snip.get("channelTitle") or "",
+                            "url":       f"https://www.youtube.com/watch?v={vid_id}",
+                        })
+                return jsonify({"videos": videos})
+        except Exception:
+            pass  # fall through to yt-dlp
+
+    # ── yt-dlp fallback (no API key needed) ───────────────────────────────────
+    try:
+        target = playlist_url or f"https://www.youtube.com/playlist?list={playlist_id}"
+        opts = {
+            "quiet": True, "no_warnings": True,
+            "extract_flat": True, "skip_download": True,
+            "nocheckcertificate": True, "geo_bypass": True,
+            "noplaylist": False,
+            "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
+            "extractor_args": {"youtube": {
+                "player_client": ["ios", "mweb"],
+                "skip_webpage":  ["1"],
+            }},
+        }
+        _inject_cookies(opts)
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(target, download=False)
+
+        entries = info.get("entries") or []
+        videos  = []
+        for e in entries:
+            if not e:
+                continue
+            vid_id = e.get("id") or e.get("video_id") or ""
+            if not vid_id:
+                continue
+            # thumbnail: prefer explicit, then thumbnails list
+            thumb = e.get("thumbnail") or ""
+            if not thumb:
+                for t in reversed(e.get("thumbnails") or []):
+                    if t.get("url"):
+                        thumb = t["url"]; break
+            if not thumb and vid_id:
+                thumb = f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg"
+            dur_sec = e.get("duration") or 0
+            videos.append({
+                "video_id":  vid_id,
+                "title":     e.get("title") or vid_id,
+                "thumbnail": thumb,
+                "duration":  dur_sec,
+                "uploader":  e.get("uploader") or e.get("channel") or "",
+                "url":       e.get("url") or e.get("webpage_url") or f"https://www.youtube.com/watch?v={vid_id}",
+            })
         return jsonify({"videos": videos})
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500

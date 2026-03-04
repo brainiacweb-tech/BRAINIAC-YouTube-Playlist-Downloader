@@ -1376,7 +1376,7 @@ async function loadYtPlaylistItems(playlistId) {
   ytPlaylistVideos      = [];
   ytUpdateSelCount();
   try {
-    const res  = await fetch('/api/playlist-items', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({playlist_id: playlistId}) });
+    const res  = await fetch('/api/playlist-items', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({playlist_id: playlistId, playlist_url: document.getElementById('yt-url').value.trim()}) });
     const data = await res.json();
     if (data.error) { log('⚠️  Could not load video list: ' + data.error, 'warn'); wrap.style.display = 'none'; return; }
     ytPlaylistVideos = data.videos || [];
