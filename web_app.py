@@ -1278,7 +1278,6 @@ def index():
         plan_used=used,
         plan_limit=limits["daily"],
         plan_max_quality=limits["quality"],
-        plan_drive=limits["drive"],
     ))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
