@@ -34,9 +34,16 @@ from flask_compress import Compress
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
-app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
-app.config["REMEMBER_COOKIE_HTTPONLY"]  = True
-app.config["REMEMBER_COOKIE_SAMESITE"]  = "Lax"
+# ── Session persistence: keep users logged in across browser closes / server restarts ─
+app.config["SESSION_PERMANENT"]            = True
+app.config["PERMANENT_SESSION_LIFETIME"]   = timedelta(days=30)
+app.config["SESSION_COOKIE_SAMESITE"]      = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"]      = True
+# ── Remember-me cookie (stored in browser, survives server restarts) ──────────────────
+app.config["REMEMBER_COOKIE_DURATION"]     = timedelta(days=30)
+app.config["REMEMBER_COOKIE_HTTPONLY"]     = True
+app.config["REMEMBER_COOKIE_SAMESITE"]     = "Lax"
+app.config["REMEMBER_COOKIE_SECURE"]       = True   # Railway is always HTTPS
 # Trust Cloudflare / Railway proxy headers so url_for(_external=True) uses https + real hostname
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
@@ -1216,7 +1223,7 @@ def login():
             (User.username == identifier) | (User.email == identifier.lower())
         ).first()
         if user and check_password_hash(user.password, password):
-            login_user(user, remember=request.form.get("remember") == "on")
+            login_user(user, remember=True)   # always persistent — survives browser close
             if user.gdrive_token:
                 session["gdrive_token"] = user.gdrive_token
             return redirect("/app")
