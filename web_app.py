@@ -572,17 +572,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ╔══════════════════════════════════════════════════════════════════╗
-        # ║  ⚠  LOCKED CONFIGURATION — DO NOT MODIFY  ⚠                     ║
-        # ║  These settings are the only combination known to work on         ║
-        # ║  Railway datacenter IPs (commit 393dbdf / tag v1.0-working).      ║
-        # ║  Changing clients, adding bgutil/pot tokens, or removing          ║
-        # ║  static-ffmpeg WILL break downloads. Restore with:                ║
-        # ║    git checkout v1.0-working -- web_app.py requirements.txt       ║
-        # ╚══════════════════════════════════════════════════════════════════╝
+        # ios client bypasses YouTube bot-detection without cookies.
+        # skip_webpage skips the JS-heavy page that triggers the sign-in check.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_simply", "android_vr", "ios", "android"],
+                "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                "skip_webpage":  ["1"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -954,16 +949,13 @@ def _run_download(task_id: str, data: dict):
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
                 error_msg = str(ex)
                 if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
-                    user_msg = ("YouTube is requiring authentication from this server's IP address. "
-                                "Please upload your YouTube cookies: go to Settings → Cookies, "
-                                "export cookies from your browser using a cookie exporter extension, "
-                                "then paste or upload the Netscape-format cookies.txt file.")
+                    user_msg = "Download failed: YouTube is blocking this server's IP. Please try again in a few minutes."
                 elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
-                    user_msg = "Download failed: The video is age-restricted. Upload your YouTube cookies in Settings → Cookies."
+                    user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
                 elif "region-locked" in error_msg or "not available in your country" in error_msg:
-                    user_msg = "Download failed: The video is region-locked. Try uploading cookies from an allowed region."
+                    user_msg = "Download failed: This video is not available in the server's region."
                 elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
-                    user_msg = "Download failed: YouTube is rate-limiting this server. Upload your YouTube cookies in Settings → Cookies."
+                    user_msg = "Download failed: YouTube is rate-limiting this server. Please try again in a few minutes."
                 else:
                     user_msg = f"Download failed: {error_msg}"
                 with _tasks_lock:
@@ -1323,7 +1315,8 @@ def search():
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["tv_simply", "android_vr", "ios", "android"],
+                           "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                           "skip_webpage":  ["1"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1401,7 +1394,8 @@ def prefetch():
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["tv_simply", "android_vr", "ios", "android"],
+                             "player_client": ["ios", "mweb", "android_creator", "tv_embedded", "android_vr"],
+                             "skip_webpage":  ["1"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
