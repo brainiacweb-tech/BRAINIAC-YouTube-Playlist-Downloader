@@ -595,12 +595,11 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # tv client uses a Smart-TV endpoint that bypasses datacenter IP blocks.
-        # web_creator uses YouTube Studio endpoint — also less restricted.
-        # ios/mweb kept as fallbacks. android_creator/tv_embedded removed (unsupported).
+        # web_embedded uses the embedded player endpoint — no PO token needed, no DRM experiment.
+        # android_vr works on datacenter IPs without PO tokens.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv", "web_creator", "ios", "mweb"],
+                "player_client": ["web_embedded", "android_vr"],
                 "skip_webpage":  ["1"],
             },
             "twitter": {"api": ["syndication"]},
@@ -1367,7 +1366,7 @@ def search():
                        "geo_bypass": True,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["tv", "web_creator", "ios", "mweb"],
+                           "player_client": ["web_embedded", "android_vr"],
                            "skip_webpage":  ["1"],
                        }}}
         _inject_cookies(search_opts)
@@ -1505,7 +1504,7 @@ def playlist_items_route():
             "noplaylist": False,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["tv", "ios", "mweb"],
+                "player_client": ["web_embedded", "android_vr"],
                 "skip_webpage":  ["1"],
             }},
         }
@@ -1643,7 +1642,7 @@ def prefetch():
                          "geo_bypass": True,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["tv", "web_creator", "ios", "mweb"],
+                             "player_client": ["web_embedded", "android_vr"],
                              "skip_webpage":  ["1"],
                          }}}
         _inject_cookies(prefetch_opts)
