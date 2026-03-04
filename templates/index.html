@@ -1121,6 +1121,7 @@ function clearLog() { document.getElementById('log-body').innerHTML = ''; }
 let _autoDismissTimer = null;
 let _autoDismissInterval = null;
 function startAutoDismiss() {
+  cancelAutoDismiss(); // clear any previous timer before starting a new one
   const SECS = 30;
   const strip = document.getElementById('autodismiss-strip');
   const fill  = document.getElementById('autodismiss-fill');
@@ -1223,7 +1224,7 @@ function subscribeProgress(taskId, onDone, _retries) {
       if (onDone) onDone();
     }
   };
-  es.onerror = () => { es.close(); isDownloading = false; };
+  es.onerror = () => { es.close(); isDownloading = false; setBadge('error'); log('✘  Connection lost — please try again.', 'err'); };
 }
 
 function showCookieAlert() {}
@@ -1250,6 +1251,8 @@ async function startDownload(payload) {
         return;
       }
       if (data.quality_blocked) {
+        setBadge('error');
+        isDownloading = false;
         log('🔒  ' + data.error, 'err');
         return;
       }
@@ -1454,7 +1457,7 @@ async function downloadSelected(mode) {
   if (mode === 'music' && _musicFormat === 'both') {
     for (const url of urls) {
       await dlOne(url, 'Audio Only (MP3)', 'music');
-      await dlOne(url, 'Best Quality', 'direct');
+      await dlOne(url, 'Best Quality', 'music');
     }
   } else {
     for (const url of urls) {
@@ -1524,6 +1527,7 @@ function fmtSize(bytes) {
 }
 function fmtDur(secs) {
   if (!secs) return '';
+  secs = Math.floor(+secs || 0);
   const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
   return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
 }
