@@ -443,15 +443,45 @@ _FFMPEG_PATH = _find_ffmpeg()
 # @KDMusic_Bot when yt-dlp is blocked by YouTube on the server IP.
 #   TELEGRAM_API_ID   — numeric API ID from https://my.telegram.org/apps
 #   TELEGRAM_API_HASH — API hash from the same page
-#   TELEGRAM_SESSION  — StringSession token (generate once; see /api/tg-gen)
+#   TELEGRAM_SESSION  — StringSession token (generate via CLI script below)
+#
+# One-time session generation (run locally):
+#   pip install telethon
+#   python -c "
+#   from telethon.sync import TelegramClient; from telethon.sessions import StringSession
+#   api_id=input('API ID: '); api_hash=input('API Hash: ')
+#   with TelegramClient(StringSession(),int(api_id),api_hash) as c: print(c.session.save())
+#   "
 TELEGRAM_API_ID   = os.environ.get("TELEGRAM_API_ID",   "").strip()
 TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "").strip()
 TELEGRAM_SESSION  = os.environ.get("TELEGRAM_SESSION",  "").strip()
 _TG_LOCK          = threading.Lock()   # one KDMusic_Bot request at a time
 
+_AUDIO_EXTS = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".wav", ".mp4", ".webm"}
 
-def _kdmusic_fallback(task_id: str, query: str, task_dir: str) -> bool:
-    """Send query to @KDMusic_Bot via Telegram and download the audio response.
+
+def _tg_title_from_url(url: str) -> str:
+    """Quick metadata-only extraction to get a search-friendly title from a URL.
+    Returns 'Artist - Title' style string, or the raw URL on failure."""
+    try:
+        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
+                               "skip_download": True, "extract_flat": False,
+                               "socket_timeout": 8,
+                               "extractor_args": {"youtube": {
+                                   "player_client": ["mweb", "ios", "web_embedded"]}}}) as ydl:
+            info = ydl.extract_info(url, download=False)
+        title    = info.get("title") or ""
+        uploader = info.get("uploader") or info.get("channel") or ""
+        if uploader and title and uploader.lower() not in title.lower():
+            return f"{uploader} - {title}"
+        return title or url
+    except Exception:
+        return url
+
+
+def _kdmusic_fallback(task_id: str, url: str, task_dir: str) -> bool:
+    """Send a query to @KDMusic_Bot via Telegram and download the audio response.
+    Extracts video title first so the bot gets a proper song search query.
     Returns True if a file was saved into task_dir, False otherwise."""
     if not (TELEGRAM_API_ID and TELEGRAM_API_HASH and TELEGRAM_SESSION):
         return False
@@ -462,8 +492,13 @@ def _kdmusic_fallback(task_id: str, query: str, task_dir: str) -> bool:
         from telethon.tl.types import DocumentAttributeAudio, DocumentAttributeFilename
 
         _push(task_id, {"type": "log",
-                        "msg": "\U0001f3b5  yt-dlp blocked \u2014 trying KDMusic_Bot fallback\u2026",
+                        "msg": "🎵  yt-dlp blocked — trying KDMusic_Bot fallback…",
                         "level": "info"})
+
+        # Get a human-readable search query from the URL (title + artist)
+        _push(task_id, {"type": "log", "msg": "🔍  Extracting title for KDMusic_Bot query…", "level": "info"})
+        query = _tg_title_from_url(url)
+        _push(task_id, {"type": "log", "msg": f"🤖  Querying KDMusic_Bot: {query[:80]}", "level": "info"})
 
         async def _run():
             client = TelegramClient(StringSession(TELEGRAM_SESSION),
@@ -472,32 +507,58 @@ def _kdmusic_fallback(task_id: str, query: str, task_dir: str) -> bool:
             if not await client.is_user_authorized():
                 await client.disconnect()
                 return None
+
             # Record the last message ID so we only look at *new* replies
             history = await client.get_messages("KDMusic_Bot", limit=1)
             last_id = history[0].id if history else 0
+
             await client.send_message("KDMusic_Bot", query)
-            # Wait up to 60 s for an audio document in the reply
+
+            # Wait up to 90 s for any audio/document/file reply from the bot
             audio_msg = None
-            for _ in range(60):
+            for _ in range(90):
                 await asyncio.sleep(1)
-                new_msgs = await client.get_messages("KDMusic_Bot", min_id=last_id, limit=10)
-                for msg in reversed(new_msgs):   # oldest first
-                    if msg.audio or (msg.document and any(
-                        isinstance(a, (DocumentAttributeAudio, DocumentAttributeFilename))
-                        for a in (getattr(msg.document, "attributes", None) or [])
-                    )):
+                new_msgs = await client.get_messages("KDMusic_Bot", min_id=last_id, limit=20)
+                for msg in new_msgs:   # newest → oldest; first audio wins
+                    if not msg.media:
+                        continue
+                    # Check 1: Telegram audio message
+                    if msg.audio:
                         audio_msg = msg
                         break
+                    # Check 2: document with AudioAttribute
+                    if msg.document:
+                        attrs = getattr(msg.document, "attributes", None) or []
+                        for a in attrs:
+                            if isinstance(a, DocumentAttributeAudio):
+                                audio_msg = msg
+                                break
+                            if isinstance(a, DocumentAttributeFilename):
+                                fname = getattr(a, "file_name", "") or ""
+                                ext   = os.path.splitext(fname.lower())[1]
+                                if ext in _AUDIO_EXTS:
+                                    audio_msg = msg
+                                    break
+                        if audio_msg:
+                            break
+                    # Check 3: any document whose mime_type starts with audio/
+                    if msg.document:
+                        mime = getattr(msg.document, "mime_type", "") or ""
+                        if mime.startswith("audio/") or mime in ("video/mp4", "video/webm"):
+                            audio_msg = msg
+                            break
                 if audio_msg:
                     break
+
             if not audio_msg:
                 await client.disconnect()
                 return None
+
             path = await client.download_media(audio_msg, task_dir)
             await client.disconnect()
             return path
 
-        with _TG_LOCK:    # serialize to avoid crossing messages between concurrent users
+        with _TG_LOCK:    # serialize so two users don't cross their bot replies
             loop = asyncio.new_event_loop()
             try:
                 result = loop.run_until_complete(_run())
@@ -506,13 +567,14 @@ def _kdmusic_fallback(task_id: str, query: str, task_dir: str) -> bool:
 
         if result and os.path.isfile(str(result)):
             _push(task_id, {"type": "log",
-                            "msg": f"\u2714  KDMusic_Bot delivered: {os.path.basename(str(result))}",
+                            "msg": f"✔  KDMusic_Bot delivered: {os.path.basename(str(result))}",
                             "level": "ok"})
             return True
+        _push(task_id, {"type": "log", "msg": "ℹ️  KDMusic_Bot timed out (no audio reply).", "level": "warn"})
         return False
     except Exception as ex:
         _push(task_id, {"type": "log",
-                        "msg": f"\u2139\ufe0f  KDMusic_Bot unavailable: {ex}",
+                        "msg": f"ℹ️  KDMusic_Bot unavailable: {ex}",
                         "level": "warn"})
         return False
 
@@ -1906,6 +1968,34 @@ def download_file(task_id):
     filename = os.path.basename(fpath)
     _schedule_cleanup(task_dir, task_id, delay=120)
     return send_file(fpath, as_attachment=True, download_name=filename)
+
+
+# ── Telegram status ──────────────────────────────────────────────────────────
+@app.route("/api/tg-status", methods=["GET"])
+@login_required
+def tg_status():
+    configured = bool(TELEGRAM_API_ID and TELEGRAM_API_HASH and TELEGRAM_SESSION)
+    if not configured:
+        return jsonify({"active": False, "reason": "env vars not set"})
+    try:
+        import asyncio
+        from telethon import TelegramClient
+        from telethon.sessions import StringSession
+        async def _check():
+            c = TelegramClient(StringSession(TELEGRAM_SESSION), int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
+            await c.connect()
+            ok = await c.is_user_authorized()
+            me = (await c.get_me()) if ok else None
+            await c.disconnect()
+            return ok, getattr(me, "username", None) or getattr(me, "first_name", None) or "?"
+        loop = asyncio.new_event_loop()
+        try:
+            ok, name = loop.run_until_complete(_check())
+        finally:
+            loop.close()
+        return jsonify({"active": ok, "username": name if ok else None})
+    except Exception as ex:
+        return jsonify({"active": False, "reason": str(ex)})
 
 
 # ── Cookie management routes ─────────────────────────────────────────────────

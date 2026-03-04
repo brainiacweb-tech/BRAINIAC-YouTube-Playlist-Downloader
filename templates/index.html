@@ -1003,6 +1003,31 @@ select:focus { border-color: var(--red); }
             </div>
           </div>
 
+          <!-- KDMusic_Bot / Telegram fallback status -->
+          <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-telegram-line" style="color:#2196f3;"></i> KDMusic_Bot Fallback</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Auto-downloads music via @KDMusic_Bot when yt-dlp is blocked</div>
+              </div>
+              <span id="tg-badge" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--border);color:var(--muted);white-space:nowrap;">Checking…</span>
+            </div>
+            <div id="tg-info" style="font-size:11px;color:var(--muted);line-height:1.7;padding:8px 10px;background:var(--surface);border-radius:8px;border:1.5px solid var(--border);">
+              Set <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_API_ID</code>,
+              <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_API_HASH</code> and
+              <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_SESSION</code> as Railway environment variables to activate.
+              Generate a session string with:
+              <pre style="margin:6px 0 0;padding:7px 10px;background:rgba(0,0,0,.06);border-radius:6px;font-size:10px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">pip install telethon
+python -c "
+from telethon.sync import TelegramClient
+from telethon.sessions import StringSession
+api_id=input('API ID: '); api_hash=input('API Hash: ')
+with TelegramClient(StringSession(),int(api_id),api_hash) as c:
+    print(c.session.save())
+"</pre>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -1218,7 +1243,7 @@ function ddSwitchTab(tab) {
   document.getElementById('user-dd-menu').classList.remove('open');
   switchTab(tab, null);
   if (tab === 'files') loadFiles();
-  if (tab === 'settings') loadCookieStatus();
+  if (tab === 'settings') { loadCookieStatus(); loadTgStatus(); }
 }
 document.addEventListener('click', function(e) {
   var wrap = document.getElementById('user-dd-wrap');
@@ -1398,6 +1423,30 @@ async function loadCookieStatus() {
       if (clearBtn) clearBtn.style.opacity = '0.5';
     }
   } catch(e) {}
+}
+
+async function loadTgStatus() {
+  const badge = document.getElementById('tg-badge');
+  const info  = document.getElementById('tg-info');
+  if (!badge) return;
+  try {
+    const r = await fetch('/api/tg-status');
+    const d = await r.json();
+    if (d.active) {
+      badge.textContent = `✔ Active (@${d.username || 'connected'})`;
+      badge.style.background = 'rgba(33,150,243,0.12)';
+      badge.style.color      = '#1565c0';
+      badge.style.border     = '1.5px solid rgba(33,150,243,0.3)';
+      if (info) info.innerHTML = `<span style="color:#1565c0;font-weight:700;"><i class="ri-check-double-line"></i> Telegram session active as @${d.username || 'user'}.</span> Music downloads blocked by YouTube will automatically fall back to KDMusic_Bot.`;
+    } else {
+      badge.textContent = 'Not configured';
+      badge.style.background = 'var(--border)';
+      badge.style.color      = 'var(--muted)';
+      badge.style.border     = '';
+    }
+  } catch(e) {
+    if (badge) { badge.textContent = 'Error'; badge.style.color = 'var(--red)'; }
+  }
 }
 async function saveCookies() {
   const text = (document.getElementById('cookie-input').value || '').trim();
