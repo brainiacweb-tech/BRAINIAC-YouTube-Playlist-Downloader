@@ -1,6 +1,9 @@
 import os, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
 from functools import lru_cache
 import requests as _requests
+# Suppress InsecureRequestWarning from verify=False in direct HTTP downloads
+import urllib3 as _urllib3
+_urllib3.disable_warnings(_urllib3.exceptions.InsecureRequestWarning)
 from urllib.parse import urlparse
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -653,10 +656,18 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     return opts, logger
 
 
-def _http_fallback_download(task_id: str, url: str, task_dir: str) -> str | None:
-    """Stream-download any URL directly via HTTP. Returns filename on success, raises on failure."""
-    import urllib.parse, mimetypes
-    _push(task_id, {"type": "log", "msg": "🌐  Trying direct HTTP download…", "level": "info"})
+def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers: dict | None = None) -> str:
+    """
+    Universal HTTP downloader — handles ANY file from ANY source.
+    Streams with progress, auto-detects filename & extension, follows redirects,
+    rotates User-Agent, handles auth challenges gracefully.
+    Returns saved filename on success, raises on failure.
+    """
+    import urllib.parse, mimetypes, time as _time
+
+    _push(task_id, {"type": "log", "msg": "🌐  Downloading via HTTP…", "level": "info"})
+
+    # Rich browser headers — maximise compatibility with CDNs, APKs, game stores, etc.
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -664,45 +675,193 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str) -> str | None
             "Chrome/124.0.0.0 Safari/537.36"
         ),
         "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "identity",   # no gzip so chunk sizes reflect real bytes
+        "Connection": "keep-alive",
+        "Referer": "/".join(url.split("/")[:3]) + "/",   # origin as referer
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Upgrade-Insecure-Requests": "1",
     }
-    resp = _requests.get(url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+    if extra_headers:
+        headers.update(extra_headers)
+
+    session = _requests.Session()
+    session.max_redirects = 15
+    resp = session.get(url, headers=headers, stream=True, timeout=90,
+                       allow_redirects=True, verify=False)
     resp.raise_for_status()
 
-    # Determine filename from Content-Disposition, then URL path
+    # ── Filename resolution (priority order) ─────────────────────────────────
     filename = None
+
+    # 1. Content-Disposition header (RFC 6266 — handles UTF-8 encoded names)
     cd = resp.headers.get("Content-Disposition", "")
     if cd:
-        import re as _re
-        m = _re.search(r'filename\*?=["\']?(?:UTF-8\'\')?([^"\';\r\n]+)', cd, _re.I)
+        # RFC 5987: filename*=UTF-8''encoded%20name
+        m = re.search(r"filename\*\s*=\s*UTF-8''([^\s;]+)", cd, re.I)
         if m:
-            filename = urllib.parse.unquote(m.group(1).strip().strip('"\''))
-    if not filename:
-        path = urllib.parse.urlparse(resp.url).path
-        filename = urllib.parse.unquote(os.path.basename(path)) or "download"
-    # Append extension from Content-Type if missing
-    if "." not in os.path.basename(filename):
-        ct = resp.headers.get("Content-Type", "").split(";")[0].strip()
-        ext = mimetypes.guess_extension(ct) or ""
-        if ext == ".jpe":
-            ext = ".jpg"
-        filename += ext
+            filename = urllib.parse.unquote(m.group(1))
+        if not filename:
+            m = re.search(r'filename\s*=\s*["\']?([^"\';\r\n]+)', cd, re.I)
+            if m:
+                filename = m.group(1).strip().strip('"\'')
 
-    # Sanitise
-    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename)
+    # 2. Final URL path after redirects
+    if not filename:
+        final_url = resp.url
+        parsed    = urllib.parse.urlparse(final_url)
+        path_part = urllib.parse.unquote(parsed.path)
+        # Try query param "file", "filename", "name", "f", "fn"
+        qs = urllib.parse.parse_qs(parsed.query)
+        for key in ("file", "filename", "name", "fn", "f", "title"):
+            if key in qs:
+                filename = urllib.parse.unquote(qs[key][0])
+                break
+        if not filename:
+            filename = os.path.basename(path_part.rstrip("/")) or "download"
+
+    # 3. Append extension from Content-Type if filename has none
+    base, ext = os.path.splitext(os.path.basename(filename))
+    if not ext:
+        ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        _ct_map = {
+            "video/mp4": ".mp4", "video/webm": ".webm", "video/x-matroska": ".mkv",
+            "video/quicktime": ".mov", "video/x-msvideo": ".avi", "video/3gpp": ".3gp",
+            "audio/mpeg": ".mp3", "audio/mp4": ".m4a", "audio/ogg": ".ogg",
+            "audio/wav": ".wav", "audio/flac": ".flac", "audio/aac": ".aac",
+            "image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif",
+            "image/webp": ".webp", "image/avif": ".avif", "image/bmp": ".bmp",
+            "application/pdf": ".pdf", "application/zip": ".zip",
+            "application/x-rar-compressed": ".rar", "application/x-7z-compressed": ".7z",
+            "application/x-tar": ".tar", "application/gzip": ".tar.gz",
+            "application/vnd.android.package-archive": ".apk",
+            "application/octet-stream": "",   # keep as-is; may be anything
+            "application/x-msdownload": ".exe",
+            "application/x-www-form-urlencoded": "",
+            "text/plain": ".txt", "text/csv": ".csv",
+        }
+        guessed = _ct_map.get(ct) or mimetypes.guess_extension(ct) or ""
+        if guessed == ".jpe":
+            guessed = ".jpg"
+        filename = base + guessed if guessed else base or "download"
+
+    # Sanitise — allow Unicode (international filenames), strip only forbidden chars
+    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename).strip(". ")
+    if not filename:
+        filename = "download"
     filepath = os.path.join(task_dir, filename)
 
-    total = int(resp.headers.get("Content-Length", 0))
+    # ── Stream with real-time speed & progress ────────────────────────────────
+    total      = int(resp.headers.get("Content-Length", 0))
     downloaded = 0
+    start_ts   = _time.monotonic()
+    last_push  = start_ts
+
     with open(filepath, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=1024 * 256):
+        for chunk in resp.iter_content(chunk_size=512 * 1024):   # 512 KB chunks
             if chunk:
                 f.write(chunk)
                 downloaded += len(chunk)
-                if total:
-                    pct = round(downloaded / total * 100, 1)
-                    _push(task_id, {"type": "progress", "pct": pct, "speed": "", "eta": "", "filename": filename})
+                now     = _time.monotonic()
+                elapsed = now - start_ts or 0.001
+                speed   = downloaded / elapsed            # bytes/sec
+                pct     = round(downloaded / total * 100, 1) if total else 0
+
+                # Throttle pushes to ~4 per second
+                if now - last_push >= 0.25 or (total and pct >= 100):
+                    last_push = now
+                    def _fmt_speed(bps):
+                        if bps > 1_000_000: return f"{bps/1_000_000:.1f} MB/s"
+                        if bps > 1_000:     return f"{bps/1_000:.0f} KB/s"
+                        return f"{bps:.0f} B/s"
+                    eta = ""
+                    if total and speed:
+                        remaining = (total - downloaded) / speed
+                        m, s = divmod(int(remaining), 60)
+                        eta = f"{m}:{s:02d}" if m else f"{s}s"
+                    _push(task_id, {
+                        "type":     "progress",
+                        "pct":      pct,
+                        "speed":    _fmt_speed(speed),
+                        "eta":      eta,
+                        "filename": filename,
+                    })
+
     _push(task_id, {"type": "log", "msg": f"✔  Done: {filename}", "level": "ok"})
     return filename
+
+
+
+def _normalize_direct_url(url: str) -> str:
+    """
+    Rewrite common sharing URLs into direct-download URLs before attempting
+    any download. Handles Dropbox, Google Drive, and GitHub.
+    """
+    import urllib.parse
+
+    parsed = urllib.parse.urlparse(url)
+    host   = parsed.netloc.lower()
+
+    # ── Dropbox ───────────────────────────────────────────────────────────
+    # ?dl=0  → ?dl=1   (force download rather than preview)
+    if "dropbox.com" in host:
+        qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        qs["dl"] = ["1"]
+        new_query = urllib.parse.urlencode({k: v[0] for k, v in qs.items()})
+        url = urllib.parse.urlunparse(parsed._replace(query=new_query))
+
+    # ── Google Drive ──────────────────────────────────────────────────────
+    # /file/d/<ID>/view  →  /uc?export=download&id=<ID>&confirm=t
+    elif "drive.google.com" in host:
+        m = re.search(r"/(?:file/d|open\?id=)([A-Za-z0-9_-]{25,})", url)
+        if m:
+            fid = m.group(1)
+            url = f"https://drive.google.com/uc?export=download&id={fid}&confirm=t&authuser=0"
+
+    # ── GitHub release / raw ──────────────────────────────────────────────
+    # github.com/<owner>/<repo>/blob/<branch>/<path>
+    # → raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>
+    elif host in ("github.com", "www.github.com"):
+        m = re.match(r"/([^/]+)/([^/]+)/blob/(.+)", parsed.path)
+        if m:
+            url = f"https://raw.githubusercontent.com/{m.group(1)}/{m.group(2)}/{m.group(3)}"
+
+    return url
+
+
+# Extensions that strongly indicate a plain file — skip yt-dlp entirely
+_DIRECT_EXTS = {
+    # archives
+    ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".zst",
+    # executables / installers
+    ".exe", ".msi", ".pkg", ".deb", ".rpm", ".appimage", ".dmg",
+    ".apk", ".ipa", ".msix",
+    # documents
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".odt", ".ods", ".odp", ".epub", ".mobi",
+    # images (not likely video-platform)
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".avif",
+    ".tiff", ".tif", ".ico", ".svg",
+    # raw media files NOT on a media platform (will still try yt-dlp first
+    # for recognised hosts; this only shortcuts UNRECOGNISED direct links)
+    ".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v",
+    ".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".wma", ".opus",
+    # data / code
+    ".csv", ".json", ".xml", ".sqlite", ".db",
+    ".iso", ".img", ".bin", ".torrent",
+    # fonts
+    ".ttf", ".otf", ".woff", ".woff2",
+}
+
+
+def _looks_like_direct_file(url: str) -> bool:
+    """Return True if the URL path ends with a known file extension."""
+    import urllib.parse
+    path = urllib.parse.urlparse(url).path.lower().rstrip("/")
+    _, ext = os.path.splitext(path)
+    return ext in _DIRECT_EXTS
 
 
 def _run_download(task_id: str, data: dict):
@@ -714,65 +873,109 @@ def _run_download(task_id: str, data: dict):
 
     task_dir = os.path.join(DOWNLOAD_BASE, task_id)
     os.makedirs(task_dir, exist_ok=True)
+    logger = None   # may be set later in yt-dlp paths
 
     try:
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
-        opts, logger = _build_opts(task_id, task_dir, quality, mode, yt_token=yt_token, playlist_cap=playlist_cap)
 
-        ytdlp_failed = False
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-        except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
-            error_msg = str(ex)
-            # For direct mode: if yt-dlp can't handle it, fall back to plain HTTP
-            if mode == "direct" and (
-                "Unsupported URL" in error_msg
-                or "is not a supported URL" in error_msg
-                or "No video formats found" in error_msg
-                or "Unable to extract" in error_msg
-                or "unsupported" in error_msg.lower()
-            ):
-                ytdlp_failed = True
-            elif "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
-                user_msg = ("YouTube is requiring authentication from this server's IP address. "
-                            "Please upload your YouTube cookies: go to Settings → Cookies, "
-                            "export cookies from your browser using a cookie exporter extension, "
-                            "then paste or upload the Netscape-format cookies.txt file.")
-            elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
-                user_msg = "Download failed: The video is age-restricted. Upload your YouTube cookies in Settings → Cookies."
-            elif "region-locked" in error_msg or "not available in your country" in error_msg:
-                user_msg = "Download failed: The video is region-locked. Try uploading cookies from an allowed region."
-            elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
-                user_msg = "Download failed: YouTube is rate-limiting this server. Upload your YouTube cookies in Settings → Cookies."
-            else:
-                user_msg = f"Download failed: {error_msg}"
-            if not ytdlp_failed:
-                with _tasks_lock:
-                    _tasks[task_id]["status"] = "error"
-                    _tasks[task_id]["error"] = user_msg
-                _push(task_id, {"type": "error", "msg": user_msg})
-                return
+        # ── Direct mode: smart dual-strategy ─────────────────────────────────
+        if mode == "direct":
+            # 1. Normalise URL (Dropbox, Google Drive, GitHub raw)
+            norm_url = _normalize_direct_url(url)
+            if norm_url != url:
+                _push(task_id, {"type": "log",
+                                "msg": f"🔗  Rewritten URL: {norm_url}", "level": "info"})
+                url = norm_url
 
-        # HTTP fallback for direct mode when yt-dlp gave up
-        if ytdlp_failed or (mode == "direct" and not [
-            f for f in os.listdir(task_dir)
-            if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
-        ]):
+            # 2. If the URL clearly points to a plain file, skip yt-dlp
+            #    and go straight to HTTP — faster and avoids false errors.
+            use_http_first = _looks_like_direct_file(url)
+
+            http_succeeded = False
+            ytdlp_tried    = False
+
+            if use_http_first:
+                _push(task_id, {"type": "log",
+                                "msg": "📥  Direct file link detected — downloading via HTTP…",
+                                "level": "info"})
+                try:
+                    _http_fallback_download(task_id, url, task_dir)
+                    http_succeeded = True
+                except Exception as http_ex:
+                    # HTTP failed for a plain-file URL → still try yt-dlp as last resort
+                    _push(task_id, {"type": "log",
+                                    "msg": f"⚠️  HTTP attempt failed ({http_ex}), trying yt-dlp…",
+                                    "level": "warn"})
+
+            # 3. yt-dlp path (for media pages, or as fallback after HTTP failed)
+            if not http_succeeded:
+                ytdlp_tried = True
+                opts, logger = _build_opts(task_id, task_dir, quality, mode,
+                                           yt_token=yt_token, playlist_cap=playlist_cap)
+                ytdlp_failed = False
+                try:
+                    with yt_dlp.YoutubeDL(opts) as ydl:
+                        ydl.download([url])
+                except Exception as ex:
+                    # In direct mode: treat ALL yt-dlp failures as "try HTTP"
+                    ytdlp_failed = True
+                    _push(task_id, {"type": "log",
+                                    "msg": f"ℹ️  yt-dlp could not handle URL ({ex}), falling back to HTTP…",
+                                    "level": "info"})
+
+                # 4. If yt-dlp failed OR produced no files → HTTP fallback
+                files_so_far = [
+                    f for f in os.listdir(task_dir)
+                    if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
+                ]
+                if ytdlp_failed or not files_so_far:
+                    try:
+                        _http_fallback_download(task_id, url, task_dir)
+                        http_succeeded = True
+                    except Exception as http_ex2:
+                        user_msg = (
+                            f"Download failed: could not retrieve this URL via "
+                            f"yt-dlp or direct HTTP ({http_ex2}). "
+                            "If this is a protected file, try pasting a direct download link."
+                        )
+                        with _tasks_lock:
+                            _tasks[task_id]["status"] = "error"
+                            _tasks[task_id]["error"]  = user_msg
+                        _push(task_id, {"type": "error", "msg": user_msg})
+                        return
+
+        # ── Playlist / Song / Video modes ─────────────────────────────────────
+        else:
+            opts, logger = _build_opts(task_id, task_dir, quality, mode,
+                                       yt_token=yt_token, playlist_cap=playlist_cap)
             try:
-                _http_fallback_download(task_id, url, task_dir)
-            except Exception as http_ex:
-                user_msg = f"Download failed: {http_ex}"
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download([url])
+            except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
+                error_msg = str(ex)
+                if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
+                    user_msg = ("YouTube is requiring authentication from this server's IP address. "
+                                "Please upload your YouTube cookies: go to Settings → Cookies, "
+                                "export cookies from your browser using a cookie exporter extension, "
+                                "then paste or upload the Netscape-format cookies.txt file.")
+                elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
+                    user_msg = "Download failed: The video is age-restricted. Upload your YouTube cookies in Settings → Cookies."
+                elif "region-locked" in error_msg or "not available in your country" in error_msg:
+                    user_msg = "Download failed: The video is region-locked. Try uploading cookies from an allowed region."
+                elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
+                    user_msg = "Download failed: YouTube is rate-limiting this server. Upload your YouTube cookies in Settings → Cookies."
+                else:
+                    user_msg = f"Download failed: {error_msg}"
                 with _tasks_lock:
                     _tasks[task_id]["status"] = "error"
-                    _tasks[task_id]["error"] = user_msg
+                    _tasks[task_id]["error"]  = user_msg
                 _push(task_id, {"type": "error", "msg": user_msg})
                 return
 
         files = [f for f in os.listdir(task_dir)
                  if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
         if not files:
-            captured = "; ".join(logger.errors[-3:]) if logger.errors else "no details captured"
+            captured = "; ".join(logger.errors[-3:]) if (logger and logger.errors) else "no details captured"
             user_msg = f"No files were downloaded. Error details: {captured}"
             with _tasks_lock:
                 _tasks[task_id]["status"] = "error"
