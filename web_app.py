@@ -254,7 +254,7 @@ def _validate_url(url: str) -> str | None:
     """Return an error string if URL is invalid/dangerous, else None."""
     if not url:
         return "URL is required."
-    if len(url) > 2048:
+    if len(url) > 8192:
         return "URL too long."
     try:
         p = urlparse(url)
