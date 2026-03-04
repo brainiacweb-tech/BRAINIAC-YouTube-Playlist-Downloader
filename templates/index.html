@@ -322,8 +322,8 @@ select:focus { border-color: var(--red); }
 #preview-modal { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); align-items: center; justify-content: center; }
 #preview-modal.open { display: flex; }
 #preview-box { background: var(--surface); border-radius: var(--radius); overflow: hidden; width: min(92vw,640px); box-shadow: 0 20px 60px rgba(0,0,0,0.45); position: relative; }
-#preview-title { padding: 12px 44px 12px 16px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--border); }
-#preview-close { position: absolute; top: 8px; right: 10px; font-size: 20px; cursor: pointer; color: var(--muted); background: none; border: none; line-height: 1; padding: 0; }
+#preview-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#preview-close { position: static; font-size: 20px; cursor: pointer; color: var(--muted); background: none; border: none; line-height: 1; padding: 0; }
 #preview-close:hover { color: var(--red); }
 /* ── Clipboard toolbar ─────────────────────────── */
 .cb-toolbar { display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
@@ -1487,6 +1487,11 @@ function showPreview(src, title) {
   const modal = document.getElementById('preview-modal');
   document.getElementById('preview-title').textContent = title;
   document.getElementById('preview-player').src = src;
+  // Derive watch URL from embed src
+  const vidMatch = src.match(/\/embed\/([A-Za-z0-9_-]{11})/);
+  const watchUrl = vidMatch ? `https://www.youtube.com/watch?v=${vidMatch[1]}` : src;
+  const watchBtn = document.getElementById('preview-watch-btn');
+  if (watchBtn) { watchBtn.href = watchUrl; watchBtn.style.display = 'inline-flex'; }
   modal.classList.add('open');
 }
 function closePreview() {
@@ -1522,8 +1527,13 @@ function cbAction(inputId, action) {
 <!-- Preview Modal -->
 <div id="preview-modal" onclick="if(event.target===this)closePreview()">
   <div id="preview-box">
-    <div id="preview-title"></div>
-    <button id="preview-close" onclick="closePreview()"><i class="ri-close-line"></i></button>
+    <div id="preview-header" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);">
+      <div id="preview-title" style="flex:1;font-weight:600;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <a id="preview-watch-btn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;gap:4px;font-size:.8rem;background:#ff0000;color:#fff;padding:4px 10px;border-radius:6px;text-decoration:none;white-space:nowrap;flex-shrink:0">
+        <i class="ri-youtube-line"></i> Watch on YouTube
+      </a>
+      <button id="preview-close" onclick="closePreview()" style="flex-shrink:0"><i class="ri-close-line"></i></button>
+    </div>
     <iframe id="preview-player" style="width:100%;aspect-ratio:16/9;border:none;background:#000" allowfullscreen allow="autoplay; encrypted-media"></iframe>
   </div>
 </div>
