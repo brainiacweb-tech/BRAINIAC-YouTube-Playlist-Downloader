@@ -1,4 +1,5 @@
 import os, sys, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
+from datetime import timedelta
 from functools import lru_cache
 import requests as _requests
 # Suppress InsecureRequestWarning from verify=False in direct HTTP downloads
@@ -33,6 +34,9 @@ from flask_compress import Compress
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or "brainiac-yt-dl-secret-key-2026"
+app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
+app.config["REMEMBER_COOKIE_HTTPONLY"]  = True
+app.config["REMEMBER_COOKIE_SAMESITE"]  = "Lax"
 # Trust Cloudflare / Railway proxy headers so url_for(_external=True) uses https + real hostname
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
@@ -1164,7 +1168,7 @@ def signup():
             )
             db.session.add(user)
             db.session.commit()
-            login_user(user)
+            login_user(user, remember=True)
             return redirect("/app")
     return render_template("signup.html", error=error)
 
