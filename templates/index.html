@@ -354,6 +354,11 @@ select:focus { border-color: var(--red); }
 .status-badge.downloading { background: var(--red-light); color: var(--red); border-color: var(--red-mid); animation: pulse 1.8s infinite; }
 .status-badge.done        { background: var(--green-bg); color: var(--green); border-color: #a5d6a7; }
 .status-badge.error       { background: var(--red-light); color: var(--red-dark); border-color: var(--red-mid); }
+.cookie-alert { display:none; margin-top:12px; padding:12px 14px; background:#fff8e1; border:1.5px solid #ffe082; border-radius:10px; font-size:12px; font-weight:600; color:#5d4037; gap:10px; flex-direction:column; }
+.cookie-alert.show { display:flex; }
+.cookie-alert-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:800; color:#e65100; }
+.cookie-alert-body { font-size:11.5px; color:#5d4037; line-height:1.6; }
+.cookie-alert-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:2px; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
 
 .pbar-outer { height: 5px; background: var(--border); overflow: hidden; }
@@ -891,7 +896,7 @@ select:focus { border-color: var(--red); }
           <!-- YouTube Cookies section -->
           <div class="sec-label" style="margin-top:4px;margin-bottom:0;"><i class="ri-shield-keyhole-fill"></i> YouTube Authentication</div>
 
-          <div style="padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
+          <div id="yt-cookies-section" style="padding:12px 14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);transition:box-shadow 0.4s;">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-cookie-line" style="color:var(--red);"></i> YouTube Cookies</div>
@@ -933,6 +938,14 @@ select:focus { border-color: var(--red); }
       <span id="eta-lbl">—</span>
     </div>
     <div class="dl-btn-row" id="dl-btn-row"></div>
+    <div class="cookie-alert" id="cookie-alert">
+      <div class="cookie-alert-title"><i class="ri-lock-password-fill"></i> YouTube requires authentication</div>
+      <div class="cookie-alert-body">YouTube is blocking downloads from this server's IP.<br>Fix it in under a minute: export your cookies from your browser and upload them below.</div>
+      <div class="cookie-alert-actions">
+        <button class="btn btn-primary btn-sm" onclick="openCookiesSettings()"><i class="ri-settings-3-fill"></i> Open Settings &rarr; Cookies</button>
+        <a class="btn btn-ghost btn-sm" href="https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp" target="_blank" rel="noopener"><i class="ri-external-link-line"></i> How?</a>
+      </div>
+    </div>
   </div>
 
   <!-- LOG -->
@@ -1193,15 +1206,42 @@ function subscribeProgress(taskId, onDone, _retries) {
       isDownloading = false;
       document.getElementById('file-lbl').textContent = '✘  Error — see log.';
       log('✘  ' + d.msg, 'err');
+      if (/requiring authentication|not a bot|Sign in|cookies|bot.detection|age.restrict|rate.limit|429/i.test(d.msg)) {
+        showCookieAlert();
+      }
       if (onDone) onDone();
     }
   };
   es.onerror = () => { es.close(); isDownloading = false; };
 }
 
+function showCookieAlert() {
+  const el = document.getElementById('cookie-alert');
+  if (el) el.classList.add('show');
+}
+function hideCookieAlert() {
+  const el = document.getElementById('cookie-alert');
+  if (el) el.classList.remove('show');
+}
+function openCookiesSettings() {
+  hideCookieAlert();
+  ddSwitchTab('settings');
+  setTimeout(() => {
+    const sec = document.getElementById('yt-cookies-section');
+    if (sec) {
+      sec.scrollIntoView({behavior:'smooth', block:'center'});
+      sec.style.boxShadow = '0 0 0 3px rgba(229,57,53,0.4)';
+      setTimeout(() => { sec.style.boxShadow = 'none'; }, 2200);
+      const wrap = document.getElementById('cookies-paste-wrap');
+      if (wrap) wrap.style.display = '';
+    }
+  }, 180);
+}
+
 async function startDownload(payload) {
   if (isDownloading) { log('⚠  A download is already in progress.', 'warn'); return; }
   isDownloading = true;
+  hideCookieAlert();
   showProgress();
   setBadge('downloading');
   setProgress(0, '', '', '⏳  Starting…');
