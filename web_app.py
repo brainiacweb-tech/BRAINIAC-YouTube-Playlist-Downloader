@@ -93,9 +93,9 @@ class AppSetting(db.Model):
 # Restore individual limits once payment is implemented.
 PLAN_LIMITS = {
     #         daily_downloads  max_quality  batch_playlist
-    "free":  {"daily": 999999, "quality": "4K",    "batch": True},
-    "plus":  {"daily": 999999, "quality": "4K",    "batch": True},
-    "pro":   {"daily": 999999, "quality": "4K",    "batch": True},
+    "free":  {"daily": 999999, "quality": "Best Quality", "batch": True},
+    "plus":  {"daily": 999999, "quality": "Best Quality", "batch": True},
+    "pro":   {"daily": 999999, "quality": "Best Quality", "batch": True},
 }
 
 def _get_user_plan(user) -> str:
@@ -1488,11 +1488,7 @@ def start_download():
         plan      = _get_user_plan(current_user)
         max_qual  = PLAN_LIMITS[plan]["quality"]
         return jsonify({
-            "error": (
-                f"Your {plan.title()} plan supports up to {max_qual}. "
-                + ("Upgrade to Pro for 4K / Best Quality." if plan == "plus"
-                   else "Upgrade to Plus or Pro for higher quality.")
-            ),
+            "error": f"Quality '{quality}' is not supported. Please select a valid quality option.",
             "quality_blocked": True,
             "plan": plan,
         }), 403
