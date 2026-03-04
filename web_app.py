@@ -902,6 +902,11 @@ def terms():
     resp = render_template("terms.html")
     return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
+@app.route("/pricing")
+def pricing():
+    resp = render_template("pricing.html")
+    return resp, 200, {"Cache-Control": "public, max-age=3600"}
+
 @app.route("/")
 def landing():
     if current_user.is_authenticated:

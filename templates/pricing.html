@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — BRAINIAC Downloader</title>
+<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #e53935; --red-dark: #b71c1c; --red-light: #ffebee; --red-mid: #ef9a9a;
+  --fg: #111; --fg2: #444; --muted: #888; --border: #e4e4e4; --bg: #fff8f8;
+}
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--fg);
+  overflow-x: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 5% 10%,  rgba(229,57,53,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 95% 90%,  rgba(183,28,28,0.09) 0%, transparent 55%);
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 48px;
+  background: rgba(255,248,248,0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1.5px solid rgba(229,57,53,0.10);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-logo-text { font-size: 16px; font-weight: 900; color: var(--red); letter-spacing: -0.5px; }
+.nav-links { display: flex; align-items: center; gap: 10px; }
+.btn-nav {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-decoration: none; transition: all .16s; border: none;
+  font-family: 'Montserrat', sans-serif;
+}
+.btn-ghost { background: transparent; color: var(--fg2); border: 1.5px solid var(--border); }
+.btn-ghost:hover { background: var(--red-light); border-color: var(--red-mid); color: var(--red); }
+.btn-red { background: var(--red); color: #fff; }
+.btn-red:hover { background: var(--red-dark); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(229,57,53,0.30); }
+
+/* ── HERO ── */
+.hero {
+  position: relative; z-index: 1;
+  text-align: center;
+  padding: 72px 24px 48px;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--red-light); color: var(--red);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  padding: 5px 14px; border-radius: 20px; border: 1.5px solid var(--red-mid);
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-size: clamp(28px, 5vw, 48px); font-weight: 900; color: var(--fg);
+  letter-spacing: -1px; line-height: 1.15; margin-bottom: 14px;
+}
+.hero h1 span { color: var(--red); }
+.hero p {
+  font-size: 15px; color: var(--muted); max-width: 480px; margin: 0 auto 8px; line-height: 1.7;
+}
+.currency-note {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  background: #fff; border: 1.5px solid var(--border);
+  padding: 4px 12px; border-radius: 20px; margin-top: 10px;
+}
+
+/* ── CARDS ── */
+.plans-wrap {
+  position: relative; z-index: 1;
+  display: flex; justify-content: center; align-items: stretch;
+  gap: 24px; flex-wrap: wrap;
+  padding: 0 24px 80px;
+  max-width: 1080px; margin: 0 auto;
+}
+.plan-card {
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 22px;
+  padding: 36px 32px 32px;
+  flex: 1; min-width: 260px; max-width: 320px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+  transition: transform 0.18s, box-shadow 0.18s;
+  position: relative;
+}
+.plan-card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.10); }
+.plan-card.popular {
+  border-color: var(--red);
+  box-shadow: 0 4px 32px rgba(229,57,53,0.18);
+  transform: scale(1.03);
+}
+.plan-card.popular:hover { transform: scale(1.03) translateY(-4px); }
+.popular-badge {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  padding: 5px 18px; border-radius: 20px;
+  white-space: nowrap;
+}
+.plan-icon {
+  width: 46px; height: 46px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin-bottom: 18px;
+}
+.plan-icon.free  { background: #f5f5f5; color: #555; }
+.plan-icon.plus  { background: #fff3e0; color: #e65100; }
+.plan-icon.pro   { background: var(--red-light); color: var(--red); }
+.plan-name { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+.plan-price {
+  font-size: 42px; font-weight: 900; color: var(--fg); letter-spacing: -2px;
+  line-height: 1; margin-bottom: 4px;
+}
+.plan-price sup { font-size: 18px; font-weight: 700; vertical-align: super; letter-spacing: 0; }
+.plan-price .period { font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.plan-desc { font-size: 12px; color: var(--muted); margin: 10px 0 24px; line-height: 1.6; }
+.plan-divider { height: 1.5px; background: var(--border); margin-bottom: 22px; }
+.plan-features { list-style: none; flex: 1; margin-bottom: 28px; display: flex; flex-direction: column; gap: 11px; }
+.plan-features li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12.5px; color: var(--fg2); font-weight: 500; line-height: 1.5;
+}
+.plan-features li i { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.feat-yes  { color: #2e7d32; }
+.feat-no   { color: #bbb; }
+.feat-no + span { color: #bbb; text-decoration: line-through; }
+.plan-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 13px; border-radius: 12px; border: none;
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800;
+  cursor: pointer; text-decoration: none; transition: all .16s;
+  letter-spacing: 0.2px;
+}
+.plan-btn.free-btn  { background: #f5f5f5; color: #555; border: 2px solid #e0e0e0; }
+.plan-btn.free-btn:hover  { background: #eeeeee; }
+.plan-btn.plus-btn  { background: #fff3e0; color: #e65100; border: 2px solid #ffcc80; }
+.plan-btn.plus-btn:hover  { background: #ffe0b2; }
+.plan-btn.pro-btn   { background: var(--red); color: #fff; }
+.plan-btn.pro-btn:hover   { background: var(--red-dark); box-shadow: 0 4px 14px rgba(229,57,53,0.35); transform: translateY(-1px); }
+.plan-btn:active { transform: scale(0.97) !important; transition: transform 0.06s; }
+
+/* ── FAQ ── */
+.faq-wrap {
+  position: relative; z-index: 1;
+  max-width: 620px; margin: 0 auto 80px; padding: 0 24px;
+}
+.faq-title { text-align: center; font-size: 20px; font-weight: 900; color: var(--fg); margin-bottom: 28px; }
+.faq-item { border: 1.5px solid var(--border); border-radius: 14px; margin-bottom: 12px; overflow: hidden; background: #fff; }
+.faq-q {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; background: none; border: none; cursor: pointer;
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700; color: var(--fg);
+  text-align: left; gap: 12px;
+}
+.faq-q i { font-size: 18px; color: var(--red); flex-shrink: 0; transition: transform 0.2s; }
+.faq-q.open i { transform: rotate(45deg); }
+.faq-a { display: none; padding: 0 20px 16px; font-size: 12.5px; color: var(--fg2); line-height: 1.7; }
+.faq-a.open { display: block; }
+
+/* ── FOOTER ── */
+.footer { text-align: center; padding: 24px; font-size: 12px; color: var(--muted); font-weight: 500; position: relative; z-index: 1; }
+.footer span { color: var(--red); font-weight: 800; }
+.footer a { color: var(--red); text-decoration: none; }
+
+@media (max-width: 600px) {
+  nav { padding: 12px 20px; }
+  .plan-card.popular { transform: scale(1); }
+  .plan-card.popular:hover { transform: translateY(-4px); }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC" height="34">
+    <span class="nav-logo-text">BRAINIAC</span>
+  </a>
+  <div class="nav-links">
+    <a href="/app" class="btn-nav btn-ghost"><i class="ri-arrow-left-line"></i> Back to App</a>
+    <a href="/signup" class="btn-nav btn-red"><i class="ri-user-add-line"></i> Sign Up</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge"><i class="ri-price-tag-3-line"></i> Simple Pricing</div>
+  <h1>Choose your <span>plan</span></h1>
+  <p>Get started for free. Upgrade anytime for faster downloads, more storage, and premium features.</p>
+  <div class="currency-note"><i class="ri-exchange-funds-line"></i> Prices in Ghanaian Cedis (GHS ₵)</div>
+</section>
+
+<!-- PLANS -->
+<div class="plans-wrap">
+
+  <!-- FREE -->
+  <div class="plan-card">
+    <div class="plan-icon free"><i class="ri-seedling-line"></i></div>
+    <div class="plan-name">Free</div>
+    <div class="plan-price"><sup>₵</sup>0 <span class="period">/ month</span></div>
+    <div class="plan-desc">Perfect for getting started. No credit card needed.</div>
+    <div class="plan-divider"></div>
+    <ul class="plan-features">
+      <li><i class="ri-check-line feat-yes"></i><span>5 downloads per day</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>YouTube & playlist downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>MP3 audio extraction</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Up to 720p video quality</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Direct URL downloads</span></li>
+      <li><i class="ri-close-line feat-no"></i><span>Google Drive sync</span></li>
+      <li><i class="ri-close-line feat-no"></i><span>Priority processing</span></li>
+      <li><i class="ri-close-line feat-no"></i><span>1080p / 4K quality</span></li>
+    </ul>
+    <a href="/signup" class="plan-btn free-btn"><i class="ri-user-add-line"></i> Get Started Free</a>
+  </div>
+
+  <!-- PLUS -->
+  <div class="plan-card popular">
+    <div class="popular-badge">⭐ Most Popular</div>
+    <div class="plan-icon plus"><i class="ri-rocket-line"></i></div>
+    <div class="plan-name">Plus</div>
+    <div class="plan-price"><sup>₵</sup>20 <span class="period">/ month</span></div>
+    <div class="plan-desc">For regular users who need more speed and quality.</div>
+    <div class="plan-divider"></div>
+    <ul class="plan-features">
+      <li><i class="ri-check-line feat-yes"></i><span>50 downloads per day</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>YouTube & playlist downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>MP3 audio extraction</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Up to 1080p video quality</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Direct URL downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Google Drive sync</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Priority processing</span></li>
+      <li><i class="ri-close-line feat-no"></i><span>4K quality</span></li>
+    </ul>
+    <a href="/signup" class="plan-btn pro-btn"><i class="ri-rocket-line"></i> Upgrade to Plus</a>
+  </div>
+
+  <!-- PRO -->
+  <div class="plan-card">
+    <div class="plan-icon pro"><i class="ri-vip-crown-line"></i></div>
+    <div class="plan-name">Pro</div>
+    <div class="plan-price"><sup>₵</sup>45 <span class="period">/ month</span></div>
+    <div class="plan-desc">Unlimited power for professionals and heavy users.</div>
+    <div class="plan-divider"></div>
+    <ul class="plan-features">
+      <li><i class="ri-check-line feat-yes"></i><span>Unlimited downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>YouTube & playlist downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>MP3 audio extraction</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Up to 4K video quality</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Direct URL downloads</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Google Drive sync</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Highest priority processing</span></li>
+      <li><i class="ri-check-line feat-yes"></i><span>Batch playlist downloads</span></li>
+    </ul>
+    <a href="/signup" class="plan-btn pro-btn"><i class="ri-vip-crown-line"></i> Upgrade to Pro</a>
+  </div>
+
+</div>
+
+<!-- FAQ -->
+<div class="faq-wrap">
+  <div class="faq-title">Frequently Asked Questions</div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">
+      How do I pay? <i class="ri-add-line"></i>
+    </button>
+    <div class="faq-a">Payment options will be available soon including Mobile Money (MTN, Vodafone, AirtelTigo) and card payments.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">
+      Can I cancel anytime? <i class="ri-add-line"></i>
+    </button>
+    <div class="faq-a">Yes. You can cancel your subscription at any time. You'll keep access until the end of your billing period.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">
+      What happens when I hit the daily download limit? <i class="ri-add-line"></i>
+    </button>
+    <div class="faq-a">On the Free plan, downloads are paused until the next day. Upgrade to Plus or Pro to remove or raise the limit.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">
+      Is the Free plan really free forever? <i class="ri-add-line"></i>
+    </button>
+    <div class="faq-a">Yes. The Free plan has no time limit. You can use it indefinitely with the daily download limit in place.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">
+      Do you offer refunds? <i class="ri-add-line"></i>
+    </button>
+    <div class="faq-a">If you're not satisfied within the first 3 days of a new subscription, contact us at brainiactechhub@gmail.com for a full refund.</div>
+  </div>
+</div>
+
+<div class="footer">
+  Developed by <span>Francis Kusi</span> &mdash; BRAINIAC Downloader &copy; 2026 &bull;
+  <a href="/privacy">Privacy</a> &bull; <a href="/terms">Terms</a>
+</div>
+
+<script>
+function toggleFaq(btn) {
+  const ans = btn.nextElementSibling;
+  const isOpen = ans.classList.contains('open');
+  // close all
+  document.querySelectorAll('.faq-a').forEach(a => a.classList.remove('open'));
+  document.querySelectorAll('.faq-q').forEach(b => b.classList.remove('open'));
+  if (!isOpen) {
+    ans.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+</script>
+</body>
+</html>
