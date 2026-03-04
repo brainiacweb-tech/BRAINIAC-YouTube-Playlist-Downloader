@@ -798,7 +798,17 @@ select:focus { border-color: var(--red); }
         </div>
       </div>
       <div class="quality-row">
-        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto;width:100%">
+        <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
+        <span class="quality-label">Format</span>
+        <select id="direct-quality">
+          <option value="Best Quality">Best Quality (auto)</option>
+          <option value="1080p">1080p Video</option>
+          <option value="720p">720p Video</option>
+          <option value="480p">480p Video</option>
+          <option value="360p">360p Video</option>
+          <option value="Audio Only (MP3)">Audio Only (MP3)</option>
+        </select>
+        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto">
           <i class="ri-download-cloud-fill"></i> Download
         </button>
       </div>
@@ -1510,9 +1520,10 @@ function directPreview() {
   showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, document.getElementById('direct-info-title').textContent || '');
 }
 function directDownload() {
-  const url = document.getElementById('direct-url').value.trim();
+  const url     = document.getElementById('direct-url').value.trim();
+  const quality = document.getElementById('direct-quality').value;
   if (!url) { log('⚠️  Paste a URL first.', 'warn'); return; }
-  startDownload({ url, quality: 'Best Quality', mode: 'direct' });
+  startDownload({ url, quality, mode: 'direct' });
 }
 
 function escHtml(s) {

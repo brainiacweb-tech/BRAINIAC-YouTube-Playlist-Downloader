@@ -654,8 +654,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             "/bestvideo+bestaudio"
         )
 
-    # For direct mode: always merge to mp4, allow any format
-    if mode == "direct":
+    # For direct mode: merge video to mp4, but leave audio as mp3 (handled by postprocessor above)
+    if mode == "direct" and quality != "Audio Only (MP3)":
         opts["merge_output_format"] = "mp4"
         opts["allow_unplayable_formats"] = True
 
