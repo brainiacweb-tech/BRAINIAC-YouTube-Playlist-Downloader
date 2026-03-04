@@ -685,7 +685,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # tv_embedded + android are additional non-web fallbacks that don't need PO tokens.
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
+                "player_client": ["mweb", "ios", "web_embedded"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -716,13 +716,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             # Fully universal — no codec/container restrictions, works on any site
             opts["format"] = "bestvideo+bestaudio/bestvideo/best"
         else:
-            # Try combined (non-DASH) first — android_vr provides these;
-            # fall back to DASH merge only if combined unavailable
+            # Prefer DASH splits — combined formats (e.g. format 18) are 403'd on server IPs
             opts["format"] = (
-                "best[ext=mp4]"
-                "/best"
-                "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+                "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
                 "/bestvideo+bestaudio"
+                "/best[ext=mp4]"
+                "/best"
             )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
@@ -734,22 +733,23 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
             )
         else:
             opts["format"] = (
-                f"best[height<={h}][ext=mp4]"
-                f"/best[height<={h}]"
-                f"/bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+                f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
                 f"/bestvideo[height<={h}]+bestaudio"
+                f"/best[height<={h}][ext=mp4]"
+                f"/best[height<={h}]"
                 f"/best"
             )
     else:
         opts["format"] = (
-            "best[ext=mp4]/best"
-            "/bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
             "/bestvideo+bestaudio"
+            "/best[ext=mp4]/best"
         )
 
-    # For direct mode: merge video to mp4, but leave audio as mp3 (handled by postprocessor above)
-    if mode == "direct" and quality != "Audio Only (MP3)":
+    # Merge DASH splits to mp4
+    if quality != "Audio Only (MP3)":
         opts["merge_output_format"] = "mp4"
+    if mode == "direct":
         opts["allow_unplayable_formats"] = True
 
     # Cap playlist items for free users
@@ -1480,7 +1480,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
+                           "player_client": ["mweb", "ios", "web_embedded"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1618,7 +1618,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
+                "player_client": ["mweb", "ios", "web_embedded"],
             }},
         }
         _inject_cookies(opts)
@@ -1756,7 +1756,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["ios", "tv_embedded", "android", "web_embedded"],
+                             "player_client": ["mweb", "ios", "web_embedded"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
