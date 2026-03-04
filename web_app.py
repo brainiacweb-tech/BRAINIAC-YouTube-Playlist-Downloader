@@ -569,6 +569,58 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     return opts, logger
 
 
+def _http_fallback_download(task_id: str, url: str, task_dir: str) -> str | None:
+    """Stream-download any URL directly via HTTP. Returns filename on success, raises on failure."""
+    import urllib.parse, mimetypes
+    _push(task_id, {"type": "log", "msg": "🌐  Trying direct HTTP download…", "level": "info"})
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "*/*",
+    }
+    resp = _requests.get(url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+    resp.raise_for_status()
+
+    # Determine filename from Content-Disposition, then URL path
+    filename = None
+    cd = resp.headers.get("Content-Disposition", "")
+    if cd:
+        import re as _re
+        m = _re.search(r'filename\*?=["\']?(?:UTF-8\'\')?([^"\';\r\n]+)', cd, _re.I)
+        if m:
+            filename = urllib.parse.unquote(m.group(1).strip().strip('"\''))
+    if not filename:
+        path = urllib.parse.urlparse(resp.url).path
+        filename = urllib.parse.unquote(os.path.basename(path)) or "download"
+    # Append extension from Content-Type if missing
+    if "." not in os.path.basename(filename):
+        ct = resp.headers.get("Content-Type", "").split(";")[0].strip()
+        ext = mimetypes.guess_extension(ct) or ""
+        if ext == ".jpe":
+            ext = ".jpg"
+        filename += ext
+
+    # Sanitise
+    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename)
+    filepath = os.path.join(task_dir, filename)
+
+    total = int(resp.headers.get("Content-Length", 0))
+    downloaded = 0
+    with open(filepath, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=1024 * 256):
+            if chunk:
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total:
+                    pct = round(downloaded / total * 100, 1)
+                    _push(task_id, {"type": "progress", "pct": pct, "speed": "", "eta": "", "filename": filename})
+    _push(task_id, {"type": "log", "msg": f"✔  Done: {filename}", "level": "ok"})
+    return filename
+
+
 def _run_download(task_id: str, data: dict):
     url      = data.get("url", "").strip()
     quality  = data.get("quality", "Best Quality")
@@ -582,12 +634,22 @@ def _run_download(task_id: str, data: dict):
         _push(task_id, {"type": "log", "msg": "⏳  Starting download…", "level": "info"})
         opts, logger = _build_opts(task_id, task_dir, quality, mode, yt_token=yt_token)
 
+        ytdlp_failed = False
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
-        except yt_dlp.utils.DownloadError as ex:
+        except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
             error_msg = str(ex)
-            if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
+            # For direct mode: if yt-dlp can't handle it, fall back to plain HTTP
+            if mode == "direct" and (
+                "Unsupported URL" in error_msg
+                or "is not a supported URL" in error_msg
+                or "No video formats found" in error_msg
+                or "Unable to extract" in error_msg
+                or "unsupported" in error_msg.lower()
+            ):
+                ytdlp_failed = True
+            elif "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
                 user_msg = ("YouTube is requiring authentication from this server's IP address. "
                             "Please upload your YouTube cookies: go to Settings → Cookies, "
                             "export cookies from your browser using a cookie exporter extension, "
@@ -600,11 +662,27 @@ def _run_download(task_id: str, data: dict):
                 user_msg = "Download failed: YouTube is rate-limiting this server. Upload your YouTube cookies in Settings → Cookies."
             else:
                 user_msg = f"Download failed: {error_msg}"
-            with _tasks_lock:
-                _tasks[task_id]["status"] = "error"
-                _tasks[task_id]["error"] = user_msg
-            _push(task_id, {"type": "error", "msg": user_msg})
-            return
+            if not ytdlp_failed:
+                with _tasks_lock:
+                    _tasks[task_id]["status"] = "error"
+                    _tasks[task_id]["error"] = user_msg
+                _push(task_id, {"type": "error", "msg": user_msg})
+                return
+
+        # HTTP fallback for direct mode when yt-dlp gave up
+        if ytdlp_failed or (mode == "direct" and not [
+            f for f in os.listdir(task_dir)
+            if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
+        ]):
+            try:
+                _http_fallback_download(task_id, url, task_dir)
+            except Exception as http_ex:
+                user_msg = f"Download failed: {http_ex}"
+                with _tasks_lock:
+                    _tasks[task_id]["status"] = "error"
+                    _tasks[task_id]["error"] = user_msg
+                _push(task_id, {"type": "error", "msg": user_msg})
+                return
 
         files = [f for f in os.listdir(task_dir)
                  if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
