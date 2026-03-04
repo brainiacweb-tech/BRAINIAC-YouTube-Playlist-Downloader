@@ -89,7 +89,7 @@ class AppSetting(db.Model):
 PLAN_LIMITS = {
     #         daily_downloads  max_quality    drive_sync  batch_playlist
     "free":  {"daily": 50,     "quality": "720p",  "drive": False, "batch": True},
-    "plus":  {"daily": 500,    "quality": "1080p", "drive": True,  "batch": True},
+    "plus":  {"daily": 500,    "quality": "1080p", "drive": False, "batch": True},
     "pro":   {"daily": 999999, "quality": "4K",    "drive": True,  "batch": True},
 }
 
