@@ -888,15 +888,29 @@ select:focus { border-color: var(--red); }
           </button>
         </div>
         <!-- Prefetch info panel -->
-        <div id="direct-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1.5px solid var(--border);">
-          <div style="display:flex;gap:10px;align-items:center;">
-            <div id="direct-thumb-wrap" style="flex-shrink:0;width:140px;height:79px;border-radius:8px;overflow:hidden;background:#111;display:none;position:relative;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.35);" onclick="directPreview()">
-              <img id="direct-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
-              <div id="direct-thumb-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.30);transition:opacity 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.30)'"><i class="ri-play-circle-fill" style="font-size:28px;color:#fff;"></i></div>
+        <div id="direct-info" style="display:none;margin-top:10px;border-radius:9px;border:1.5px solid var(--border);overflow:hidden;">
+          <!-- Inline image preview (type=image) -->
+          <div id="direct-img-preview" style="display:none;position:relative;background:#000;cursor:pointer;max-height:300px;overflow:hidden;" onclick="directPreview()">
+            <img id="direct-img-full" src="" alt="" style="width:100%;max-height:300px;object-fit:contain;display:block;">
+            <div style="position:absolute;top:7px;right:7px;background:rgba(0,0,0,0.55);border-radius:5px;padding:2px 7px;font-size:10px;color:#fff;font-weight:700;"><i class="ri-zoom-in-line"></i> Tap to expand</div>
+          </div>
+          <!-- Video / social thumbnail -->
+          <div id="direct-thumb-wrap" style="display:none;position:relative;cursor:pointer;background:#000;height:160px;overflow:hidden;" onclick="directPreview()">
+            <img id="direct-thumb" src="" style="width:100%;height:100%;object-fit:cover;" alt="">
+            <div id="direct-thumb-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.30);transition:opacity 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.30)'"><i class="ri-play-circle-fill" style="font-size:44px;color:#fff;"></i></div>
+          </div>
+          <!-- Meta row -->
+          <div style="padding:10px 12px;background:var(--surface2);display:flex;gap:10px;align-items:center;">
+            <!-- File icon (type=file) -->
+            <div id="direct-file-icon-wrap" style="display:none;flex-shrink:0;width:38px;height:38px;border-radius:8px;background:var(--surface);border:1.5px solid var(--border);align-items:center;justify-content:center;">
+              <i id="direct-file-icon" class="ri-file-line" style="font-size:22px;color:var(--red);"></i>
             </div>
             <div style="flex:1;min-width:0;">
-              <div id="direct-info-title" style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-              <div id="direct-info-meta" style="font-size:11px;color:var(--muted);margin-top:2px;"></div>
+              <div id="direct-info-title" style="font-size:13px;font-weight:700;color:var(--fg);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;"></div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;align-items:center;">
+                <span id="direct-info-meta" style="font-size:11px;color:var(--muted);"></span>
+                <span id="direct-info-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(229,57,53,0.12);color:var(--red);border:1px solid rgba(229,57,53,0.25);"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -1742,38 +1756,82 @@ async function directFetch() {
   btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Fetching…';
   const infoEl = document.getElementById('direct-info');
   infoEl.style.display = 'none';
+  // Reset all preview sections
+  document.getElementById('direct-img-preview').style.display = 'none';
+  document.getElementById('direct-thumb-wrap').style.display  = 'none';
+  document.getElementById('direct-file-icon-wrap').style.display = 'none';
+  document.getElementById('direct-info-badge').style.display  = 'none';
   _directUrlData = null;
   try {
     const res  = await fetch('/api/prefetch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url}) });
     const data = await res.json();
     if (data.error) { log('✘  ' + data.error, 'err'); return; }
     _directUrlData = { url, ...data };
+    const type = data.type || 'generic';
+
     document.getElementById('direct-info-title').textContent = data.title || url;
     const dur  = data.duration ? fmtDur(data.duration) + '  ·  ' : '';
     const size = data.filesize ? '~' + fmtSize(data.filesize) + '  ·  ' : '';
-    const cnt  = data.count > 1 ? `${data.count} items  ·  ` : '';
     const upl  = data.uploader || '';
-    document.getElementById('direct-info-meta').textContent = (dur + size + cnt + upl).replace(/\s*·\s*$/, '');
-    const vidMatch = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-    const thumbWrap = document.getElementById('direct-thumb-wrap');
-    const thumbImg  = document.getElementById('direct-thumb');
-    const overlay   = document.getElementById('direct-thumb-overlay');
-    // Prefer API thumbnail (works for Instagram, TikTok, Vimeo, etc.)
-    // Fall back to YouTube thumbnail URL for YT links
-    const thumbSrc = data.thumbnail ||
-      (vidMatch ? `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg` : '');
-    if (thumbSrc) {
-      thumbImg.src = thumbSrc;
-      thumbWrap.style.display = 'block';
-      if (vidMatch) thumbWrap.dataset.ytid = vidMatch[1];
-      else delete thumbWrap.dataset.ytid;
-      // Show play icon only if it's a video (has duration or is YT)
-      if (overlay) overlay.style.display = (vidMatch || data.duration) ? 'flex' : 'none';
+    document.getElementById('direct-info-meta').textContent =
+      (dur + size + upl).replace(/\s*·\s*$/, '');
+
+    if (type === 'image') {
+      // Show the image full-width inline
+      document.getElementById('direct-img-full').src = data.thumbnail || url;
+      document.getElementById('direct-img-preview').style.display = 'block';
+
+    } else if (type === 'twitter') {
+      // Show tweet thumbnail + photo/video count badge
+      const mt = data.media_types || {};
+      const photos = mt.photos || 0, videos = mt.videos || 0;
+      const parts = [];
+      if (photos) parts.push(photos + ' photo' + (photos > 1 ? 's' : ''));
+      if (videos) parts.push(videos + ' video' + (videos > 1 ? 's' : ''));
+      const badge = document.getElementById('direct-info-badge');
+      if (parts.length) { badge.textContent = '📸 ' + parts.join(' + '); badge.style.display = 'inline-block'; }
+      if (data.thumbnail) {
+        document.getElementById('direct-thumb').src = data.thumbnail;
+        const ov = document.getElementById('direct-thumb-overlay');
+        if (ov) ov.style.display = videos ? 'flex' : 'none';
+        document.getElementById('direct-thumb-wrap').style.display = 'block';
+      }
+
+    } else if (type === 'file') {
+      const iconMap = {
+        zip:'ri-file-zip-line', rar:'ri-file-zip-line', '7z':'ri-file-zip-line', tar:'ri-file-zip-line', gz:'ri-file-zip-line',
+        pdf:'ri-file-pdf-line',
+        doc:'ri-file-word-line', docx:'ri-file-word-line',
+        xls:'ri-file-excel-line', xlsx:'ri-file-excel-line',
+        ppt:'ri-file-ppt-line',  pptx:'ri-file-ppt-line',
+        mp3:'ri-music-2-fill', flac:'ri-music-2-fill', wav:'ri-music-2-fill', ogg:'ri-music-2-fill', m4a:'ri-music-2-fill', aac:'ri-music-2-fill', opus:'ri-music-2-fill',
+        mp4:'ri-film-fill', mkv:'ri-film-fill', webm:'ri-film-fill', avi:'ri-film-fill', mov:'ri-film-fill',
+        apk:'ri-android-line', ipa:'ri-apple-line',
+        exe:'ri-terminal-box-fill', msi:'ri-terminal-box-fill',
+        iso:'ri-disc-line', torrent:'ri-share-line',
+        epub:'ri-book-2-line', mobi:'ri-book-2-line',
+      };
+      const ext = (data.ext || '').toLowerCase();
+      document.getElementById('direct-file-icon').className = (iconMap[ext] || 'ri-file-line');
+      document.getElementById('direct-file-icon-wrap').style.display = 'flex';
+
     } else {
-      thumbWrap.style.display = 'none';
+      // Generic (video/social/other) — show thumbnail if available
+      const vidMatch = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+      const thumbSrc = data.thumbnail || (vidMatch ? `https://i.ytimg.com/vi/${vidMatch[1]}/mqdefault.jpg` : '');
+      if (thumbSrc) {
+        document.getElementById('direct-thumb').src = thumbSrc;
+        const tw = document.getElementById('direct-thumb-wrap');
+        if (vidMatch) tw.dataset.ytid = vidMatch[1]; else delete tw.dataset.ytid;
+        const ov = document.getElementById('direct-thumb-overlay');
+        if (ov) ov.style.display = (vidMatch || data.duration) ? 'flex' : 'none';
+        tw.style.display = 'block';
+      }
     }
+
     infoEl.style.display = 'block';
-    log(`✔  Found: "${data.title}"`, 'ok');
+    const countLabel = data.count > 1 ? ` (${data.count} items)` : '';
+    log(`✔  ${type==='twitter'?'Tweet media':type==='image'?'Image':type==='file'?'File':'Found'}: "${(data.title||'').slice(0,60)}"${countLabel}`, 'ok');
   } catch(e) {
     log('✘  ' + (e.message || e), 'err');
   } finally {
@@ -1781,13 +1839,19 @@ async function directFetch() {
   }
 }
 function directPreview() {
-  const wrap  = document.getElementById('direct-thumb-wrap');
+  const type  = (_directUrlData || {}).type || 'generic';
   const title = document.getElementById('direct-info-title').textContent || '';
-  const ytid  = wrap ? wrap.dataset.ytid : '';
+  if (type === 'image') {
+    // Open full-size image in a new tab
+    const src = document.getElementById('direct-img-full').src;
+    if (src) window.open(src, '_blank');
+    return;
+  }
+  const wrap = document.getElementById('direct-thumb-wrap');
+  const ytid = wrap ? wrap.dataset.ytid : '';
   if (ytid) {
     showPreview(`https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&rel=0`, title);
   } else {
-    // Non-YouTube: show thumbnail image in the preview modal
     const thumb = document.getElementById('direct-thumb');
     if (thumb && thumb.src) showPreview(thumb.src, title, true);
   }
