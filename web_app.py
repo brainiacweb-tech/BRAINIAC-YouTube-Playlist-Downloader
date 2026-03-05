@@ -427,11 +427,26 @@ def _yt_api_prefetch(url: str) -> dict | None:
         return None
 
 IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+STATIC_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 @app.route("/images/<path:filename>")
 def serve_image(filename):
     resp = send_from_directory(IMAGES_DIR, filename)
     resp.headers["Cache-Control"] = "public, max-age=86400"  # cache images 24h
+    return resp
+
+# ── PWA: serve manifest + service worker from root scope ─────────────────────
+@app.route("/manifest.json")
+def serve_manifest():
+    resp = send_from_directory(STATIC_DIR, "manifest.json")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+@app.route("/sw.js")
+def serve_sw():
+    resp = send_from_directory(STATIC_DIR, "sw.js")
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Content-Type"]  = "application/javascript"
     return resp
 
 DOWNLOAD_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_downloads")
@@ -817,25 +832,29 @@ def _normalize_direct_url(url: str) -> str:
 # Extensions that strongly indicate a plain file — skip yt-dlp entirely
 _DIRECT_EXTS = {
     # archives
-    ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".zst",
+    ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".zst", ".lz4", ".lzma",
     # executables / installers
     ".exe", ".msi", ".pkg", ".deb", ".rpm", ".appimage", ".dmg",
-    ".apk", ".ipa", ".msix",
+    ".apk", ".ipa", ".msix", ".xapk",
     # documents
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".odt", ".ods", ".odp", ".epub", ".mobi",
-    # images (not likely video-platform)
+    ".odt", ".ods", ".odp", ".epub", ".mobi", ".azw", ".azw3",
+    ".txt", ".rtf", ".md",
+    # images
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".avif",
-    ".tiff", ".tif", ".ico", ".svg",
-    # raw media files NOT on a media platform (will still try yt-dlp first
-    # for recognised hosts; this only shortcuts UNRECOGNISED direct links)
+    ".tiff", ".tif", ".ico", ".svg", ".heic", ".heif", ".raw",
+    ".psd", ".ai", ".xcf",
+    # raw media files NOT on a media platform
     ".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v",
     ".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".wma", ".opus",
+    ".ts", ".mts", ".m2ts",
     # data / code
-    ".csv", ".json", ".xml", ".sqlite", ".db",
+    ".csv", ".json", ".xml", ".sqlite", ".db", ".sql",
     ".iso", ".img", ".bin", ".torrent",
     # fonts
     ".ttf", ".otf", ".woff", ".woff2",
+    # 3D / game
+    ".fbx", ".obj", ".glb", ".gltf", ".stl",
 }
 
 
@@ -870,22 +889,44 @@ def _run_download(task_id: str, data: dict):
                                 "msg": f"🔗  Rewritten URL: {norm_url}", "level": "info"})
                 url = norm_url
 
-            # 2. If the URL clearly points to a plain file, skip yt-dlp
-            #    and go straight to HTTP — faster and avoids false errors.
+            # 2. Decide strategy:
+            #    a) Known file extension  → HTTP immediately
+            #    b) Quick HEAD says non-HTML content-type → HTTP immediately
+            #    c) Looks like a media page (HTML / known platform) → yt-dlp first
             use_http_first = _looks_like_direct_file(url)
+
+            if not use_http_first:
+                # Probe with HEAD to check Content-Type — fast, no body downloaded
+                try:
+                    _head_headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                        "Accept": "*/*",
+                    }
+                    _head_sess = _requests.Session()
+                    _head_sess.max_redirects = 10
+                    _hresp = _head_sess.head(url, headers=_head_headers, timeout=10,
+                                             allow_redirects=True, verify=False)
+                    _ct = _hresp.headers.get("Content-Type", "").lower()
+                    # If the server returns a real file (not an HTML page), use HTTP
+                    if _ct and "text/html" not in _ct and "text/xml" not in _ct:
+                        use_http_first = True
+                        _push(task_id, {"type": "log",
+                                        "msg": f"📄  Detected file type: {_ct.split(';')[0].strip()} — downloading directly…",
+                                        "level": "info"})
+                except Exception:
+                    pass  # HEAD failed — proceed with normal logic
 
             http_succeeded = False
             ytdlp_tried    = False
 
             if use_http_first:
                 _push(task_id, {"type": "log",
-                                "msg": "📥  Direct file link detected — downloading via HTTP…",
+                                "msg": "📥  Direct file detected — downloading via HTTP…",
                                 "level": "info"})
                 try:
                     _http_fallback_download(task_id, url, task_dir)
                     http_succeeded = True
                 except Exception as http_ex:
-                    # HTTP failed for a plain-file URL → still try yt-dlp as last resort
                     _push(task_id, {"type": "log",
                                     "msg": f"⚠️  HTTP attempt failed ({http_ex}), trying yt-dlp…",
                                     "level": "warn"})
