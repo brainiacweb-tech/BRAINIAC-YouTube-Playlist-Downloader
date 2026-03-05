@@ -1925,7 +1925,10 @@ def serve_saved_file(filename):
         return jsonify({"error": "Forbidden"}), 403
     if not os.path.isfile(fpath):
         return jsonify({"error": "Not found"}), 404
-    return send_file(fpath, as_attachment=True, download_name=os.path.basename(fpath))
+    _img_exts = {'.jpg','.jpeg','.png','.gif','.webp','.avif','.bmp','.svg','.ico','.tiff','.tif','.heic','.heif'}
+    _, ext = os.path.splitext(fpath.lower())
+    as_att = ext not in _img_exts
+    return send_file(fpath, as_attachment=as_att, download_name=os.path.basename(fpath))
 
 
 @app.route("/api/delete-file", methods=["POST"])

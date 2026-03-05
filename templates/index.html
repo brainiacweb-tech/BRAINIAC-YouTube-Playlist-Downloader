@@ -1143,22 +1143,49 @@ async function loadFiles() {
   if (empty) empty.style.display = 'none';
   rows.forEach(f => {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
-    const icon = ext === 'mp3' ? 'ri-music-2-fill' :
-                 ['mp4','mkv','webm','mov'].includes(ext) ? 'ri-video-fill' :
-                 ext === 'zip' ? 'ri-file-zip-fill' : 'ri-file-download-fill';
-    const iconColor = ext === 'mp3' ? '#7c3aed' :
-                      ['mp4','mkv','webm','mov'].includes(ext) ? 'var(--red)' :
-                      ext === 'zip' ? '#0284c7' : 'var(--red)';
+    const isImage = ['jpg','jpeg','png','gif','webp','avif','bmp','svg','heic','heif','ico','tiff','tif'].includes(ext);
+    const isVideo = ['mp4','mkv','webm','mov','avi','flv','wmv','m4v','ts'].includes(ext);
+    const isAudio = ['mp3','flac','wav','ogg','m4a','aac','wma','opus'].includes(ext);
+    const isArc   = ['zip','rar','7z','tar','gz','bz2','xz'].includes(ext);
+    const isPdf   = ext === 'pdf';
+    const isDoc   = ['doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp','rtf','txt'].includes(ext);
+    const isExe   = ['exe','msi','apk','dmg','deb','rpm'].includes(ext);
+
+    const icon = isImage ? 'ri-image-fill' :
+                 isAudio ? 'ri-music-2-fill' :
+                 isVideo ? 'ri-video-fill' :
+                 isArc   ? 'ri-file-zip-fill' :
+                 isPdf   ? 'ri-file-pdf-2-fill' :
+                 isDoc   ? 'ri-file-word-fill' :
+                 isExe   ? 'ri-settings-5-fill' : 'ri-file-download-fill';
+    const iconColor = isImage ? '#0ea5e9' :
+                      isAudio ? '#7c3aed' :
+                      isVideo ? 'var(--red)' :
+                      isArc   ? '#0284c7' :
+                      isPdf   ? '#dc2626' :
+                      isDoc   ? '#2563eb' :
+                      isExe   ? '#16a34a' : 'var(--red)';
+
+    const fileUrl = `/api/saved-file/${encodeURIComponent(f.name)}`;
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);';
     row.dataset.filename = f.name;
+
+    // For images: show inline thumbnail that opens full view on click
+    const thumbHtml = isImage
+      ? `<img src="${fileUrl}" alt="${f.name}" onclick="window.open('${fileUrl}','_blank')"
+           style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1.5px solid var(--border);cursor:pointer;flex-shrink:0;" loading="lazy"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">`
+      + `<i class="${icon}" style="font-size:20px;color:${iconColor};flex-shrink:0;display:none;"></i>`
+      : `<i class="${icon}" style="font-size:20px;color:${iconColor};flex-shrink:0;"></i>`;
+
     row.innerHTML = `
-      <i class="${icon}" style="font-size:20px;color:${iconColor};flex-shrink:0;"></i>
+      ${thumbHtml}
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${f.name}">${f.name}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${fmtSize(f.size)} &bull; ${f.modified}</div>
       </div>
-      <a href="/api/saved-file/${encodeURIComponent(f.name)}" download="${f.name}" style="padding:5px 12px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;flex-shrink:0;"><i class="ri-download-2-line"></i> Save</a>
+      <a href="${fileUrl}" download="${f.name}" style="padding:5px 12px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;flex-shrink:0;"><i class="ri-download-2-line"></i> Save</a>
       <button onclick="deleteFile('${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}',this)" title="Delete" style="padding:5px 8px;background:none;border:1.5px solid rgba(229,57,53,0.20);border-radius:20px;font-size:13px;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all .15s;" onmouseover="this.style.background='rgba(229,57,53,0.10)';this.style.color='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--muted)'"><i class="ri-delete-bin-6-line"></i></button>
     `;
     list.appendChild(row);
