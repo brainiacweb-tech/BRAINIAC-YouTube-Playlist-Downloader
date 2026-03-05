@@ -1,6 +1,6 @@
 import os, sys, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
 from datetime import timedelta
-from functools import lru_cache
+from functools import lru_cache, wraps
 import requests as _requests
 # Suppress InsecureRequestWarning from verify=False in direct HTTP downloads
 import urllib3 as _urllib3
@@ -20,12 +20,11 @@ try:
     _FFMPEG_LOCATION = _shutil.which("ffmpeg") or None
 except Exception:
     pass  # will use system ffmpeg if available
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from authlib.integrations.flask_client import OAuth
+import firebase_admin
+from firebase_admin import credentials as _fb_credentials, auth as fb_auth, firestore as fb_firestore
+from werkzeug.local import LocalProxy
 import yt_dlp
-from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for, make_response
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, session, url_for, make_response, g
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -47,67 +46,97 @@ app.config["REMEMBER_COOKIE_SECURE"]       = True   # Railway is always HTTPS
 # Trust Cloudflare / Railway proxy headers so url_for(_external=True) uses https + real hostname
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# ── Database ──────────────────────────────────────────────────────────────────
-# On Railway: add the MySQL plugin and it will set MYSQL_URL automatically.
-# Locally: falls back to a SQLite file.
-_raw_db_url = os.environ.get("MYSQL_URL") or os.environ.get("DATABASE_URL")
-if _raw_db_url:
-    # Railway provides mysql:// — SQLAlchemy needs mysql+pymysql://
-    _db_uri = _raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+# ── Firebase Setup ───────────────────────────────────────────────────────────
+FIREBASE_WEB_API_KEY  = os.environ.get("FIREBASE_WEB_API_KEY", "")
+_fb_creds_raw         = os.environ.get("FIREBASE_CREDENTIALS_JSON", "")
+_fb_storage_bucket    = os.environ.get("FIREBASE_STORAGE_BUCKET", "")
+_fb_app               = None
+_firestore_db         = None
+
+if _fb_creds_raw:
+    try:
+        _raw = _fb_creds_raw.strip()
+        _cred_dict = json.loads(_raw if _raw.startswith("{") else base64.b64decode(_raw).decode("utf-8"))
+        _fb_cred   = _fb_credentials.Certificate(_cred_dict)
+        _init_kw   = {"storageBucket": _fb_storage_bucket} if _fb_storage_bucket else {}
+        _fb_app    = firebase_admin.initialize_app(_fb_cred, _init_kw)
+        _firestore_db = fb_firestore.client()
+        print("[firebase] Initialized Firebase Admin SDK + Firestore.")
+    except Exception as _fb_err:
+        print(f"[firebase] Failed to initialize Firebase: {_fb_err}")
 else:
-    _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
-    _db_uri = f"sqlite:///{_DB_PATH}"
-app.config["SQLALCHEMY_DATABASE_URI"] = _db_uri
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-# SQLite doesn't support connection-pool options; only apply them for MySQL
-if _raw_db_url:
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_recycle":  280,   # recycle before MySQL's wait_timeout (usually 300 s)
-        "pool_pre_ping": True,  # test connection health before each use
-        "pool_size":     10,    # max persistent connections per worker
-        "max_overflow":  20,    # extra connections allowed under load
-    }
-else:
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,  # still useful for SQLite file-locking detection
-    }
-db = SQLAlchemy(app)
+    print("[firebase] FIREBASE_CREDENTIALS_JSON not set — Firebase disabled.")
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
-login_manager = LoginManager(app)
-login_manager.login_view = "login"
-login_manager.login_message = ""
 
-class User(UserMixin, db.Model):
-    id                  = db.Column(db.Integer, primary_key=True)
-    username            = db.Column(db.String(80), unique=True, nullable=False)
-    email               = db.Column(db.String(120), unique=True, nullable=False)
-    password            = db.Column(db.String(256), nullable=False)
-    google_id           = db.Column(db.String(128), unique=True, nullable=True)
-    avatar              = db.Column(db.String(512), nullable=True)
-    gdrive_token        = db.Column(db.String(512), nullable=True)   # access token
-    gdrive_refresh      = db.Column(db.Text, nullable=True)          # refresh token (longer)
-    # ── Subscription plan ────────────────────────────────────────────────────
-    plan                = db.Column(db.String(20), nullable=False, default="free")
-    # plan_expires: UTC date string "YYYY-MM-DD", None = never expires / free
-    plan_expires        = db.Column(db.String(20), nullable=True)
+# ── Firebase User classes ─────────────────────────────────────────────────────
+class FirebaseUser:
+    """Lightweight user object backed by a Firestore users/{uid} document."""
+    def __init__(self, uid: str, data: dict):
+        self.uid              = uid
+        self.id               = uid      # compatibility alias
+        self.username         = data.get("username", "")
+        self.email            = data.get("email", "")
+        self.avatar           = data.get("avatar") or None
+        self.plan             = data.get("plan", "free")
+        self.plan_expires     = data.get("plan_expires") or None
+        self.google_id        = data.get("google_id") or None
+        self.gdrive_token     = data.get("gdrive_token") or None
+        self.gdrive_refresh   = data.get("gdrive_refresh") or None
+        self.is_authenticated = True
+        self.is_active        = True
+        self.is_anonymous     = False
 
-class DailyDownload(db.Model):
-    """Tracks how many downloads a user has done today."""
-    id         = db.Column(db.Integer, primary_key=True)
-    user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    date_str   = db.Column(db.String(10), nullable=False)   # "YYYY-MM-DD" UTC
-    count      = db.Column(db.Integer, nullable=False, default=0)
-    __table_args__ = (db.UniqueConstraint("user_id", "date_str", name="uq_user_date"),)
 
-class AppSetting(db.Model):
-    """Key-value store for app-wide settings that must survive restarts."""
-    key   = db.Column(db.String(100), primary_key=True)
-    value = db.Column(db.Text, nullable=True)
+class _AnonymousUser:
+    uid = id = None
+    username = email = ""
+    avatar = None
+    plan = "free"
+    plan_expires = google_id = gdrive_token = gdrive_refresh = None
+    is_authenticated = False
+    is_active        = False
+    is_anonymous     = True
+
+
+def _load_firebase_user(uid: str):
+    """Fetch user from Firestore users/{uid}; return FirebaseUser or None."""
+    if not _firestore_db or not uid:
+        return None
+    try:
+        doc = _firestore_db.collection("users").document(uid).get()
+        if doc.exists:
+            return FirebaseUser(uid, doc.to_dict() or {})
+    except Exception as _e:
+        print(f"[firebase] _load_firebase_user({uid}): {_e}")
+    return None
+
+
+# current_user proxy backed by Flask g
+current_user = LocalProxy(lambda: g.get("_current_user") or _AnonymousUser())
+
+
+@app.before_request
+def _load_current_user():
+    uid = session.get("firebase_uid")
+    g._current_user = _load_firebase_user(uid) if uid else None
+
+
+def login_required(f):
+    """Custom decorator: requires firebase_uid in session."""
+    @wraps(f)
+    def _decorated(*args, **kwargs):
+        if not session.get("firebase_uid"):
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return _decorated
+
+
+@app.context_processor
+def _inject_firebase_config():
+    return {"FIREBASE_WEB_API_KEY": FIREBASE_WEB_API_KEY}
+
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
-# NOTE: Pricing is not yet live — all plans are unlocked at Pro level for now.
-# Restore individual limits once payment is implemented.
 PLAN_LIMITS = {
     #         daily_downloads  max_quality  batch_playlist
     "free":  {"daily": 999999, "quality": "Best Quality", "batch": True},
@@ -115,50 +144,57 @@ PLAN_LIMITS = {
     "pro":   {"daily": 999999, "quality": "Best Quality", "batch": True},
 }
 
+
 def _get_user_plan(user) -> str:
     """Return active plan, auto-downgrade to free if expired."""
     if not user or not user.is_authenticated:
         return "free"
-    plan = user.plan or "free"
+    plan = getattr(user, "plan", "free") or "free"
     if plan != "free" and user.plan_expires:
         from datetime import datetime as _dt
         try:
             exp = _dt.strptime(user.plan_expires, "%Y-%m-%d").date()
             if _dt.utcnow().date() > exp:
-                # Expired → downgrade silently (don't write to DB here, lazy)
                 return "free"
         except Exception:
             pass
     return plan
 
+
 def _check_daily_limit(user) -> tuple[bool, int, int]:
-    """Returns (allowed, used_today, daily_limit)."""
+    """Returns (allowed, used_today, daily_limit). Uses Firestore."""
     from datetime import datetime as _dt
     plan  = _get_user_plan(user)
     limit = PLAN_LIMITS[plan]["daily"]
     if not user or not user.is_authenticated:
-        # Unauthenticated: cap at 2 per day per session (rough guard)
         return True, 0, limit
     today = _dt.utcnow().strftime("%Y-%m-%d")
-    row = DailyDownload.query.filter_by(user_id=user.id, date_str=today).first()
-    used = row.count if row else 0
+    used  = 0
+    if _firestore_db:
+        try:
+            doc = _firestore_db.collection("daily_downloads").document(f"{user.uid}_{today}").get()
+            if doc.exists:
+                used = doc.to_dict().get("count", 0)
+        except Exception:
+            pass
     return (used < limit), used, limit
 
+
 def _increment_daily(user):
+    """Atomically increment today's download counter in Firestore."""
     from datetime import datetime as _dt
-    if not user or not user.is_authenticated:
+    if not user or not user.is_authenticated or not _firestore_db:
         return
     today = _dt.utcnow().strftime("%Y-%m-%d")
-    row = DailyDownload.query.filter_by(user_id=user.id, date_str=today).first()
-    if row:
-        row.count += 1
-    else:
-        row = DailyDownload(user_id=user.id, date_str=today, count=1)
-        db.session.add(row)
     try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+        ref = _firestore_db.collection("daily_downloads").document(f"{user.uid}_{today}")
+        ref.set(
+            {"user_id": user.uid, "date_str": today, "count": fb_firestore.Increment(1)},
+            merge=True,
+        )
+    except Exception as _e:
+        print(f"[firebase] _increment_daily failed: {_e}")
+
 
 def _quality_allowed(user, quality: str) -> bool:
     """Check if the requested quality is within the user's plan."""
@@ -170,50 +206,9 @@ def _quality_allowed(user, quality: str) -> bool:
         if q in order:
             return order.index(q)
         if q in ("Audio Only (MP3)",):
-            return -1   # audio is always allowed
-        return len(order)  # unknown → allow
+            return -1
+        return len(order)
     return _rank(quality) <= _rank(max_qual)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(User, int(user_id))
-
-with app.app_context():
-    try:
-        db.create_all()
-    except Exception:
-        # Ignore "table already exists" race between gunicorn workers on first boot
-        db.session.rollback()
-    # Add columns if this is an existing DB without them (safe to re-run)
-    for _col, _ddl in [
-        ("google_id",      "ALTER TABLE user ADD COLUMN google_id VARCHAR(128) UNIQUE"),
-        ("avatar",         "ALTER TABLE user ADD COLUMN avatar VARCHAR(512)"),
-        ("gdrive_token",   "ALTER TABLE user ADD COLUMN gdrive_token VARCHAR(512)"),
-        ("gdrive_refresh", "ALTER TABLE user ADD COLUMN gdrive_refresh TEXT"),
-        ("plan",           "ALTER TABLE user ADD COLUMN plan VARCHAR(20) NOT NULL DEFAULT 'free'"),
-        ("plan_expires",   "ALTER TABLE user ADD COLUMN plan_expires VARCHAR(20)"),
-    ]:
-        try:
-            with db.engine.connect() as _conn:
-                _conn.execute(db.text(_ddl))
-                _conn.commit()
-        except Exception:
-            pass  # column already exists
-
-# ── Google OAuth ──────────────────────────────────────────────────────────────
-oauth = OAuth(app)
-google_oauth = oauth.register(
-    name="google",
-    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
-    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
-    # Hardcoded endpoints — avoids an extra HTTP round-trip to fetch discovery doc
-    access_token_url="https://oauth2.googleapis.com/token",
-    authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
-    jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
-    client_kwargs={
-        "scope": "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/youtube",
-    },
-)
 
 # ── Security config ───────────────────────────────────────────────────────────
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # 5 MB max upload / request body
@@ -249,7 +244,7 @@ def set_security_headers(resp):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: https:; "
-        "connect-src 'self' https://accounts.google.com; "
+        "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.firebaseio.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com; "
         "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com; "
         "frame-ancestors 'none';"
     )
@@ -633,17 +628,19 @@ if _env_cookies and not os.path.exists(COOKIES_FILE):
     except Exception as _e:
         print(f"[cookies] Failed to load YT_COOKIES env var: {_e}")
 
-# Restore cookies from DB (persists across Railway restarts/redeployments)
+# Restore cookies from Firestore (persists across Railway restarts/redeployments)
 if not os.path.exists(COOKIES_FILE) or os.path.getsize(COOKIES_FILE) == 0:
-    try:
-        with app.app_context():
-            _db_cookies = AppSetting.query.get("yt_cookies")
-            if _db_cookies and _db_cookies.value:
-                with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
-                    _f.write(base64.b64decode(_db_cookies.value).decode("utf-8"))
-                print("[cookies] Restored cookies from database")
-    except Exception as _e:
-        print(f"[cookies] Could not restore cookies from DB: {_e}")
+    if _firestore_db:
+        try:
+            _fs_doc = _firestore_db.collection("settings").document("yt_cookies").get()
+            if _fs_doc.exists:
+                _fs_val = (_fs_doc.to_dict() or {}).get("value", "")
+                if _fs_val:
+                    with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
+                        _f.write(base64.b64decode(_fs_val).decode("utf-8"))
+                    print("[cookies] Restored cookies from Firestore")
+        except Exception as _e:
+            print(f"[cookies] Could not restore cookies from Firestore: {_e}")
 
 
 def _cookies_active() -> bool:
@@ -1266,144 +1263,80 @@ def _schedule_cleanup(task_dir: str, task_id: str, delay: int = 300):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
-@app.route("/auth/google")
-def google_login():
-    # Don't block if a different user is already logged in — let Google OAuth proceed
-    # so the correct account gets signed in.
-    cb = os.environ.get("GOOGLE_REDIRECT_URI") or url_for("google_callback", _external=True)
-    # access_type=offline gets a refresh_token; prompt=consent ensures Drive scope is granted
-    # even for users who previously signed in without Drive scope.
-    return google_oauth.authorize_redirect(cb, access_type="offline", prompt="consent")
-
-
-@app.route("/auth/google/callback")
-def google_callback():
+@app.route("/api/firebase-session", methods=["POST"])
+def firebase_session():
+    """Called by the frontend after Firebase sign-in to create a Flask session."""
+    data     = request.get_json(force=True) or {}
+    id_token = (data.get("idToken") or "").strip()
+    if not id_token:
+        return jsonify({"error": "Missing idToken"}), 400
+    if not _firestore_db:
+        return jsonify({"error": "Firebase not configured on server"}), 503
     try:
-        token = google_oauth.authorize_access_token()
-    except Exception:
-        return redirect("/login")
+        decoded = fb_auth.verify_id_token(id_token)
+    except Exception as _e:
+        return jsonify({"error": f"Invalid token: {_e}"}), 401
 
-    userinfo = token.get("userinfo") or {}
-    google_id = str(userinfo.get("sub", ""))
-    email     = userinfo.get("email", "").lower().strip()
-    name      = userinfo.get("name", "")
-    picture   = userinfo.get("picture", "")
+    uid     = decoded["uid"]
+    email   = decoded.get("email", "").lower().strip()
+    name    = decoded.get("name") or data.get("username") or email.split("@")[0]
+    picture = decoded.get("picture") or ""
 
-    if not google_id or not email:
-        return redirect("/login")
-
-    # Single query: find by google_id OR email
-    from sqlalchemy import or_
-    user = User.query.filter(
-        or_(User.google_id == google_id, User.email == email)
-    ).first()
-
-    if user:
-        # Link google_id if signed up via email before; always refresh avatar
-        changed = False
-        if not user.google_id:
-            user.google_id = google_id; changed = True
-        if picture and user.avatar != picture:
-            user.avatar = picture; changed = True
-        if changed:
-            db.session.commit()
+    # Get-or-create Firestore user doc
+    ref  = _firestore_db.collection("users").document(uid)
+    snap = ref.get()
+    if snap.exists:
+        existing = snap.to_dict() or {}
+        updates  = {}
+        if picture and not existing.get("avatar"):
+            updates["avatar"] = picture
+        if updates:
+            ref.update(updates)
+        user_data = {**existing, **updates}
     else:
-        # Create new account
-        base = re.sub(r"[^a-zA-Z0-9]", "", name or email.split("@")[0])[:20] or "user"
-        # Generate unique username with one query using LIKE
-        existing = {u.username for u in User.query.filter(
-            User.username.like(f"{base}%")
-        ).with_entities(User.username).all()}
-        username, n = base, 1
-        while username in existing:
-            username = f"{base}{n}"; n += 1
-        user = User(
-            username  = username,
-            email     = email,
-            password  = generate_password_hash(os.urandom(24).hex()),
-            google_id = google_id,
-            avatar    = picture or None,
-        )
-        db.session.add(user)
-        db.session.commit()
+        username  = re.sub(r"[^a-zA-Z0-9_]", "", name)[:20] or "user"
+        google_id = None
+        try:
+            google_id = decoded.get("firebase", {}).get("identities", {}).get("google.com", [None])[0]
+        except Exception:
+            pass
+        user_data = {
+            "uid":            uid,
+            "username":       username,
+            "email":          email,
+            "avatar":         picture or None,
+            "plan":           "free",
+            "plan_expires":   None,
+            "google_id":      google_id,
+            "gdrive_token":   None,
+            "gdrive_refresh": None,
+        }
+        ref.set(user_data)
 
-    # Save the Google OAuth access token for YouTube auth in yt-dlp
-    _yt_access  = token.get("access_token", "")
-    _yt_refresh = token.get("refresh_token", "")
-    if _yt_access:
-        user.gdrive_token = _yt_access     # column reused for YT OAuth token
-    if _yt_refresh:
-        user.gdrive_refresh = _yt_refresh
-    if _yt_access or _yt_refresh:
-        db.session.commit()
-
-    # Clear any previous session (different account) before logging in
-    logout_user()
     session.clear()
-    login_user(user, remember=True)
-    if user.gdrive_token:
-        session["gdrive_token"] = user.gdrive_token   # used as YT OAuth token in yt-dlp
-    return redirect("/app")
+    session.permanent = True
+    session["firebase_uid"] = uid
+
+    out_username = user_data.get("username", "")
+    return jsonify({"ok": True, "username": out_username, "email": email})
 
 
-@app.route("/signup", methods=["GET", "POST"])
+@app.route("/signup", methods=["GET"])
 def signup():
     if current_user.is_authenticated:
         return redirect("/app")
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        email    = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-        confirm  = request.form.get("confirm", "")
-        if not username or not email or not password:
-            error = "All fields are required."
-        elif len(username) < 3:
-            error = "Username must be at least 3 characters."
-        elif len(password) < 6:
-            error = "Password must be at least 6 characters."
-        elif password != confirm:
-            error = "Passwords do not match."
-        elif User.query.filter_by(username=username).first():
-            error = "Username already taken."
-        elif User.query.filter_by(email=email).first():
-            error = "Email already registered."
-        else:
-            user = User(
-                username=username,
-                email=email,
-                password=generate_password_hash(password)
-            )
-            db.session.add(user)
-            db.session.commit()
-            login_user(user, remember=True)
-            return redirect("/app")
-    return render_template("signup.html", error=error)
+    return render_template("signup.html")
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET"])
 def login():
     if current_user.is_authenticated:
         return redirect("/app")
-    error = None
-    if request.method == "POST":
-        identifier = request.form.get("identifier", "").strip()
-        password   = request.form.get("password", "")
-        user = User.query.filter(
-            (User.username == identifier) | (User.email == identifier.lower())
-        ).first()
-        if user and check_password_hash(user.password, password):
-            login_user(user, remember=True)   # always persistent — survives browser close
-            if user.gdrive_token:
-                session["gdrive_token"] = user.gdrive_token
-            return redirect("/app")
-        error = "Invalid username/email or password."
-    return render_template("login.html", error=error)
+    return render_template("login.html")
 
 
 @app.route("/logout")
 def logout():
-    logout_user()
     session.clear()
     resp = make_response(redirect("/login"))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -1423,25 +1356,20 @@ def api_me():
 
 @app.route("/api/db-status")
 def api_db_status():
-    """Public health endpoint — returns DB type, reachability, and user count."""
-    uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    db_type = "mysql" if uri.startswith("mysql") else "sqlite"
-    try:
-        user_count = User.query.count()
-        ok = True
-        error = None
-    except Exception as exc:
-        user_count = None
-        ok = False
-        error = str(exc)
+    """Health endpoint — returns Firebase/Firestore reachability."""
+    ok = _firestore_db is not None
+    user_count = None
+    if ok:
+        try:
+            user_count = len(list(_firestore_db.collection("users").limit(1000).stream()))
+        except Exception:
+            user_count = None
     resp = make_response(jsonify({
-        "db_type":    db_type,
+        "db_type":    "firestore",
         "reachable":  ok,
         "user_count": user_count,
-        "error":      error,
-        "note": ("SQLite is ephemeral on Railway — data is lost on redeploy. "
-                 "Add the Railway MySQL plugin and set MYSQL_URL to persist accounts."
-                 if db_type == "sqlite" else "MySQL ✓ — data is persistent."),
+        "error":      None if ok else "Firebase not initialized — set FIREBASE_CREDENTIALS_JSON",
+        "note": "Firestore \u2713 \u2014 data is persistent." if ok else "FIREBASE_CREDENTIALS_JSON not set.",
     }))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -1462,7 +1390,7 @@ def pricing():
     resp = render_template("pricing.html")
     return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
-# ── Plan status API ───────────────────────────────────────────────────────────
+# \u2500\u2500 Plan status API \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 @app.route("/api/plan-status")
 @login_required
 def api_plan_status():
@@ -1470,8 +1398,14 @@ def api_plan_status():
     plan    = _get_user_plan(current_user)
     limits  = PLAN_LIMITS[plan]
     today   = _dt.utcnow().strftime("%Y-%m-%d")
-    row     = DailyDownload.query.filter_by(user_id=current_user.id, date_str=today).first()
-    used    = row.count if row else 0
+    used    = 0
+    if _firestore_db:
+        try:
+            doc = _firestore_db.collection("daily_downloads").document(f"{current_user.uid}_{today}").get()
+            if doc.exists:
+                used = doc.to_dict().get("count", 0)
+        except Exception:
+            pass
     return jsonify({
         "plan":          plan,
         "plan_expires":  current_user.plan_expires,
@@ -1485,8 +1419,7 @@ def api_plan_status():
 @app.route("/api/admin/set-plan", methods=["POST"])
 @login_required
 def api_admin_set_plan():
-    """Admin-only: manually upgrade/downgrade a user's plan.
-    Requires ADMIN_SECRET env var to match posted secret."""
+    """Admin-only: manually upgrade/downgrade a user's plan."""
     admin_secret = os.environ.get("ADMIN_SECRET", "")
     if not admin_secret:
         return jsonify({"error": "Admin not configured"}), 403
@@ -1496,19 +1429,18 @@ def api_admin_set_plan():
         return jsonify({"error": "Forbidden"}), 403
     email   = (data.get("email") or "").strip().lower()
     plan    = (data.get("plan") or "free").strip().lower()
-    expires = data.get("expires")   # "YYYY-MM-DD" or null
+    expires = data.get("expires")
     if plan not in PLAN_LIMITS:
         return jsonify({"error": f"Unknown plan: {plan}"}), 400
-    u = User.query.filter_by(email=email).first()
-    if not u:
-        return jsonify({"error": "User not found"}), 404
-    u.plan         = plan
-    u.plan_expires = expires
+    if not _firestore_db:
+        return jsonify({"error": "Firebase not configured"}), 503
     try:
-        db.session.commit()
+        docs = list(_firestore_db.collection("users").where("email", "==", email).limit(1).stream())
+        if not docs:
+            return jsonify({"error": "User not found"}), 404
+        docs[0].reference.update({"plan": plan, "plan_expires": expires})
         return jsonify({"ok": True, "email": email, "plan": plan, "expires": expires})
     except Exception as ex:
-        db.session.rollback()
         return jsonify({"error": str(ex)}), 500
 
 @app.route("/")
@@ -1533,8 +1465,14 @@ def index():
     from datetime import datetime as _dt
     plan   = _get_user_plan(current_user)
     today  = _dt.utcnow().strftime("%Y-%m-%d")
-    row    = DailyDownload.query.filter_by(user_id=current_user.id, date_str=today).first()
-    used   = row.count if row else 0
+    used   = 0
+    if _firestore_db:
+        try:
+            doc = _firestore_db.collection("daily_downloads").document(f"{current_user.uid}_{today}").get()
+            if doc.exists:
+                used = doc.to_dict().get("count", 0)
+        except Exception:
+            pass
     limits = PLAN_LIMITS[plan]
     resp = make_response(render_template(
         "index.html",
@@ -2072,17 +2010,13 @@ def upload_cookies():
     with open(COOKIES_FILE, "w", encoding="utf-8") as fh:
         fh.write(content)
 
-    # Persist to DB so cookies survive Railway restarts / redeployments
-    try:
-        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        setting = AppSetting.query.get("yt_cookies")
-        if setting:
-            setting.value = encoded
-        else:
-            db.session.add(AppSetting(key="yt_cookies", value=encoded))
-        db.session.commit()
-    except Exception as _e:
-        print(f"[cookies] Could not persist cookies to DB: {_e}")
+    # Persist to Firestore so cookies survive Railway restarts / redeployments
+    if _firestore_db:
+        try:
+            encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+            _firestore_db.collection("settings").document("yt_cookies").set({"value": encoded})
+        except Exception as _e:
+            print(f"[cookies] Could not persist cookies to Firestore: {_e}")
 
     return jsonify({"ok": True, "size": len(content)})
 
@@ -2093,14 +2027,12 @@ def clear_cookies():
         os.remove(COOKIES_FILE)
     except FileNotFoundError:
         pass
-    # Remove from DB too
-    try:
-        setting = AppSetting.query.get("yt_cookies")
-        if setting:
-            db.session.delete(setting)
-            db.session.commit()
-    except Exception:
-        pass
+    # Remove from Firestore too
+    if _firestore_db:
+        try:
+            _firestore_db.collection("settings").document("yt_cookies").delete()
+        except Exception:
+            pass
     return jsonify({"ok": True})
 
 
@@ -2116,22 +2048,20 @@ def clear_cookies():
 @app.route("/change-password", methods=["GET", "POST"])
 @login_required
 def change_password():
-    from werkzeug.security import check_password_hash, generate_password_hash
     error = success = None
     if request.method == "POST":
-        current_pw  = request.form.get("current_password", "")
-        new_pw      = request.form.get("new_password", "")
-        confirm_pw  = request.form.get("confirm_password", "")
-        if not check_password_hash(current_user.password, current_pw):
-            error = "Current password is incorrect."
-        elif len(new_pw) < 6:
+        new_pw     = request.form.get("new_password", "")
+        confirm_pw = request.form.get("confirm_password", "")
+        if len(new_pw) < 6:
             error = "New password must be at least 6 characters."
         elif new_pw != confirm_pw:
-            error = "New passwords do not match."
+            error = "Passwords do not match."
         else:
-            current_user.password = generate_password_hash(new_pw)
-            db.session.commit()
-            success = "Password changed successfully!"
+            try:
+                fb_auth.update_user(current_user.uid, password=new_pw)
+                success = "Password changed successfully!"
+            except Exception as _e:
+                error = f"Could not update password: {_e}"
     return render_template("change_password.html", error=error, success=success,
                            username=current_user.username, avatar=current_user.avatar)
 
@@ -2140,21 +2070,19 @@ def change_password():
 @app.route("/change-email", methods=["GET", "POST"])
 @login_required
 def change_email():
-    from werkzeug.security import check_password_hash
     error = success = None
     if request.method == "POST":
-        new_email   = request.form.get("new_email", "").strip().lower()
-        password    = request.form.get("password", "")
+        new_email = request.form.get("new_email", "").strip().lower()
         if not new_email or "@" not in new_email:
             error = "Please enter a valid email address."
-        elif not check_password_hash(current_user.password, password):
-            error = "Password is incorrect."
-        elif User.query.filter_by(email=new_email).first():
-            error = "That email is already in use."
         else:
-            current_user.email = new_email
-            db.session.commit()
-            success = "Email updated successfully!"
+            try:
+                fb_auth.update_user(current_user.uid, email=new_email)
+                if _firestore_db:
+                    _firestore_db.collection("users").document(current_user.uid).update({"email": new_email})
+                success = "Email updated successfully!"
+            except Exception as _e:
+                error = f"Could not update email: {_e}"
     return render_template("change_email.html", error=error, success=success,
                            username=current_user.username, avatar=current_user.avatar,
                            current_email=current_user.email)
