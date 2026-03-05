@@ -503,15 +503,9 @@ select:focus { border-color: var(--red); }
   /* Web-search results: don't occupy half the screen */
   #websearch-results { max-height: 300px !important; }
 
-  /* Cookie textarea: no accidental resize on touch */
-  #cookie-input { resize: none !important; }
-
   /* Always show play overlay on touch devices (no hover) */
   #yt-pl-play-overlay { opacity: 1 !important; }
   #preview-thumb-wrap .play-overlay { background: rgba(0,0,0,0.38) !important; }
-
-  /* Settings pre block: easier to read/copy on mobile */
-  #tg-info pre { font-size: 9px !important; padding: 6px 8px !important; }
 
   /* Profile action buttons: full-width on tiny screens */
   #panel-profile .card-body > div:last-of-type { flex-direction: column; }
@@ -1006,56 +1000,7 @@ select:focus { border-color: var(--red); }
             <button onclick="loadFiles()" class="btn btn-ghost btn-sm"><i class="ri-delete-bin-line"></i> Refresh Files</button>
           </div>
 
-          <!-- YouTube Cookies -->
-          <div id="cookie-section" style="padding:14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-shield-keyhole-line" style="color:var(--red);"></i> YouTube Cookies</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Paste Netscape-format cookies to bypass YouTube bot-detection on server IPs</div>
-              </div>
-              <span id="cookie-badge" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--border);color:var(--muted);white-space:nowrap;">Not set</span>
-            </div>
-            <textarea id="cookie-input" rows="5" placeholder="# Netscape HTTP Cookie File&#10;# Export from your browser using an extension like &quot;Get cookies.txt LOCALLY&quot;&#10;.youtube.com   TRUE   /   FALSE   ..." style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--fg);font-family:monospace;font-size:11px;line-height:1.6;resize:vertical;outline:none;box-sizing:border-box;"></textarea>
-            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-              <button class="btn btn-primary btn-sm" onclick="saveCookies()" style="flex:1;"><i class="ri-save-line"></i> Save Cookies</button>
-              <button class="btn btn-ghost btn-sm" onclick="clearCookies()" id="clear-cookie-btn" style="flex:1;"><i class="ri-delete-bin-line"></i> Clear Cookies</button>
-            </div>
-            <div id="cookie-msg" style="display:none;margin-top:8px;font-size:11px;font-weight:700;padding:6px 12px;border-radius:7px;"></div>
-            <div style="margin-top:10px;padding:10px;background:rgba(229,57,53,0.06);border-radius:8px;border:1.5px solid rgba(229,57,53,0.15);">
-              <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px;"><i class="ri-information-line"></i> How to get YouTube cookies</div>
-              <ol style="font-size:11px;color:var(--fg2);line-height:1.8;margin:0;padding-left:18px;">
-                <li>Install the <b>&quot;Get cookies.txt LOCALLY&quot;</b> extension in Chrome/Firefox</li>
-                <li>Open <b>youtube.com</b> while logged into your Google account</li>
-                <li>Click the extension icon and export cookies for youtube.com</li>
-                <li>Paste the entire contents of the .txt file above and click Save</li>
-              </ol>
-            </div>
-          </div>
 
-          <!-- KDMusic_Bot / Telegram fallback status -->
-          <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1.5px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px;"><i class="ri-telegram-line" style="color:#2196f3;"></i> KDMusic_Bot Fallback</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Auto-downloads music via @KDMusic_Bot when yt-dlp is blocked</div>
-              </div>
-              <span id="tg-badge" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--border);color:var(--muted);white-space:nowrap;">Checking…</span>
-            </div>
-            <div id="tg-info" style="font-size:11px;color:var(--muted);line-height:1.7;padding:8px 10px;background:var(--surface);border-radius:8px;border:1.5px solid var(--border);">
-              Set <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_API_ID</code>,
-              <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_API_HASH</code> and
-              <code style="background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px;">TELEGRAM_SESSION</code> as Railway environment variables to activate.
-              Generate a session string with:
-              <pre style="margin:6px 0 0;padding:7px 10px;background:rgba(0,0,0,.06);border-radius:6px;font-size:10px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">pip install telethon
-python -c "
-from telethon.sync import TelegramClient
-from telethon.sessions import StringSession
-api_id=input('API ID: '); api_hash=input('API Hash: ')
-with TelegramClient(StringSession(),int(api_id),api_hash) as c:
-    print(c.session.save())
-"</pre>
-            </div>
-          </div>
 
         </div>
       </div>
@@ -1265,8 +1210,8 @@ function ddSwitchTab(tab) {
   document.getElementById('user-dd-menu').classList.remove('open');
   switchTab(tab, null);
   if (tab === 'files') loadFiles();
-  if (tab === 'settings') { loadCookieStatus(); loadTgStatus(); }
 }
+
 document.addEventListener('click', function(e) {
   var wrap = document.getElementById('user-dd-wrap');
   if (wrap && !wrap.contains(e.target)) {
@@ -1427,78 +1372,7 @@ function subscribeProgress(taskId, onDone, _retries) {
   es.onerror = () => { es.close(); isDownloading = false; setBadge('error'); log('✘  Connection lost — please try again.', 'err'); };
 }
 
-function showCookieAlert() {}
-function hideCookieAlert() {}
 
-async function loadCookieStatus() {
-  try {
-    const r = await fetch('/api/cookies');
-    const d = await r.json();
-    const badge = document.getElementById('cookie-badge');
-    const clearBtn = document.getElementById('clear-cookie-btn');
-    if (d.active) {
-      const kb = (d.size / 1024).toFixed(1);
-      if (badge) { badge.textContent = `✔ Active (${kb} KB)`; badge.style.background = 'rgba(46,125,50,0.15)'; badge.style.color = '#2e7d32'; badge.style.border = '1.5px solid rgba(46,125,50,0.3)'; }
-      if (clearBtn) clearBtn.style.opacity = '1';
-    } else {
-      if (badge) { badge.textContent = 'Not set'; badge.style.background = 'var(--border)'; badge.style.color = 'var(--muted)'; badge.style.border = ''; }
-      if (clearBtn) clearBtn.style.opacity = '0.5';
-    }
-  } catch(e) {}
-}
-
-async function loadTgStatus() {
-  const badge = document.getElementById('tg-badge');
-  const info  = document.getElementById('tg-info');
-  if (!badge) return;
-  try {
-    const r = await fetch('/api/tg-status');
-    const d = await r.json();
-    if (d.active) {
-      badge.textContent = `✔ Active (@${d.username || 'connected'})`;
-      badge.style.background = 'rgba(33,150,243,0.12)';
-      badge.style.color      = '#1565c0';
-      badge.style.border     = '1.5px solid rgba(33,150,243,0.3)';
-      if (info) info.innerHTML = `<span style="color:#1565c0;font-weight:700;"><i class="ri-check-double-line"></i> Telegram session active as @${d.username || 'user'}.</span> Music downloads blocked by YouTube will automatically fall back to KDMusic_Bot.`;
-    } else {
-      badge.textContent = 'Not configured';
-      badge.style.background = 'var(--border)';
-      badge.style.color      = 'var(--muted)';
-      badge.style.border     = '';
-    }
-  } catch(e) {
-    if (badge) { badge.textContent = 'Error'; badge.style.color = 'var(--red)'; }
-  }
-}
-async function saveCookies() {
-  const text = (document.getElementById('cookie-input').value || '').trim();
-  if (!text) { showCookieMsg('Paste cookie contents first.', false); return; }
-  const r = await fetch('/api/cookies', { method: 'POST', body: text });
-  const d = await r.json();
-  if (r.ok && d.ok) {
-    showCookieMsg(`Cookies saved (${(d.size/1024).toFixed(1)} KB). Downloads will now use them.`, true);
-    document.getElementById('cookie-input').value = '';
-    loadCookieStatus();
-  } else {
-    showCookieMsg(d.error || 'Failed to save cookies.', false);
-  }
-}
-async function clearCookies() {
-  if (!confirm('Clear saved YouTube cookies?')) return;
-  await fetch('/api/cookies', { method: 'DELETE' });
-  showCookieMsg('Cookies cleared.', true);
-  loadCookieStatus();
-}
-function showCookieMsg(msg, ok) {
-  const el = document.getElementById('cookie-msg');
-  if (!el) return;
-  el.style.display = 'block';
-  el.textContent = msg;
-  el.style.background = ok ? 'rgba(46,125,50,0.12)' : 'rgba(229,57,53,0.10)';
-  el.style.color = ok ? '#2e7d32' : 'var(--red)';
-  el.style.border = ok ? '1.5px solid rgba(46,125,50,0.25)' : '1.5px solid rgba(229,57,53,0.25)';
-  setTimeout(() => { el.style.display = 'none'; }, 5000);
-}
 
 async function startDownload(payload, onDone) {
   if (isDownloading) { log('⚠  A download is already in progress.', 'warn'); return; }
