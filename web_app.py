@@ -307,8 +307,8 @@ def _validate_url(url: str) -> str | None:
 def _validate_query(q: str) -> str | None:
     if not q:
         return "Query is required."
-    if len(q) > 200:
-        return "Search query too long (max 200 chars)."
+    if len(q) > 1000:
+        return "Search query too long (max 1000 chars)."
     return None
 
 # ── YouTube Data API v3 ───────────────────────────────────────────────────────
@@ -327,25 +327,38 @@ def _iso_duration(iso: str) -> tuple[int, str]:
 
 
 def _yt_api_search(query: str, mode: str) -> list | None:
-    """Search YouTube via Data API v3. Returns result list or None on failure."""
+    """Search YouTube via Data API v3. Returns up to 200 results (4 pages) or None on failure."""
     if not YOUTUBE_API_KEY:
         return None
     try:
-        # 1. Get video IDs
-        r = _requests.get(f"{_YT_API_BASE}/search", params={
-            "part": "snippet", "q": query, "type": "video",
-            "maxResults": 50, "key": YOUTUBE_API_KEY,
-        }, timeout=10)
-        items = r.json().get("items") or []
+        # 1. Paginate search to collect up to 200 video IDs (4 pages × 50)
+        items      = []
+        page_token = None
+        for _ in range(4):   # max 4 pages = 200 results
+            params = {
+                "part": "snippet", "q": query, "type": "video",
+                "maxResults": 50, "key": YOUTUBE_API_KEY,
+            }
+            if page_token:
+                params["pageToken"] = page_token
+            r    = _requests.get(f"{_YT_API_BASE}/search", params=params, timeout=10)
+            resp = r.json()
+            items.extend(resp.get("items") or [])
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
         if not items:
             return []
 
-        # 2. Fetch duration for all IDs in one call
-        vid_ids = ",".join(it["id"]["videoId"] for it in items if it.get("id", {}).get("videoId"))
-        vr = _requests.get(f"{_YT_API_BASE}/videos", params={
-            "part": "contentDetails", "id": vid_ids, "key": YOUTUBE_API_KEY,
-        }, timeout=10)
-        details = {v["id"]: v for v in (vr.json().get("items") or [])}
+        # 2. Fetch duration for all IDs in batches of 50
+        vid_ids_all = [it["id"]["videoId"] for it in items if it.get("id", {}).get("videoId")]
+        details: dict = {}
+        for i in range(0, len(vid_ids_all), 50):
+            batch = ",".join(vid_ids_all[i:i + 50])
+            vr = _requests.get(f"{_YT_API_BASE}/videos", params={
+                "part": "contentDetails", "id": batch, "key": YOUTUBE_API_KEY,
+            }, timeout=10)
+            details.update({v["id"]: v for v in (vr.json().get("items") or [])})
 
         results = []
         bps = 32_000 if mode == "music" else 250_000
@@ -744,7 +757,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── Geo / age-gate bypass ─────────────────────────────────────────────
         "geo_bypass":              True,
         "geo_bypass_country":      "US",
-        "age_limit":               99,    # don't block age-gated content
+        "age_limit":               99,    # bypass all age gates
+        "allow_unplayable_formats": True,  # don't skip unplayable/restricted formats
 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
@@ -822,9 +836,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     if mode == "direct":
         opts["allow_unplayable_formats"] = True
 
-    # Cap playlist items for free users
-    if playlist_cap and playlist_cap > 0:
-        opts["playlistend"] = playlist_cap
+    # No playlist cap — all users download full playlists
 
     return opts, logger
 
@@ -1153,8 +1165,6 @@ def _run_download(task_id: str, data: dict):
                     _ytdlp_user_msg = ("Download failed: This video has embedding disabled and cannot be "
                                        "downloaded from the server. Open the video on YouTube and try "
                                        "downloading it from there, or use the Direct tab with the video URL.")
-                elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
-                    _ytdlp_user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
                 elif "region-locked" in error_msg or "not available in your country" in error_msg:
                     _ytdlp_user_msg = "Download failed: This video is not available in the server's region."
                 elif "HTTP Error 429" in error_msg or "Access Denied" in error_msg:
@@ -1557,8 +1567,8 @@ def search():
     if source not in ("YouTube", "SoundCloud", "Dailymotion"):
         source = "YouTube"
 
-    prefix = {"YouTube": "ytsearch20:", "SoundCloud": "scsearch20:",
-              "Dailymotion": "dmsearch20:"}.get(source, "ytsearch20:")
+    prefix = {"YouTube": "ytsearch200:", "SoundCloud": "scsearch200:",
+              "Dailymotion": "dmsearch200:"}.get(source, "ytsearch200:")
 
     # ── Cache check ───────────────────────────────────────────────────────────
     cache_key = (query, source, mode)
@@ -1918,10 +1928,7 @@ def start_download():
             "plan": plan,
         }), 403
 
-    # ── Batch / playlist guard ────────────────────────────────────────────────
-    if mode == "playlist" and not PLAN_LIMITS[_get_user_plan(current_user)]["batch"]:
-        # Free users: cap playlist at 5 items (set in yt-dlp opts via playlistend)
-        data["_playlist_cap"] = 5
+    # ── Batch / playlist: no cap — all users download full playlists ────────
 
     # Pass the user's Google/YouTube token to the download thread so yt-dlp
     # can authenticate via Authorization header — avoids bot-detection prompts.
