@@ -575,11 +575,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ios: most reliable client — no PO tokens, no sign-in required.
-        # mweb: mobile web fallback — also works without authentication.
+        # android_vr / android: pre-signed (cipher-free) URLs — no PO tokens,
+        #   no JS signature/n-challenge solving needed, works on server IPs.
+        # web_embedded: fallback for restricted/age-gated videos.
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "mweb"],
+                "player_client": ["android_vr", "android", "web_embedded"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -1410,7 +1411,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["ios", "mweb"],
+                           "player_client": ["android_vr", "android", "web_embedded"],
                        }}}
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
@@ -1547,7 +1548,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["ios", "mweb"],
+                "player_client": ["android_vr", "android", "web_embedded"],
             }},
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -1684,7 +1685,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["ios", "mweb"],
+                             "player_client": ["android_vr", "android", "web_embedded"],
                          }}}
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
