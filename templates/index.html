@@ -328,8 +328,11 @@ select:focus { border-color: var(--red); }
 #preview-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; display: block; cursor: pointer; overflow: hidden; }
 #preview-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #preview-thumb-wrap .play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.28); transition: background 0.15s; }
-#preview-thumb-wrap:hover .play-overlay { background: rgba(0,0,0,0.45); }
-#preview-thumb-wrap .play-overlay i { font-size: 64px; color: #fff; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
+#preview-thumb-wrap:hover .play-overlay { background: rgba(0,0,0,0.48); }
+#preview-thumb-wrap .play-overlay i { font-size: 72px; color: #fff; filter: drop-shadow(0 2px 12px rgba(0,0,0,0.7)); }
+/* Playlist banner: show play overlay on hover desktop, always on mobile */
+#yt-pl-thumb-wrap { cursor: pointer; }
+#yt-pl-thumb-wrap:hover #yt-pl-play-overlay { opacity: 1 !important; }
 #preview-player-wrap { display: none; width: 100%; aspect-ratio: 16/9; background: #000; }
 #preview-player-wrap iframe { width: 100%; height: 100%; border: none; }
 /* ── Clipboard toolbar ─────────────────────────── */
@@ -479,7 +482,9 @@ select:focus { border-color: var(--red); }
   /* preview modal */
   #preview-box { width: 96vw; border-radius: 12px; }
   #preview-title { font-size: 12px; }
-  #preview-thumb-wrap .play-overlay i { font-size: 44px; }
+  #preview-thumb-wrap .play-overlay i { font-size: 48px; }
+  #preview-header { padding: 8px 10px; gap: 5px; }
+  #preview-watch-btn { font-size: .72rem !important; padding: 3px 8px !important; }
 
   /* cb toolbar */
   .cb-toolbar { gap: 3px; }
@@ -488,6 +493,30 @@ select:focus { border-color: var(--red); }
   /* playlist video list bar */
   #yt-video-list-wrap > div:first-child { gap: 6px; padding: 7px 10px !important; }
   #yt-video-list-wrap button[onclick="downloadSelectedYT()"] { width: 100% !important; margin-left: 0 !important; justify-content: center; }
+
+  /* Prefetch thumbnails — 140px too wide on small screens */
+  #yt-pl-thumb-wrap { width: 80px !important; height: 45px !important; min-width: 80px !important; }
+  #direct-thumb-wrap { width: 80px !important; height: 45px !important; min-width: 80px !important; }
+  /* Direct-info row: tighten gap */
+  #direct-info > div { gap: 8px !important; }
+
+  /* Web-search results: don't occupy half the screen */
+  #websearch-results { max-height: 300px !important; }
+
+  /* Cookie textarea: no accidental resize on touch */
+  #cookie-input { resize: none !important; }
+
+  /* Always show play overlay on touch devices (no hover) */
+  #yt-pl-play-overlay { opacity: 1 !important; }
+  #preview-thumb-wrap .play-overlay { background: rgba(0,0,0,0.38) !important; }
+
+  /* Settings pre block: easier to read/copy on mobile */
+  #tg-info pre { font-size: 9px !important; padding: 6px 8px !important; }
+
+  /* Profile action buttons: full-width on tiny screens */
+  #panel-profile .card-body > div:last-of-type { flex-direction: column; }
+  #panel-profile .card-body > div:last-of-type .btn,
+  #panel-profile .card-body > div:last-of-type a { width: 100% !important; justify-content: center; text-align: center; }
 }
 
 /* ── Very small (≤ 380px) ─────────────────────────────────────── */
@@ -1146,13 +1175,6 @@ function toggleDarkModeFromSettings(on) {
 
 // ── Files history ──────────────────────────────────────────
 const downloadedFiles = [];
-function fmtSize(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024)       return bytes + ' B';
-  if (bytes < 1048576)    return (bytes/1024).toFixed(1) + ' KB';
-  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
-  return (bytes/1073741824).toFixed(2) + ' GB';
-}
 async function loadFiles() {
   const list  = document.getElementById('files-list');
   const empty = document.getElementById('files-empty');
@@ -2039,8 +2061,8 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- YouTube thumbnail with play overlay (always works, no embed restrictions) -->
     <a id="preview-thumb-wrap" href="#" target="_blank" rel="noopener" style="display:none;position:relative;width:100%;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;text-decoration:none;">
       <img id="preview-thumb-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">
-      <div class="play-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.28);transition:background .15s;">
-        <i class="ri-play-circle-fill" style="font-size:72px;color:#fff;filter:drop-shadow(0 2px 12px rgba(0,0,0,.7));"></i>
+      <div class="play-overlay">
+        <i class="ri-play-circle-fill"></i>
       </div>
     </a>
     <!-- Non-YouTube iframe fallback -->
