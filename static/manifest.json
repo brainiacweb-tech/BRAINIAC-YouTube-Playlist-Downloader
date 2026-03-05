@@ -1,0 +1,28 @@
+{
+  "name": "BRAINIAC Downloader",
+  "short_name": "BRAINIAC",
+  "description": "Download YouTube videos, playlists, music and more",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e53935",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
