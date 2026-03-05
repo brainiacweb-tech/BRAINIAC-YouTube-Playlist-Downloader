@@ -478,8 +478,8 @@ def _tg_title_from_url(url: str) -> str:
                                "skip_download": True, "extract_flat": False,
                                "socket_timeout": 8,
                                "extractor_args": {"youtube": {
-                                   "player_client": ["tv_embedded", "web_embedded", "web_creator"],
-                                   "skip_webpage": ["1"]}}}) as ydl:
+                                   "player_client": ["tv_embedded", "web_creator"],
+                                   "player_skip":   ["webpage", "configs", "js"]}}}) as ydl:
             info = ydl.extract_info(url, download=False)
         title    = info.get("title") or ""
         uploader = info.get("uploader") or info.get("channel") or ""
@@ -755,20 +755,25 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # tv_embedded / web_embedded: no GVS PO token needed — safest on server IPs.
-        # web_creator: YouTube Studio client — no PO tokens, handles most restricted videos.
-        # android/ios/mweb removed: all require GVS PO tokens on server IPs → HTTP 403/152.
-        # skip_webpage: suppress JS signature/n-challenge solving (no Node.js on Railway).
+        # tv_embedded: embedded player — never prompts for sign-in, most bot-resistant.
+        # web_creator: YouTube Studio client — no PO tokens, handles restricted/age-gated.
+        # android/ios/mweb/web_embedded removed: trigger GVS PO tokens or bot checks.
+        # player_skip: skip webpage+JS extraction — suppresses n-challenge/signature solver
+        #              warnings (no Node.js on Railway) and avoids bot-detection probes.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_embedded", "web_embedded", "web_creator"],
-                "skip_webpage": ["1"],
+                "player_client": ["tv_embedded", "web_creator"],
+                "player_skip":   ["webpage", "configs", "js"],
             },
             "twitter": {"api": ["syndication"]},
         },
 
         # ── Socket patience ───────────────────────────────────────────────────
         "socket_timeout": 60,
+
+        # ── Rate-limit avoidance: pause between consecutive requests ──────────
+        "sleep_interval_requests": 2,
+        "sleep_interval":          1,
 
         # ── Let yt-dlp pick the best available format even if DASH fails ──────
         "compat_opts": {"no-youtube-unavailable-videos"},
@@ -1150,9 +1155,30 @@ def _run_download(task_id: str, data: dict):
                 _ytdlp_failed = True
                 error_msg = str(ex)
                 if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
-                    _ytdlp_user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
-                                       "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
-                                       "it may work via a different extraction path.")
+                    # ── Auto-retry with longer sleep before giving up ──────────────────
+                    _retried = False
+                    for _retry_delay in (8, 20):
+                        _push(task_id, {"type": "log",
+                                        "msg": f"⏳  YouTube bot-check detected — retrying in {_retry_delay}s…",
+                                        "level": "warn"})
+                        time.sleep(_retry_delay)
+                        try:
+                            _retry_opts, _ = _build_opts(task_id, task_dir, quality, mode,
+                                                         yt_token=yt_token,
+                                                         playlist_cap=playlist_cap)
+                            _retry_opts["sleep_interval_requests"] = _retry_delay
+                            _retry_opts["sleep_interval"]          = _retry_delay // 2
+                            with yt_dlp.YoutubeDL(_retry_opts) as _rydl:
+                                _rydl.download([url])
+                            _ytdlp_failed = False   # success
+                            _retried = True
+                            break
+                        except Exception:
+                            pass
+                    if not _retried or _ytdlp_failed:
+                        _ytdlp_user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
+                                           "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
+                                           "it may work via a different extraction path.")
                 elif ("Error code: 152" in error_msg or "Error code: 183" in error_msg
                       or ("unavailable" in error_msg.lower() and "Watch video on YouTube" in error_msg)):
                     _ytdlp_user_msg = ("Download failed: This video has embedding disabled and cannot be "
@@ -1574,8 +1600,8 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["tv_embedded", "web_embedded", "web_creator"],
-                           "skip_webpage": ["1"],
+                           "player_client": ["tv_embedded", "web_creator"],
+                           "player_skip":   ["webpage", "configs", "js"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1713,8 +1739,8 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["tv_embedded", "web_embedded", "web_creator"],
-                "skip_webpage": ["1"],
+                "player_client": ["tv_embedded", "web_creator"],
+                "player_skip":   ["webpage", "configs", "js"],
             }},
         }
         _inject_cookies(opts)
@@ -1852,8 +1878,8 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["tv_embedded", "web_embedded", "web_creator"],
-                             "skip_webpage": ["1"],
+                             "player_client": ["tv_embedded", "web_creator"],
+                             "player_skip":   ["webpage", "configs", "js"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
