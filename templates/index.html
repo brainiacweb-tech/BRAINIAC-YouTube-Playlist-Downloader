@@ -199,6 +199,7 @@ input[type=text] {
   border-radius: var(--radius3); color: var(--fg);
   font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 500;
   transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  touch-action: manipulation; -webkit-appearance: none;
 }
 input[type=text]::placeholder { color: var(--muted); font-weight: 400; }
 input[type=text]:focus {
@@ -213,6 +214,7 @@ input[type=text]:focus {
   font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700;
   cursor: pointer; white-space: nowrap; transition: all 0.18s ease;
   text-decoration: none; letter-spacing: 0.2px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 .btn i { font-size: 17px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -442,7 +444,7 @@ select:focus { border-color: var(--red); }
   .card-body { padding: 14px 14px; }
   .input-row { flex-direction: column; gap: 8px; }
   .input-row .btn { width: 100%; }
-  input[type=text] { font-size: 13px; }
+  input[type=text] { font-size: 16px; } /* prevent iOS auto-zoom on focus */
 
   .result-item { padding: 6px 10px; gap: 7px; }
   .result-thumb { width: 46px; height: 30px; }
@@ -1794,7 +1796,12 @@ async function doWebSearch() {
   const q   = document.getElementById('websearch-q').value.trim();
   const btn = document.getElementById('websearch-btn');
   const box = document.getElementById('websearch-results');
-  if (!q) { log('⚠️  Enter a search term.', 'warn'); return; }
+  if (!q) {
+    const inp = document.getElementById('websearch-q');
+    inp.focus(); inp.placeholder = 'Type something to search…';
+    setTimeout(() => { inp.placeholder = 'Search anything — movies, songs, software, news, handles…'; }, 2000);
+    return;
+  }
   btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Searching…';
   box.style.display = 'flex';
   box.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:6px 0;">Searching…</p>';
