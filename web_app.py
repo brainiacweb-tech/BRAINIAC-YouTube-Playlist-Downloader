@@ -560,10 +560,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "progress_hooks":   [_make_hook(task_id)],
         "outtmpl":          os.path.join(task_dir, "%(title)s.%(ext)s"),
         "noplaylist":       mode == "direct",   # for direct tab: single item only
-        "retries":          3,
-        "fragment_retries": 3,
+        "retries":          10,
+        "fragment_retries": 10,
         "ignoreerrors":     mode in ("playlist",),  # only skip errors in playlists
         "no_color":         True,
+        # Don't pre-validate format URLs — android pre-signed URLs can fail HEAD checks
+        "check_formats":    False,
 
         # ── Anti-block: look like a real browser + YouTube OAuth if available ─
         "http_headers": _headers,
@@ -576,9 +578,11 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "nocheckcertificate":      True,
 
         # All android clients: pre-signed URLs, no PO tokens, no JS signing.
+        # skip=["webpage","configs"] — android doesn't need webpage, avoids bot-check probe.
         "extractor_args": {
             "youtube": {
                 "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
+                "skip": ["webpage", "configs"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -587,7 +591,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "socket_timeout": 60,
 
         # ── Rate-limit avoidance: pause between consecutive requests ──────────
-        "sleep_interval_requests": 2,
+        "sleep_interval_requests": 1,
         "sleep_interval":          1,
 
         # ── Let yt-dlp pick the best available format even if DASH fails ──────
@@ -597,43 +601,33 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
 
     if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
-        opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+        opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best"
         opts["postprocessors"] = [{
             "key":              "FFmpegExtractAudio",
             "preferredcodec":   "mp3",
             "preferredquality": "256",
         }]
     elif quality == "Best Quality":
-        if mode == "direct":
-            # Fully universal — no codec/container restrictions, works on any site
-            opts["format"] = "bestvideo+bestaudio/bestvideo/best"
-        else:
-            # Prefer DASH splits — combined formats (e.g. format 18) are 403'd on server IPs
-            opts["format"] = (
-                "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
-                "/bestvideo+bestaudio"
-                "/best[ext=mp4]"
-                "/best"
-            )
+        opts["format"] = (
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo[ext=webm]+bestaudio[ext=webm]"
+            "/bestvideo+bestaudio"
+            "/best[ext=mp4]/best/mp4"
+        )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
-        if mode == "direct":
-            opts["format"] = (
-                f"bestvideo[height<={h}]+bestaudio"
-                f"/best[height<={h}]"
-                f"/best"
-            )
-        else:
-            opts["format"] = (
-                f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
-                f"/bestvideo[height<={h}]+bestaudio"
-                f"/best[height<={h}][ext=mp4]"
-                f"/best[height<={h}]"
-                f"/best"
-            )
+        opts["format"] = (
+            f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+            f"/bestvideo[height<={h}][ext=webm]+bestaudio[ext=webm]"
+            f"/bestvideo[height<={h}]+bestaudio"
+            f"/best[height<={h}][ext=mp4]"
+            f"/best[height<={h}]"
+            f"/best"
+        )
     else:
         opts["format"] = (
             "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo[ext=webm]+bestaudio[ext=webm]"
             "/bestvideo+bestaudio"
             "/best[ext=mp4]/best"
         )
@@ -641,8 +635,6 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     # Merge DASH splits to mp4
     if quality != "Audio Only (MP3)":
         opts["merge_output_format"] = "mp4"
-    if mode == "direct":
-        opts["allow_unplayable_formats"] = True
 
     # No playlist cap — all users download full playlists
 
