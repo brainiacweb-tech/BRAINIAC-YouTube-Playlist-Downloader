@@ -795,12 +795,22 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
 def _normalize_direct_url(url: str) -> str:
     """
     Rewrite common sharing URLs into direct-download URLs before attempting
-    any download. Handles Dropbox, Google Drive, and GitHub.
+    any download. Handles Dropbox, Google Drive, GitHub, and Twitter/X.
     """
     import urllib.parse
 
     parsed = urllib.parse.urlparse(url)
     host   = parsed.netloc.lower()
+
+    # ── Twitter / X ───────────────────────────────────────────────────────
+    # x.com/i/status/<ID>  →  fxtwitter.com/i/status/<ID>
+    # (fxtwitter is a proxy that exposes proper video URLs for yt-dlp)
+    if host in ("x.com", "www.x.com", "twitter.com", "www.twitter.com"):
+        url = url.replace("https://x.com", "https://fxtwitter.com", 1)\
+                 .replace("https://www.x.com", "https://fxtwitter.com", 1)\
+                 .replace("https://twitter.com", "https://fxtwitter.com", 1)\
+                 .replace("https://www.twitter.com", "https://fxtwitter.com", 1)
+        return url
 
     # ── Dropbox ───────────────────────────────────────────────────────────
     # ?dl=0  → ?dl=1   (force download rather than preview)
@@ -864,6 +874,27 @@ def _looks_like_direct_file(url: str) -> bool:
     path = urllib.parse.urlparse(url).path.lower().rstrip("/")
     _, ext = os.path.splitext(path)
     return ext in _DIRECT_EXTS
+
+
+# Domains that only serve HTML pages — HTTP fallback will never yield a media file
+_SOCIAL_MEDIA_HOSTS = {
+    "fxtwitter.com", "x.com", "twitter.com",
+    "instagram.com", "www.instagram.com",
+    "tiktok.com", "www.tiktok.com", "vm.tiktok.com",
+    "facebook.com", "www.facebook.com", "fb.watch",
+    "reddit.com", "www.reddit.com", "old.reddit.com",
+    "youtube.com", "www.youtube.com", "youtu.be",
+    "vimeo.com", "www.vimeo.com",
+    "twitch.tv", "www.twitch.tv", "clips.twitch.tv",
+    "bilibili.com", "www.bilibili.com",
+    "dailymotion.com", "www.dailymotion.com",
+}
+
+def _is_social_media_page(url: str) -> bool:
+    """Return True if URL is a known social platform page (HTTP fallback useless)."""
+    import urllib.parse
+    host = urllib.parse.urlparse(url).netloc.lower().lstrip("www.")
+    return any(host == h or host.endswith("." + h) for h in _SOCIAL_MEDIA_HOSTS)
 
 
 def _run_download(task_id: str, data: dict):
@@ -957,11 +988,23 @@ def _run_download(task_id: str, data: dict):
                     sys.setrecursionlimit(_old_rlimit)
 
                 # 4. If yt-dlp failed OR produced no files → HTTP fallback
+                # But skip HTTP for social media pages — they only return HTML, not files
                 files_so_far = [
                     f for f in os.listdir(task_dir)
                     if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
                 ]
                 if ytdlp_failed or not files_so_far:
+                    if _is_social_media_page(url):
+                        user_msg = (
+                            "Download failed: no downloadable video or audio found at this URL. "
+                            "The post may have no media, may be private, or the media may be "
+                            "protected. Try opening the link in your browser to confirm."
+                        )
+                        with _tasks_lock:
+                            _tasks[task_id]["status"] = "error"
+                            _tasks[task_id]["error"]  = user_msg
+                        _push(task_id, {"type": "error", "msg": user_msg})
+                        return
                     try:
                         _http_fallback_download(task_id, url, task_dir)
                         http_succeeded = True
