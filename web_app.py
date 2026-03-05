@@ -578,11 +578,9 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "nocheckcertificate":      True,
 
         # All android clients: pre-signed URLs, no PO tokens, no JS signing.
-        # skip=["webpage","configs"] — android doesn't need webpage, avoids bot-check probe.
         "extractor_args": {
             "youtube": {
                 "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
-                "skip": ["webpage", "configs"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -956,32 +954,7 @@ def _run_download(task_id: str, data: dict):
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
                 _ytdlp_failed = True
                 error_msg = str(ex)
-                if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower() or "Please sign in" in error_msg or "please sign in" in error_msg.lower():
-                    # ── Auto-retry with longer sleep before giving up ──────────────────
-                    _retried = False
-                    for _retry_delay in (8, 20):
-                        _push(task_id, {"type": "log",
-                                        "msg": f"⏳  YouTube bot-check detected — retrying in {_retry_delay}s…",
-                                        "level": "warn"})
-                        time.sleep(_retry_delay)
-                        try:
-                            _retry_opts, _ = _build_opts(task_id, task_dir, quality, mode,
-                                                         yt_token=yt_token,
-                                                         playlist_cap=playlist_cap)
-                            _retry_opts["sleep_interval_requests"] = _retry_delay
-                            _retry_opts["sleep_interval"]          = _retry_delay // 2
-                            with yt_dlp.YoutubeDL(_retry_opts) as _rydl:
-                                _rydl.download([url])
-                            _ytdlp_failed = False   # success
-                            _retried = True
-                            break
-                        except Exception:
-                            pass
-                    if not _retried or _ytdlp_failed:
-                        _ytdlp_user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
-                                           "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
-                                           "it may work via a different extraction path.")
-                elif ("Error code: 152" in error_msg or "Error code: 183" in error_msg
+                if ("Error code: 152" in error_msg or "Error code: 183" in error_msg
                       or ("unavailable" in error_msg.lower() and "Watch video on YouTube" in error_msg)):
                     _ytdlp_user_msg = ("Download failed: This video has embedding disabled and cannot be "
                                        "downloaded from the server. Open the video on YouTube and try "
