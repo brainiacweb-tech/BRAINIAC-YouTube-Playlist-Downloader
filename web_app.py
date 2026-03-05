@@ -691,6 +691,14 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
                        allow_redirects=True, verify=False)
     resp.raise_for_status()
 
+    # ── Reject HTML pages — they are web pages, not downloadable files ────────
+    _resp_ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    if _resp_ct in ("text/html", "text/xhtml", "text/xhtml+xml", "application/xhtml+xml"):
+        raise ValueError(
+            "This URL points to a web page (HTML), not a downloadable file. "
+            "No video or file could be extracted. Try a direct file or CDN link."
+        )
+
     # ── Filename resolution (priority order) ─────────────────────────────────
     filename = None
 
@@ -988,26 +996,22 @@ def _run_download(task_id: str, data: dict):
                     sys.setrecursionlimit(_old_rlimit)
 
                 # 4. If yt-dlp failed OR produced no files → HTTP fallback
-                # But skip HTTP for social media pages — they only return HTML, not files
                 files_so_far = [
                     f for f in os.listdir(task_dir)
                     if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
                 ]
                 if ytdlp_failed or not files_so_far:
-                    if _is_social_media_page(url):
-                        user_msg = (
-                            "Download failed: no downloadable video or audio found at this URL. "
-                            "The post may have no media, may be private, or the media may be "
-                            "protected. Try opening the link in your browser to confirm."
-                        )
+                    try:
+                        _http_fallback_download(task_id, url, task_dir)
+                        http_succeeded = True
+                    except ValueError as html_ex:
+                        # Server returned a web page — show a clean user-facing error
+                        user_msg = str(html_ex)
                         with _tasks_lock:
                             _tasks[task_id]["status"] = "error"
                             _tasks[task_id]["error"]  = user_msg
                         _push(task_id, {"type": "error", "msg": user_msg})
                         return
-                    try:
-                        _http_fallback_download(task_id, url, task_dir)
-                        http_succeeded = True
                     except Exception as http_ex2:
                         user_msg = (
                             f"Download failed: could not retrieve this URL via "
