@@ -59,12 +59,18 @@ else:
     _db_uri = f"sqlite:///{_DB_PATH}"
 app.config["SQLALCHEMY_DATABASE_URI"] = _db_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle":  280,   # keep-alive: recycle before MySQL's wait_timeout (usually 300s)
-    "pool_pre_ping": True,  # test connection health before each use
-    "pool_size":     10,    # max persistent connections per worker
-    "max_overflow":  20,    # extra connections allowed under load
-}
+# SQLite doesn't support connection-pool options; only apply them for MySQL
+if _raw_db_url:
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_recycle":  280,   # recycle before MySQL's wait_timeout (usually 300 s)
+        "pool_pre_ping": True,  # test connection health before each use
+        "pool_size":     10,    # max persistent connections per worker
+        "max_overflow":  20,    # extra connections allowed under load
+    }
+else:
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,  # still useful for SQLite file-locking detection
+    }
 db = SQLAlchemy(app)
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -1396,6 +1402,32 @@ def api_me():
         "email":    current_user.email,
     }))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
+@app.route("/api/db-status")
+def api_db_status():
+    """Public health endpoint — returns DB type, reachability, and user count."""
+    uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    db_type = "mysql" if uri.startswith("mysql") else "sqlite"
+    try:
+        user_count = User.query.count()
+        ok = True
+        error = None
+    except Exception as exc:
+        user_count = None
+        ok = False
+        error = str(exc)
+    resp = make_response(jsonify({
+        "db_type":    db_type,
+        "reachable":  ok,
+        "user_count": user_count,
+        "error":      error,
+        "note": ("SQLite is ephemeral on Railway — data is lost on redeploy. "
+                 "Add the Railway MySQL plugin and set MYSQL_URL to persist accounts."
+                 if db_type == "sqlite" else "MySQL ✓ — data is persistent."),
+    }))
+    resp.headers["Cache-Control"] = "no-store"
     return resp
 
 
