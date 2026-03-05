@@ -474,7 +474,7 @@ def _tg_title_from_url(url: str) -> str:
                                "skip_download": True, "extract_flat": False,
                                "socket_timeout": 8,
                                "extractor_args": {"youtube": {
-                                   "player_client": ["tv_embedded", "web_embedded"]}}}) as ydl:
+                                   "player_client": ["tv_embedded", "web_embedded", "android"]}}}) as ydl:
             info = ydl.extract_info(url, download=False)
         title    = info.get("title") or ""
         uploader = info.get("uploader") or info.get("channel") or ""
@@ -749,12 +749,13 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ios uses Apple's private API path — YouTube almost never bot-blocks it on server IPs.
-        # tv_embedded and web_embedded don't require GVS PO tokens — safest on server IPs.
-        # mweb and ios were removed: both now require GVS PO tokens → skipped entirely on servers.
+        # tv_embedded / web_embedded: no GVS PO token needed — safest on server IPs.
+        # android: added as fallback — handles age-restricted & embedding-disabled videos
+        #          (error 152, error 183, "Watch on YouTube") without requiring PO tokens.
+        # ios / mweb removed: both require GVS PO tokens on server IPs.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_embedded", "web_embedded"],
+                "player_client": ["tv_embedded", "web_embedded", "android"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -1147,6 +1148,11 @@ def _run_download(task_id: str, data: dict):
                     _ytdlp_user_msg = ("Download failed: YouTube is blocking this server\u2019s IP address. "
                                        "Try again in a few minutes, or paste the video URL in the Direct tab \u2014 "
                                        "it may work via a different extraction path.")
+                elif ("Error code: 152" in error_msg or "Error code: 183" in error_msg
+                      or ("unavailable" in error_msg.lower() and "Watch video on YouTube" in error_msg)):
+                    _ytdlp_user_msg = ("Download failed: This video has embedding disabled and cannot be "
+                                       "downloaded from the server. Open the video on YouTube and try "
+                                       "downloading it from there, or use the Direct tab with the video URL.")
                 elif "age-restricted" in error_msg or "This video is age restricted" in error_msg:
                     _ytdlp_user_msg = "Download failed: This video is age-restricted and cannot be downloaded."
                 elif "region-locked" in error_msg or "not available in your country" in error_msg:
@@ -1575,7 +1581,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["tv_embedded", "web_embedded"],
+                           "player_client": ["tv_embedded", "web_embedded", "android"],
                        }}}
         _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
@@ -1713,7 +1719,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["tv_embedded", "web_embedded"],
+                "player_client": ["tv_embedded", "web_embedded", "android"],
             }},
         }
         _inject_cookies(opts)
@@ -1851,7 +1857,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["tv_embedded", "web_embedded"],
+                             "player_client": ["tv_embedded", "web_embedded", "android"],
                          }}}
         _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
