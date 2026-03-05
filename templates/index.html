@@ -1024,7 +1024,7 @@ select:focus { border-color: var(--red); }
     <div class="dl-btn-row" id="dl-btn-row"></div>
     <div id="autodismiss-strip">
       <div id="autodismiss-track"><div id="autodismiss-fill"></div></div>
-      <div id="autodismiss-lbl" onclick="cancelAutoDismiss()" title="Click to keep open">Closing in 30s — click to keep</div>
+      <div id="autodismiss-lbl" onclick="cancelAutoDismiss()" title="Click to keep open">Closing in 10s — click to keep</div>
     </div>
   </div>
 
@@ -1185,7 +1185,7 @@ async function loadFiles() {
         <div style="font-size:12px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${f.name}">${f.name}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${fmtSize(f.size)} &bull; ${f.modified}</div>
       </div>
-      <a href="${fileUrl}" download="${f.name}" style="padding:5px 12px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;flex-shrink:0;"><i class="ri-download-2-line"></i> Save</a>
+      <a href="${fileUrl}" download="${f.name}" onclick="setTimeout(()=>{const row=this.closest('[data-filename]');if(row)row.remove();const list=document.getElementById('files-list');if(list&&!Array.from(list.children).some(c=>c.id!=='files-empty')){const e=document.getElementById('files-empty');if(e)e.style.display='';}},400);" style="padding:5px 12px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.28);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);text-decoration:none;white-space:nowrap;flex-shrink:0;"><i class="ri-download-2-line"></i> Save</a>
       <button onclick="deleteFile('${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}',this)" title="Delete" style="padding:5px 8px;background:none;border:1.5px solid rgba(229,57,53,0.20);border-radius:20px;font-size:13px;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all .15s;" onmouseover="this.style.background='rgba(229,57,53,0.10)';this.style.color='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--muted)'"><i class="ri-delete-bin-6-line"></i></button>
     `;
     list.appendChild(row);
@@ -1294,7 +1294,7 @@ let _autoDismissTimer = null;
 let _autoDismissInterval = null;
 function startAutoDismiss() {
   cancelAutoDismiss(); // clear any previous timer before starting a new one
-  const SECS = 30;
+  const SECS = 10;
   const strip = document.getElementById('autodismiss-strip');
   const fill  = document.getElementById('autodismiss-fill');
   const lbl   = document.getElementById('autodismiss-lbl');
@@ -1380,7 +1380,7 @@ function subscribeProgress(taskId, onDone, _retries) {
       const row = document.getElementById('dl-btn-row');
       row.style.display = 'flex';
       const saveLabel = `Save File${d.count > 1 ? 's  (' + d.count + ' as .zip)' : ''}`;
-      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none" onclick="cancelAutoDismiss();setTimeout(()=>{const r=document.getElementById('dl-btn-row');if(r)r.style.display='none';},400)"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
+      row.innerHTML = `<a href="/api/file/${taskId}" class="btn btn-green2" style="text-decoration:none" onclick="(function(){cancelAutoDismiss();const card=document.getElementById('progress-card');card.classList.add('fading');setTimeout(()=>{card.style.display='none';card.classList.remove('fading');const r=document.getElementById('dl-btn-row');if(r){r.style.display='none';r.innerHTML='';}const s=document.getElementById('autodismiss-strip');if(s)s.style.display='none';},300);})();"><i class="ri-download-2-fill"></i> ${saveLabel}</a>`;
       log(`🎉 Done! ${d.count} file(s) ready.`, 'ok');
       // add to files panel
       const fname = document.getElementById('file-lbl').textContent.replace(/^[✔⬇]\s+/,'') || (d.count > 1 ? `${d.count} files (zip)` : 'download');
