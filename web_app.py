@@ -811,6 +811,84 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
     return filename
 
 
+def _try_twitter_media_download(task_id: str, tweet_url: str, task_dir: str) -> bool:
+    """
+    Use the fxtwitter JSON API to get all media (images + videos) from a tweet
+    and download each one directly.  Returns True if at least one file was saved.
+    Works for image tweets, video tweets, and mixed-media threads.
+    """
+    import re as _re2
+
+    # Extract tweet ID from any Twitter/X/fxtwitter URL variant
+    m = _re2.search(r'(?:status|i/status)[/\\]+(\d+)', tweet_url)
+    if not m:
+        return False
+    tweet_id = m.group(1)
+
+    api_url = f"https://api.fxtwitter.com/status/{tweet_id}"
+    _push(task_id, {"type": "log",
+                    "msg": "🐦  Checking tweet media via fxtwitter API…",
+                    "level": "info"})
+    try:
+        api_resp = _requests.get(api_url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; BRAINIAC/1.0)"
+        })
+        api_resp.raise_for_status()
+        data = api_resp.json()
+    except Exception as e:
+        _push(task_id, {"type": "log",
+                        "msg": f"⚠️  fxtwitter API failed: {e}",
+                        "level": "warn"})
+        return False
+
+    tweet = data.get("tweet") or {}
+    media = tweet.get("media") or {}
+    all_urls = []
+
+    # Photos — upgrade to original quality
+    for photo in (media.get("photos") or []):
+        img_url = photo.get("url") or ""
+        if img_url:
+            if "name=" in img_url:
+                img_url = _re2.sub(r'([?&])name=[^&]*', r'\1name=orig', img_url)
+            elif "?" in img_url:
+                img_url += "&name=orig"
+            else:
+                img_url += "?name=orig"
+            all_urls.append(img_url)
+
+    # Videos / GIFs — pick highest bitrate variant
+    for video in (media.get("videos") or []):
+        # fxtwitter may give a "url" directly or a "variants" list
+        variants = video.get("variants") or []
+        if variants:
+            best = max(variants, key=lambda v: v.get("bitrate", 0))
+            vid_url = best.get("url") or ""
+        else:
+            vid_url = video.get("url") or ""
+        if vid_url:
+            all_urls.append(vid_url)
+
+    if not all_urls:
+        _push(task_id, {"type": "log",
+                        "msg": "⚠️  No media found in this tweet (text-only, private, or deleted).",
+                        "level": "warn"})
+        return False
+
+    _push(task_id, {"type": "log",
+                    "msg": f"📸  Found {len(all_urls)} media item(s) — downloading…",
+                    "level": "info"})
+    saved = 0
+    for media_url in all_urls:
+        try:
+            _http_fallback_download(task_id, media_url, task_dir)
+            saved += 1
+        except Exception as dl_err:
+            _push(task_id, {"type": "log",
+                            "msg": f"⚠️  Could not download {media_url}: {dl_err}",
+                            "level": "warn"})
+    return saved > 0
+
 
 def _normalize_direct_url(url: str) -> str:
     """
@@ -1029,34 +1107,44 @@ def _run_download(task_id: str, data: dict):
                 finally:
                     sys.setrecursionlimit(_old_rlimit)
 
-                # 4. If yt-dlp failed OR produced no files → HTTP fallback
+                # 4. If yt-dlp failed OR produced no files → fallback
                 files_so_far = [
                     f for f in os.listdir(task_dir)
                     if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
                 ]
                 if ytdlp_failed or not files_so_far:
-                    try:
-                        _http_fallback_download(task_id, url, task_dir)
-                        http_succeeded = True
-                    except ValueError as html_ex:
-                        # Server returned a web page — show a clean user-facing error
-                        user_msg = str(html_ex)
-                        with _tasks_lock:
-                            _tasks[task_id]["status"] = "error"
-                            _tasks[task_id]["error"]  = user_msg
-                        _push(task_id, {"type": "error", "msg": user_msg})
-                        return
-                    except Exception as http_ex2:
-                        user_msg = (
-                            f"Download failed: could not retrieve this URL via "
-                            f"yt-dlp or direct HTTP ({http_ex2}). "
-                            "If this is a protected file, try pasting a direct download link."
-                        )
-                        with _tasks_lock:
-                            _tasks[task_id]["status"] = "error"
-                            _tasks[task_id]["error"]  = user_msg
-                        _push(task_id, {"type": "error", "msg": user_msg})
-                        return
+                    # For Twitter/X/fxtwitter URLs: use the fxtwitter JSON API
+                    # to extract actual media URLs (images, videos) then download each
+                    _orig_url  = data.get("url", "").strip()
+                    _is_tweet  = any(h in _orig_url.lower() for h in
+                                     ("x.com", "twitter.com", "fxtwitter.com"))
+                    _tw_success = False
+                    if _is_tweet:
+                        _tw_success = _try_twitter_media_download(task_id, _orig_url, task_dir)
+
+                    if not _tw_success:
+                        try:
+                            _http_fallback_download(task_id, url, task_dir)
+                            http_succeeded = True
+                        except ValueError as html_ex:
+                            # Server returned a web page — show a clean user-facing error
+                            user_msg = str(html_ex)
+                            with _tasks_lock:
+                                _tasks[task_id]["status"] = "error"
+                                _tasks[task_id]["error"]  = user_msg
+                            _push(task_id, {"type": "error", "msg": user_msg})
+                            return
+                        except Exception as http_ex2:
+                            user_msg = (
+                                f"Download failed: could not retrieve this URL via "
+                                f"yt-dlp or direct HTTP ({http_ex2}). "
+                                "If this is a protected file, try pasting a direct download link."
+                            )
+                            with _tasks_lock:
+                                _tasks[task_id]["status"] = "error"
+                                _tasks[task_id]["error"]  = user_msg
+                            _push(task_id, {"type": "error", "msg": user_msg})
+                            return
 
         # ── Playlist / Song / Video modes ─────────────────────────────────────
         else:
