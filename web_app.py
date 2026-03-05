@@ -1388,8 +1388,14 @@ def login():
 def logout():
     logout_user()
     session.clear()
+    session.permanent = False
     resp = make_response(redirect("/login"))
+    # Explicitly expire both cookies — required because REMEMBER_COOKIE_SECURE=True
+    # means the browser only accepts the delete directive when Secure is also present.
+    resp.delete_cookie("remember_token", path="/", secure=True,  samesite="Lax")
+    resp.delete_cookie("session",        path="/", secure=False, samesite="Lax")
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
     return resp
 
 @app.route("/api/me")
