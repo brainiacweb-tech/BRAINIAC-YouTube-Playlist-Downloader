@@ -811,25 +811,68 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
     return filename
 
 
+# Domains where yt-dlp is useless — go straight to OG / page scraping
+_IMAGE_PLATFORM_HOSTS = {
+    "pinterest.com", "www.pinterest.com", "pin.it",
+    "pinterest.co.uk", "pinterest.fr", "pinterest.de",
+    "pinterest.ca", "pinterest.es", "pinterest.pt",
+    "flickr.com", "www.flickr.com",
+    "500px.com", "www.500px.com",
+    "unsplash.com", "www.unsplash.com",
+    "pexels.com", "www.pexels.com",
+    "pixabay.com", "www.pixabay.com",
+    "imgur.com", "www.imgur.com",
+    "giphy.com", "www.giphy.com",
+    "tenor.com", "www.tenor.com",
+    "gfycat.com", "www.gfycat.com",
+}
+
+
+def _is_image_platform(url: str) -> bool:
+    import urllib.parse as _uip
+    return _uip.urlparse(url).netloc.lower() in _IMAGE_PLATFORM_HOSTS
+
+
+def _upgrade_image_url(u: str) -> str:
+    """Upgrade CDN thumbnail URLs to highest available resolution."""
+    if not u:
+        return u
+    if "pinimg.com" in u:
+        u = re.sub(r'/\d+x\d*/', '/originals/', u)
+    if "staticflickr.com" in u or "live.staticflickr.com" in u:
+        u = re.sub(r'_(m|n|w|z|c|b)(\.jpg)$', r'_b\2', u)
+    if "i.imgur.com" in u:
+        u = re.sub(r'(https://i\.imgur\.com/[A-Za-z0-9]+)[shbtlm](\.(?:jpg|jpeg|png|gif|webp))$',
+                   r'\1\2', u)
+    return u
+
+
 def _try_og_media_download(task_id: str, page_url: str, task_dir: str) -> bool:
     """
-    Fetch an HTML page and extract ALL media via Open Graph / Twitter Card meta tags,
-    then download each found image or video.
-    Covers Pinterest images, Instagram posts (public), Reddit images, Facebook, etc.
-    Returns True if at least one file was saved.
+    Comprehensive HTML page media extractor. Finds ALL media via:
+    1. OG / Twitter Card meta tags
+    2. JSON-LD structured data
+    3. Site-specific JSON stores (Pinterest __PWS_DATA__, etc.)
+    4. Raw CDN URL scan (pinimg, redd.it, imgur, etc.)
+    5. Any https URL ending in a known media extension
+    Downloads every found item. Returns True if at least one file was saved.
     """
+    import json as _json
     import urllib.parse as _uparse4
 
     _push(task_id, {"type": "log",
-                    "msg": "🖼️  Scanning page for embedded media (images & videos)…",
+                    "msg": "🔍  Scanning page for all media (images, videos, files)…",
                     "level": "info"})
     try:
         _pg_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
             "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Upgrade-Insecure-Requests": "1",
         }
-        _pg_resp = _requests.get(page_url, headers=_pg_headers, timeout=20,
+        _pg_resp = _requests.get(page_url, headers=_pg_headers, timeout=25,
                                  allow_redirects=True)
         html = _pg_resp.text
     except Exception as _pg_ex:
@@ -837,69 +880,115 @@ def _try_og_media_download(task_id: str, page_url: str, task_dir: str) -> bool:
                         "msg": f"⚠️  Could not fetch page: {_pg_ex}", "level": "warn"})
         return False
 
-    # ── Extract meta tags (both attribute orderings) ─────────────────────────
+    found_urls: list[tuple[str, str]] = []   # (url, "image"|"video"|"file")
+    seen: set[str] = set()
+
+    def _add(raw: str, label: str):
+        u = _upgrade_image_url(raw.strip().split('"')[0].split("'")[0])
+        if not u or not u.startswith("http"):
+            return
+        # Deduplicate by path (ignore query for CDN hosts)
+        _key = u.split("?")[0] if any(cdn in u for cdn in
+               ("pinimg.com", "staticflickr.com", "redd.it", "imgur.com")) else u
+        if _key in seen:
+            return
+        seen.add(_key)
+        found_urls.append((u, label))
+
+    # ── 1. ALL OG / Twitter Card meta tags ───────────────────────────────────
     _IMAGE_PROPS = {
         "og:image", "og:image:url", "og:image:secure_url",
         "twitter:image", "twitter:image:src",
+        "twitter:image0", "twitter:image1", "twitter:image2", "twitter:image3",
     }
     _VIDEO_PROPS = {
         "og:video", "og:video:url", "og:video:secure_url",
         "og:video:stream", "twitter:player:stream",
     }
-
-    found_urls: list[tuple[str, str]] = []   # (url, "image"|"video")
-    seen: set[str] = set()
-
-    def _add(raw: str, label: str):
-        u = raw.strip()
-        if not u or not u.startswith("http"):
-            return
-        # Pinterest: upgrade thumbnail sizes to originals
-        if "pinimg.com" in u:
-            import re as _rpin
-            u = _rpin.sub(r'/\d+x/', '/originals/', u)
-            u = _rpin.sub(r'/\d+x\d+/', '/originals/', u)
-        if u in seen:
-            return
-        seen.add(u)
-        found_urls.append((u, label))
-
-    _meta_pat1 = re.compile(
+    _meta_p1 = re.compile(
         r'<meta[^>]+(?:property|name)\s*=\s*["\']([^"\']+)["\'][^>]+content\s*=\s*["\']([^"\']*)["\']',
-        re.I | re.S,
-    )
-    _meta_pat2 = re.compile(
+        re.I | re.S)
+    _meta_p2 = re.compile(
         r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]+(?:property|name)\s*=\s*["\']([^"\']+)["\']',
-        re.I | re.S,
-    )
-    for m in _meta_pat1.finditer(html):
-        prop, content = m.group(1).strip().lower(), m.group(2)
-        if prop in _IMAGE_PROPS:   _add(content, "image")
-        elif prop in _VIDEO_PROPS: _add(content, "video")
-    for m in _meta_pat2.finditer(html):
-        content, prop = m.group(1), m.group(2).strip().lower()
-        if prop in _IMAGE_PROPS:   _add(content, "image")
-        elif prop in _VIDEO_PROPS: _add(content, "video")
+        re.I | re.S)
+    for _m in _meta_p1.finditer(html):
+        _prop, _ct = _m.group(1).strip().lower(), _m.group(2)
+        if _prop in _IMAGE_PROPS:   _add(_ct, "image")
+        elif _prop in _VIDEO_PROPS: _add(_ct, "video")
+    for _m in _meta_p2.finditer(html):
+        _ct, _prop = _m.group(1), _m.group(2).strip().lower()
+        if _prop in _IMAGE_PROPS:   _add(_ct, "image")
+        elif _prop in _VIDEO_PROPS: _add(_ct, "video")
 
-    # Pinterest CDN images embedded in page JSON / data attributes
-    for _pu in re.findall(r'https://i\.pinimg\.com/[^\s"\'<>\\]+', html):
-        _add(_pu, "image")
+    # ── 2. JSON-LD structured data ────────────────────────────────────────────
+    for _jld_raw in re.findall(
+            r'<script[^>]+type\s*=\s*["\']application/ld\+json["\'][^>]*>([\s\S]*?)</script>',
+            html, re.I):
+        try:
+            _jld = _json.loads(_jld_raw)
+            _items = _jld if isinstance(_jld, list) else [_jld]
+            for _item in _items:
+                if not isinstance(_item, dict):
+                    continue
+                for _key in ("image", "thumbnailUrl", "contentUrl",
+                             "thumbnail", "video", "videoUrl", "url"):
+                    _val = _item.get(_key)
+                    if isinstance(_val, str) and _val.startswith("http"):
+                        _lbl = "video" if "video" in _key.lower() else "image"
+                        _add(_val, _lbl)
+                    elif isinstance(_val, (list, dict)):
+                        _lst = _val if isinstance(_val, list) else [_val]
+                        for _v in _lst:
+                            _u2 = (_v if isinstance(_v, str) else
+                                   (_v.get("url") or _v.get("contentUrl") or ""))
+                            if isinstance(_u2, str) and _u2.startswith("http"):
+                                _add(_u2, "image")
+        except Exception:
+            pass
 
-    # Reddit preview images
-    for _ru in re.findall(r'https://preview\.redd\.it/[^\s"\'<>\\]+', html):
+    # ── 3. Pinterest: extract from __PWS_DATA__ / __PWS_INITIAL_STORE__ ──────
+    if "pinimg.com" in html or "pinterest" in page_url.lower():
+        # Scan raw HTML for all pinimg.com media URLs
+        for _pu in re.findall(r'https://i\.pinimg\.com/[^\s"\'<>\\]+', html):
+            _add(_pu, "image")
+        for _vu in re.findall(r'https://v\.pinimg\.com/[^\s"\'<>\\]+', html):
+            _add(_vu, "video")
+        # Also parse the embedded JSON store if present
+        for _pws_raw in re.findall(
+                r'(?:__PWS_DATA__|__PWS_INITIAL_STORE__|__REDUX_STATE__)\s*=\s*(\{.+?\});\s*</script>',
+                html, re.S):
+            try:
+                _pws_str = _json.dumps(_json.loads(_pws_raw))
+                for _pu2 in re.findall(r'https://i\\.pinimg\\.com/[^"\\\\]+', _pws_str):
+                    _add(_pu2, "image")
+                for _vu2 in re.findall(r'https://v\\.pinimg\\.com/[^"\\\\]+', _pws_str):
+                    _add(_vu2, "video")
+            except Exception:
+                pass
+
+    # ── 4. Reddit CDN ─────────────────────────────────────────────────────────
+    for _ru in re.findall(r'https://(?:preview|i)\.redd\.it/[^\s"\'<>\\]+', html):
         _add(_ru, "image")
-    for _ri in re.findall(r'https://i\.redd\.it/[^\s"\'<>\\]+', html):
-        _add(_ri, "image")
+
+    # ── 5. Imgur CDN ──────────────────────────────────────────────────────────
+    for _iu in re.findall(r'https://i\.imgur\.com/[A-Za-z0-9]+\.[a-z]{2,4}', html):
+        _add(_iu, "image")
+
+    # ── 6. Any https URL with a known media extension ─────────────────────────
+    for _gu in re.findall(
+            r'https://[^\s"\'<>\\]+\.(?:jpg|jpeg|png|gif|webp|avif|mp4|webm|mov|mkv|mp3|m4a)'
+            r'(?:\?[^\s"\'<>\\]*)?',
+            html):
+        _lbl = "video" if re.search(r'\.(mp4|webm|mov|mkv)(\?|$)', _gu, re.I) else "image"
+        _add(_gu, _lbl)
 
     if not found_urls:
         _push(task_id, {"type": "log",
-                        "msg": "ℹ️  No embedded media found on this page.", "level": "warn"})
+                        "msg": "ℹ️  No media found on this page.", "level": "warn"})
         return False
 
-    # Deduplicate: if same base file exists at multiple resolutions keep highest-res
-    # (already handled for Pinterest above; for other CDNs just keep all unique)
     _push(task_id, {"type": "log",
-                    "msg": f"🔍  Found {len(found_urls)} media item(s) — downloading…",
+                    "msg": f"✅  Found {len(found_urls)} media item(s) — downloading all…",
                     "level": "info"})
     saved = 0
     for idx, (media_url, label) in enumerate(found_urls, 1):
@@ -912,7 +1001,7 @@ def _try_og_media_download(task_id: str, page_url: str, task_dir: str) -> bool:
             saved += 1
         except Exception as _dl_ex:
             _push(task_id, {"type": "log",
-                            "msg": f"⚠️  Skipped: {_dl_ex}", "level": "warn"})
+                            "msg": f"⚠️  Skipped ({_dl_ex})", "level": "warn"})
     return saved > 0
 
 
@@ -1175,11 +1264,13 @@ def _run_download(task_id: str, data: dict):
             http_succeeded = False
             ytdlp_tried    = False
 
-            # ── Twitter / X shortcut: skip yt-dlp entirely, use fxtwitter API ──
-            # This avoids confusing "no video found" errors for image-only tweets
+            # ── Platform shortcuts ────────────────────────────────────────────
             _orig_url = data.get("url", "").strip()
             _is_tweet = any(h in _orig_url.lower() for h in
                             ("x.com/", "twitter.com/", "fxtwitter.com/"))
+            _is_img_platform = _is_image_platform(_orig_url)
+
+            # Twitter/X → fxtwitter API (all photos + videos)
             if _is_tweet:
                 _push(task_id, {"type": "log",
                                 "msg": "🐦  Twitter/X link detected — fetching all media…",
@@ -1191,6 +1282,23 @@ def _run_download(task_id: str, data: dict):
                     # Nothing found (private/deleted tweet)
                     user_msg = ("No media found in this tweet. "
                                 "It may be text-only, private, or deleted.")
+                    with _tasks_lock:
+                        _tasks[task_id]["status"] = "error"
+                        _tasks[task_id]["error"]  = user_msg
+                    _push(task_id, {"type": "error", "msg": user_msg})
+                    return
+
+            # Pinterest / Flickr / Imgur / image platforms → OG scraper directly
+            if not http_succeeded and _is_img_platform and not use_http_first:
+                _push(task_id, {"type": "log",
+                                "msg": "🖼️  Image platform detected — scanning for all media…",
+                                "level": "info"})
+                _og_img = _try_og_media_download(task_id, _orig_url, task_dir)
+                if _og_img:
+                    http_succeeded = True
+                else:
+                    user_msg = ("No downloadable media found on this page. "
+                                "The content may require login or be private.")
                     with _tasks_lock:
                         _tasks[task_id]["status"] = "error"
                         _tasks[task_id]["error"]  = user_msg
@@ -1210,7 +1318,7 @@ def _run_download(task_id: str, data: dict):
                                     "level": "warn"})
 
             # 3. yt-dlp path (for media pages, or as fallback after HTTP failed)
-            if not http_succeeded and not _is_tweet:
+            if not http_succeeded and not _is_tweet and not _is_img_platform:
                 ytdlp_tried = True
                 opts, logger = _build_opts(task_id, task_dir, quality, mode,
                                            yt_token=yt_token, playlist_cap=playlist_cap)
