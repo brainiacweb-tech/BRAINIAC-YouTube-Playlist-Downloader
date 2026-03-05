@@ -710,7 +710,7 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-links-line"></i>
-            <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=…" onkeydown="if(event.key==='Enter')ytFetch()">
+            <input type="text" id="yt-url" placeholder="https://www.youtube.com/playlist?list=…" onkeydown="if(event.key==='Enter')ytFetch()" onpaste="setTimeout(ytFetch,350)">
           </div>
           <button class="btn btn-ghost" id="yt-fetch-btn" onclick="ytFetch()">
             <i class="ri-search-eye-line"></i> Check
@@ -770,7 +770,7 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-music-search-line" style="font-size:17px"></i>
-            <input type="text" id="music-q" placeholder="Song, artist, album…" onkeydown="if(event.key==='Enter')doSearch('music')">
+            <input type="text" id="music-q" placeholder="Song, artist, album…" onkeydown="if(event.key==='Enter')doSearch('music')" onpaste="setTimeout(()=>doSearch('music'),350)">
           </div>
           <button class="btn btn-primary" onclick="doSearch('music')">
             <i class="ri-search-line"></i> Search
@@ -816,7 +816,7 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-movie-search-line" style="font-size:17px"></i>
-            <input type="text" id="movies-q" placeholder="Movie, show, video clip…" onkeydown="if(event.key==='Enter')doSearch('movies')">
+            <input type="text" id="movies-q" placeholder="Movie, show, video clip…" onkeydown="if(event.key==='Enter')doSearch('movies')" onpaste="setTimeout(()=>doSearch('movies'),350)">
           </div>
           <button class="btn btn-orange" onclick="doSearch('movies')">
             <i class="ri-search-line"></i> Search
@@ -866,7 +866,7 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-search-line"></i>
-            <input type="text" id="websearch-q" placeholder="Search anything — movies, songs, software, news, handles…" onkeydown="if(event.key==='Enter')doWebSearch()">
+            <input type="text" id="websearch-q" placeholder="Search anything — movies, songs, software, news, handles…" onkeydown="if(event.key==='Enter')doWebSearch()" onpaste="setTimeout(doWebSearch,350)">
           </div>
           <button class="btn btn-ghost" id="websearch-btn" onclick="doWebSearch()">
             <i class="ri-search-line"></i> Search
@@ -881,7 +881,7 @@ select:focus { border-color: var(--red); }
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-link"></i>
-            <input type="text" id="direct-url" placeholder="Paste any link — social media, video, audio, file…" onkeydown="if(event.key==='Enter')directFetch()">
+            <input type="text" id="direct-url" placeholder="Paste any link — social media, video, audio, file…" onkeydown="if(event.key==='Enter')directFetch()" onpaste="setTimeout(directFetch,350)">
           </div>
           <button class="btn btn-ghost" id="direct-fetch-btn" onclick="directFetch()">
             <i class="ri-search-eye-line"></i> Check
