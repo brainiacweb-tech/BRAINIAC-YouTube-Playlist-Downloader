@@ -811,6 +811,111 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
     return filename
 
 
+def _try_og_media_download(task_id: str, page_url: str, task_dir: str) -> bool:
+    """
+    Fetch an HTML page and extract ALL media via Open Graph / Twitter Card meta tags,
+    then download each found image or video.
+    Covers Pinterest images, Instagram posts (public), Reddit images, Facebook, etc.
+    Returns True if at least one file was saved.
+    """
+    import urllib.parse as _uparse4
+
+    _push(task_id, {"type": "log",
+                    "msg": "🖼️  Scanning page for embedded media (images & videos)…",
+                    "level": "info"})
+    try:
+        _pg_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        _pg_resp = _requests.get(page_url, headers=_pg_headers, timeout=20,
+                                 allow_redirects=True)
+        html = _pg_resp.text
+    except Exception as _pg_ex:
+        _push(task_id, {"type": "log",
+                        "msg": f"⚠️  Could not fetch page: {_pg_ex}", "level": "warn"})
+        return False
+
+    # ── Extract meta tags (both attribute orderings) ─────────────────────────
+    _IMAGE_PROPS = {
+        "og:image", "og:image:url", "og:image:secure_url",
+        "twitter:image", "twitter:image:src",
+    }
+    _VIDEO_PROPS = {
+        "og:video", "og:video:url", "og:video:secure_url",
+        "og:video:stream", "twitter:player:stream",
+    }
+
+    found_urls: list[tuple[str, str]] = []   # (url, "image"|"video")
+    seen: set[str] = set()
+
+    def _add(raw: str, label: str):
+        u = raw.strip()
+        if not u or not u.startswith("http"):
+            return
+        # Pinterest: upgrade thumbnail sizes to originals
+        if "pinimg.com" in u:
+            import re as _rpin
+            u = _rpin.sub(r'/\d+x/', '/originals/', u)
+            u = _rpin.sub(r'/\d+x\d+/', '/originals/', u)
+        if u in seen:
+            return
+        seen.add(u)
+        found_urls.append((u, label))
+
+    _meta_pat1 = re.compile(
+        r'<meta[^>]+(?:property|name)\s*=\s*["\']([^"\']+)["\'][^>]+content\s*=\s*["\']([^"\']*)["\']',
+        re.I | re.S,
+    )
+    _meta_pat2 = re.compile(
+        r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]+(?:property|name)\s*=\s*["\']([^"\']+)["\']',
+        re.I | re.S,
+    )
+    for m in _meta_pat1.finditer(html):
+        prop, content = m.group(1).strip().lower(), m.group(2)
+        if prop in _IMAGE_PROPS:   _add(content, "image")
+        elif prop in _VIDEO_PROPS: _add(content, "video")
+    for m in _meta_pat2.finditer(html):
+        content, prop = m.group(1), m.group(2).strip().lower()
+        if prop in _IMAGE_PROPS:   _add(content, "image")
+        elif prop in _VIDEO_PROPS: _add(content, "video")
+
+    # Pinterest CDN images embedded in page JSON / data attributes
+    for _pu in re.findall(r'https://i\.pinimg\.com/[^\s"\'<>\\]+', html):
+        _add(_pu, "image")
+
+    # Reddit preview images
+    for _ru in re.findall(r'https://preview\.redd\.it/[^\s"\'<>\\]+', html):
+        _add(_ru, "image")
+    for _ri in re.findall(r'https://i\.redd\.it/[^\s"\'<>\\]+', html):
+        _add(_ri, "image")
+
+    if not found_urls:
+        _push(task_id, {"type": "log",
+                        "msg": "ℹ️  No embedded media found on this page.", "level": "warn"})
+        return False
+
+    # Deduplicate: if same base file exists at multiple resolutions keep highest-res
+    # (already handled for Pinterest above; for other CDNs just keep all unique)
+    _push(task_id, {"type": "log",
+                    "msg": f"🔍  Found {len(found_urls)} media item(s) — downloading…",
+                    "level": "info"})
+    saved = 0
+    for idx, (media_url, label) in enumerate(found_urls, 1):
+        short = media_url[:80] + ("…" if len(media_url) > 80 else "")
+        _push(task_id, {"type": "log",
+                        "msg": f"[{idx}/{len(found_urls)}] 📥  {label}: {short}",
+                        "level": "info"})
+        try:
+            _http_fallback_download(task_id, media_url, task_dir)
+            saved += 1
+        except Exception as _dl_ex:
+            _push(task_id, {"type": "log",
+                            "msg": f"⚠️  Skipped: {_dl_ex}", "level": "warn"})
+    return saved > 0
+
+
 def _try_twitter_media_download(task_id: str, tweet_url: str, task_dir: str) -> bool:
     """
     Use the fxtwitter JSON API to get all media (images + videos) from a tweet
@@ -1122,33 +1227,40 @@ def _run_download(task_id: str, data: dict):
                 finally:
                     sys.setrecursionlimit(_old_rlimit)
 
-                # 4. If yt-dlp failed OR produced no files → HTTP fallback
+                # 4. If yt-dlp failed OR produced no files → OG scraper → HTTP fallback
                 files_so_far = [
                     f for f in os.listdir(task_dir)
                     if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")
                 ]
                 if ytdlp_failed or not files_so_far:
-                    try:
-                        _http_fallback_download(task_id, url, task_dir)
+                    # Step A: try Open Graph / meta-tag scraping (images + videos from
+                    # Pinterest, Instagram, Reddit, Facebook, etc.)
+                    og_success = _try_og_media_download(task_id, url, task_dir)
+                    if og_success:
                         http_succeeded = True
-                    except ValueError as html_ex:
-                        user_msg = str(html_ex)
-                        with _tasks_lock:
-                            _tasks[task_id]["status"] = "error"
-                            _tasks[task_id]["error"]  = user_msg
-                        _push(task_id, {"type": "error", "msg": user_msg})
-                        return
-                    except Exception as http_ex2:
-                        user_msg = (
-                            f"Download failed: could not retrieve this URL via "
-                            f"yt-dlp or direct HTTP ({http_ex2}). "
-                            "If this is a protected file, try pasting a direct download link."
-                        )
-                        with _tasks_lock:
-                            _tasks[task_id]["status"] = "error"
-                            _tasks[task_id]["error"]  = user_msg
-                        _push(task_id, {"type": "error", "msg": user_msg})
-                        return
+                    else:
+                        # Step B: direct HTTP download (works for raw file URLs)
+                        try:
+                            _http_fallback_download(task_id, url, task_dir)
+                            http_succeeded = True
+                        except ValueError as html_ex:
+                            user_msg = str(html_ex)
+                            with _tasks_lock:
+                                _tasks[task_id]["status"] = "error"
+                                _tasks[task_id]["error"]  = user_msg
+                            _push(task_id, {"type": "error", "msg": user_msg})
+                            return
+                        except Exception as http_ex2:
+                            user_msg = (
+                                f"Download failed: could not retrieve this URL via "
+                                f"yt-dlp or direct HTTP ({http_ex2}). "
+                                "If this is a protected file, try pasting a direct download link."
+                            )
+                            with _tasks_lock:
+                                _tasks[task_id]["status"] = "error"
+                                _tasks[task_id]["error"]  = user_msg
+                            _push(task_id, {"type": "error", "msg": user_msg})
+                            return
 
         # ── Playlist / Song / Video modes ─────────────────────────────────────
         else:
@@ -1975,8 +2087,64 @@ def prefetch():
             "filesize":  total_size,
             "thumbnail": thumb,
         })
-    except Exception as ex:
-        return jsonify({"error": str(ex)}), 500
+    except Exception:
+        pass  # fall through to OG meta scrape
+
+    # ── 6. OG meta scrape fallback (Pinterest images, unsupported sites, etc.) ─
+    try:
+        import urllib.parse as _upf
+        _pg_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,*/*;q=0.9",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        _pr = _requests.get(url, headers=_pg_headers, timeout=12, allow_redirects=True)
+        _html = _pr.text
+
+        def _og(prop):
+            """Extract content of a named meta property (exact match)."""
+            import re as _re_og
+            _pesc = _re_og.escape(prop)
+            for _pat in (
+                rf'<meta[^>]+(?:property|name)\s*=\s*["\']{_pesc}["\'][^>]+content\s*=\s*["\']([^"\']+)["\']',
+                rf'<meta[^>]+content\s*=\s*["\']([^"\']+)["\'][^>]+(?:property|name)\s*=\s*["\']{_pesc}["\']',
+            ):
+                _m2 = _re_og.search(_pat, _html, _re_og.I | _re_og.S)
+                if _m2:
+                    return _m2.group(1).strip()
+            return ""
+
+        og_title = (_og("og:title") or _og("twitter:title") or
+                    _og("title") or url)
+        og_image = (_og("og:image") or _og("og:image:secure_url") or
+                    _og("twitter:image") or _og("twitter:image:src") or "")
+        og_desc  = _og("og:description") or _og("description") or ""
+
+        # Upgrade Pinterest thumbnail to higher resolution
+        if og_image and "pinimg.com" in og_image:
+            import re as _rpin2
+            og_image = _rpin2.sub(r'/\d+x/', '/736x/', og_image)
+
+        if og_image:
+            return jsonify({
+                "type":        "image",
+                "title":       og_title,
+                "thumbnail":   og_image,
+                "uploader":    host,
+                "description": og_desc,
+            })
+        if og_title and og_title != url:
+            return jsonify({
+                "type":        "generic",
+                "title":       og_title,
+                "uploader":    host,
+                "thumbnail":   "",
+                "description": og_desc,
+            })
+    except Exception:
+        pass
+
+    return jsonify({"error": "Could not fetch metadata for this URL."}), 500
 
 
 @app.route("/api/download", methods=["POST"])
