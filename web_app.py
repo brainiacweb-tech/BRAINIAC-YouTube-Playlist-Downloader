@@ -572,20 +572,14 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "geo_bypass":              True,
         "geo_bypass_country":      "US",
         "age_limit":               99,    # bypass all age gates
-        "allow_unplayable_formats": True,  # don't skip unplayable/restricted formats
-
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # tv_embedded: embedded player — never prompts for sign-in, most bot-resistant.
-        # web_creator: YouTube Studio client — no PO tokens, handles restricted/age-gated.
-        # android/ios/mweb/web_embedded removed: trigger GVS PO tokens or bot checks.
-        # player_skip: skip webpage+JS extraction — suppresses n-challenge/signature solver
-        #              warnings (no Node.js on Railway) and avoids bot-detection probes.
+        # ios: most reliable client — no PO tokens, no sign-in required.
+        # mweb: mobile web fallback — also works without authentication.
         "extractor_args": {
             "youtube": {
-                "player_client": ["tv_embedded", "web_creator"],
-                "player_skip":   ["webpage", "configs", "js"],
+                "player_client": ["ios", "mweb"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -971,7 +965,7 @@ def _run_download(task_id: str, data: dict):
             except (yt_dlp.utils.DownloadError, yt_dlp.utils.UnsupportedError) as ex:
                 _ytdlp_failed = True
                 error_msg = str(ex)
-                if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower():
+                if "Sign in to confirm" in error_msg or "not a bot" in error_msg or "cookies" in error_msg.lower() or "Please sign in" in error_msg or "please sign in" in error_msg.lower():
                     # ── Auto-retry with longer sleep before giving up ──────────────────
                     _retried = False
                     for _retry_delay in (8, 20):
@@ -1416,8 +1410,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["tv_embedded", "web_creator"],
-                           "player_skip":   ["webpage", "configs", "js"],
+                           "player_client": ["ios", "mweb"],
                        }}}
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
@@ -1554,8 +1547,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["tv_embedded", "web_creator"],
-                "player_skip":   ["webpage", "configs", "js"],
+                "player_client": ["ios", "mweb"],
             }},
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -1692,8 +1684,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["tv_embedded", "web_creator"],
-                             "player_skip":   ["webpage", "configs", "js"],
+                             "player_client": ["ios", "mweb"],
                          }}}
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
