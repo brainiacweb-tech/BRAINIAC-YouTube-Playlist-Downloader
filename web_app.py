@@ -613,7 +613,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     if _FFMPEG_LOCATION:
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
 
-    if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
+    if quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best"
         opts["postprocessors"] = [{
             "key":              "FFmpegExtractAudio",
