@@ -1,4 +1,4 @@
-import os, sys, uuid, threading, queue, json, time, zipfile, shutil, base64, re, ipaddress, subprocess
+import os, sys, uuid, threading, queue, json, time, zipfile, shutil, re, ipaddress, subprocess
 from datetime import timedelta
 from functools import lru_cache
 import requests as _requests
@@ -448,147 +448,6 @@ def _find_ffmpeg():
     return ff
 _FFMPEG_PATH = _find_ffmpeg()
 
-# ── Telegram / KDMusic_Bot fallback ──────────────────────────────────────────
-# Set these 3 env vars on Railway to enable automatic music fallback via
-# @KDMusic_Bot when yt-dlp is blocked by YouTube on the server IP.
-#   TELEGRAM_API_ID   — numeric API ID from https://my.telegram.org/apps
-#   TELEGRAM_API_HASH — API hash from the same page
-#   TELEGRAM_SESSION  — StringSession token (generate via CLI script below)
-#
-# One-time session generation (run locally):
-#   pip install telethon
-#   python -c "
-#   from telethon.sync import TelegramClient; from telethon.sessions import StringSession
-#   api_id=input('API ID: '); api_hash=input('API Hash: ')
-#   with TelegramClient(StringSession(),int(api_id),api_hash) as c: print(c.session.save())
-#   "
-TELEGRAM_API_ID   = os.environ.get("TELEGRAM_API_ID",   "").strip()
-TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "").strip()
-TELEGRAM_SESSION  = os.environ.get("TELEGRAM_SESSION",  "").strip()
-_TG_LOCK          = threading.Lock()   # one KDMusic_Bot request at a time
-
-_AUDIO_EXTS = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".wav", ".mp4", ".webm"}
-
-
-def _tg_title_from_url(url: str) -> str:
-    """Quick metadata-only extraction to get a search-friendly title from a URL.
-    Returns 'Artist - Title' style string, or the raw URL on failure."""
-    try:
-        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
-                               "skip_download": True, "extract_flat": False,
-                               "socket_timeout": 8,
-                               "extractor_args": {"youtube": {
-                                   "player_client": ["tv_embedded", "web_creator"],
-                                   "player_skip":   ["webpage", "configs", "js"]}}}) as ydl:
-            info = ydl.extract_info(url, download=False)
-        title    = info.get("title") or ""
-        uploader = info.get("uploader") or info.get("channel") or ""
-        if uploader and title and uploader.lower() not in title.lower():
-            return f"{uploader} - {title}"
-        return title or url
-    except Exception:
-        return url
-
-
-def _kdmusic_fallback(task_id: str, url: str, task_dir: str) -> bool:
-    """Send a query to @KDMusic_Bot via Telegram and download the audio response.
-    Extracts video title first so the bot gets a proper song search query.
-    Returns True if a file was saved into task_dir, False otherwise."""
-    if not (TELEGRAM_API_ID and TELEGRAM_API_HASH and TELEGRAM_SESSION):
-        return False
-    try:
-        import asyncio
-        from telethon import TelegramClient
-        from telethon.sessions import StringSession
-        from telethon.tl.types import DocumentAttributeAudio, DocumentAttributeFilename
-
-        _push(task_id, {"type": "log",
-                        "msg": "🎵  yt-dlp blocked — trying KDMusic_Bot fallback…",
-                        "level": "info"})
-
-        # Get a human-readable search query from the URL (title + artist)
-        _push(task_id, {"type": "log", "msg": "🔍  Extracting title for KDMusic_Bot query…", "level": "info"})
-        query = _tg_title_from_url(url)
-        _push(task_id, {"type": "log", "msg": f"🤖  Querying KDMusic_Bot: {query[:80]}", "level": "info"})
-
-        async def _run():
-            client = TelegramClient(StringSession(TELEGRAM_SESSION),
-                                    int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
-            await client.connect()
-            if not await client.is_user_authorized():
-                await client.disconnect()
-                return None
-
-            # Record the last message ID so we only look at *new* replies
-            history = await client.get_messages("KDMusic_Bot", limit=1)
-            last_id = history[0].id if history else 0
-
-            await client.send_message("KDMusic_Bot", query)
-
-            # Wait up to 90 s for any audio/document/file reply from the bot
-            audio_msg = None
-            for _ in range(90):
-                await asyncio.sleep(1)
-                new_msgs = await client.get_messages("KDMusic_Bot", min_id=last_id, limit=20)
-                for msg in new_msgs:   # newest → oldest; first audio wins
-                    if not msg.media:
-                        continue
-                    # Check 1: Telegram audio message
-                    if msg.audio:
-                        audio_msg = msg
-                        break
-                    # Check 2: document with AudioAttribute
-                    if msg.document:
-                        attrs = getattr(msg.document, "attributes", None) or []
-                        for a in attrs:
-                            if isinstance(a, DocumentAttributeAudio):
-                                audio_msg = msg
-                                break
-                            if isinstance(a, DocumentAttributeFilename):
-                                fname = getattr(a, "file_name", "") or ""
-                                ext   = os.path.splitext(fname.lower())[1]
-                                if ext in _AUDIO_EXTS:
-                                    audio_msg = msg
-                                    break
-                        if audio_msg:
-                            break
-                    # Check 3: any document whose mime_type starts with audio/
-                    if msg.document:
-                        mime = getattr(msg.document, "mime_type", "") or ""
-                        if mime.startswith("audio/") or mime in ("video/mp4", "video/webm"):
-                            audio_msg = msg
-                            break
-                if audio_msg:
-                    break
-
-            if not audio_msg:
-                await client.disconnect()
-                return None
-
-            path = await client.download_media(audio_msg, task_dir)
-            await client.disconnect()
-            return path
-
-        with _TG_LOCK:    # serialize so two users don't cross their bot replies
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(_run())
-            finally:
-                loop.close()
-
-        if result and os.path.isfile(str(result)):
-            _push(task_id, {"type": "log",
-                            "msg": f"✔  KDMusic_Bot delivered: {os.path.basename(str(result))}",
-                            "level": "ok"})
-            return True
-        _push(task_id, {"type": "log", "msg": "ℹ️  KDMusic_Bot timed out (no audio reply).", "level": "warn"})
-        return False
-    except Exception as ex:
-        _push(task_id, {"type": "log",
-                        "msg": f"ℹ️  KDMusic_Bot unavailable: {ex}",
-                        "level": "warn"})
-        return False
-
 
 # ── Search result cache ───────────────────────────────────────────────────────
 _search_cache: dict = {}      # key: (query, source, mode) → (timestamp, results)
@@ -610,43 +469,6 @@ def _cache_set(key, value):
             oldest = sorted(_search_cache, key=lambda k: _search_cache[k][0])[:50]
             for k in oldest:
                 _search_cache.pop(k, None)
-
-# ── Cookie file ───────────────────────────────────────────────────────────────
-COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yt_cookies.txt")
-
-# Bootstrap from environment variable on startup (Railway-friendly):
-# Set YT_COOKIES in Railway env vars to the base64-encoded content of cookies.txt
-_env_cookies = os.environ.get("YT_COOKIES", "")
-if _env_cookies and not os.path.exists(COOKIES_FILE):
-    try:
-        with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
-            _f.write(base64.b64decode(_env_cookies).decode("utf-8"))
-        print("[cookies] Loaded cookies from YT_COOKIES environment variable")
-    except Exception as _e:
-        print(f"[cookies] Failed to load YT_COOKIES env var: {_e}")
-
-# Restore cookies from DB (persists across Railway restarts/redeployments)
-if not os.path.exists(COOKIES_FILE) or os.path.getsize(COOKIES_FILE) == 0:
-    try:
-        with app.app_context():
-            _db_cookies = AppSetting.query.get("yt_cookies")
-            if _db_cookies and _db_cookies.value:
-                with open(COOKIES_FILE, "w", encoding="utf-8") as _f:
-                    _f.write(base64.b64decode(_db_cookies.value).decode("utf-8"))
-                print("[cookies] Restored cookies from database")
-    except Exception as _e:
-        print(f"[cookies] Could not restore cookies from DB: {_e}")
-
-
-def _cookies_active() -> bool:
-    return os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0
-
-
-def _inject_cookies(opts: dict) -> dict:
-    """Add cookiefile to yt-dlp opts if a cookie file exists."""
-    if _cookies_active():
-        opts["cookiefile"] = COOKIES_FILE
-    return opts
 
 # ── Per-task state ────────────────────────────────────────────────────────────
 _tasks: dict = {}
@@ -780,11 +602,6 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     }
     if _FFMPEG_LOCATION:
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
-    _inject_cookies(opts)
-    # If no cookies file but user has a YouTube OAuth token, the Authorization
-    # header already handles auth — no need to also require cookies.
-    if yt_token and not opts.get("cookiefile"):
-        pass  # Authorization header is already set in http_headers above
 
     if mode in ("music", "music_search") or quality == "Audio Only (MP3)":
         opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
@@ -1193,17 +1010,12 @@ def _run_download(task_id: str, data: dict):
             finally:
                 sys.setrecursionlimit(_old_rlimit2)
 
-            # ── Telegram / KDMusic_Bot fallback for music when yt-dlp fails ──
             if _ytdlp_failed:
-                tg_ok = False
-                if mode in ("music", "music_search"):
-                    tg_ok = _kdmusic_fallback(task_id, url, task_dir)
-                if not tg_ok:
-                    with _tasks_lock:
-                        _tasks[task_id]["status"] = "error"
-                        _tasks[task_id]["error"]  = _ytdlp_user_msg
-                    _push(task_id, {"type": "error", "msg": _ytdlp_user_msg})
-                    return
+                with _tasks_lock:
+                    _tasks[task_id]["status"] = "error"
+                    _tasks[task_id]["error"]  = _ytdlp_user_msg
+                _push(task_id, {"type": "error", "msg": _ytdlp_user_msg})
+                return
 
         files = [f for f in os.listdir(task_dir)
                  if os.path.isfile(os.path.join(task_dir, f)) and not f.endswith(".part")]
@@ -1438,21 +1250,25 @@ def api_me():
 
 @app.route("/api/db-status")
 def api_db_status():
-    """Health endpoint — returns Firebase/Firestore reachability."""
-    ok = _firestore_db is not None
-    user_count = None
-    if ok:
-        try:
-            user_count = len(list(_firestore_db.collection("users").limit(1000).stream()))
-        except Exception:
-            user_count = None
-    resp = make_response(jsonify({
-        "db_type":    "firestore",
-        "reachable":  ok,
-        "user_count": user_count,
-        "error":      None if ok else "Firebase not initialized — set FIREBASE_CREDENTIALS_JSON",
-        "note": "Firestore \u2713 \u2014 data is persistent." if ok else "FIREBASE_CREDENTIALS_JSON not set.",
-    }))
+    """Health endpoint — returns MySQL/SQLite reachability."""
+    try:
+        user_count = User.query.count()
+        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        db_type = "mysql" if "mysql" in db_uri else "sqlite"
+        resp = make_response(jsonify({
+            "db_type":    db_type,
+            "reachable":  True,
+            "user_count": user_count,
+            "error":      None,
+            "note":       db_type.upper() + " connected — data is persistent.",
+        }))
+    except Exception as ex:
+        resp = make_response(jsonify({
+            "db_type":   "unknown",
+            "reachable": False,
+            "error":     str(ex),
+            "note":      "Database unreachable.",
+        }))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -1603,7 +1419,6 @@ def search():
                            "player_client": ["tv_embedded", "web_creator"],
                            "player_skip":   ["webpage", "configs", "js"],
                        }}}
-        _inject_cookies(search_opts)
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
 
@@ -1743,7 +1558,6 @@ def playlist_items_route():
                 "player_skip":   ["webpage", "configs", "js"],
             }},
         }
-        _inject_cookies(opts)
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(target, download=False)
 
@@ -1881,7 +1695,6 @@ def prefetch():
                              "player_client": ["tv_embedded", "web_creator"],
                              "player_skip":   ["webpage", "configs", "js"],
                          }}}
-        _inject_cookies(prefetch_opts)
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         entries = info.get("entries") or []
@@ -2028,94 +1841,6 @@ def download_file(task_id):
     return send_file(fpath, as_attachment=True, download_name=filename)
 
 
-# ── Telegram status ──────────────────────────────────────────────────────────
-@app.route("/api/tg-status", methods=["GET"])
-@login_required
-def tg_status():
-    configured = bool(TELEGRAM_API_ID and TELEGRAM_API_HASH and TELEGRAM_SESSION)
-    if not configured:
-        return jsonify({"active": False, "reason": "env vars not set"})
-    try:
-        import asyncio
-        from telethon import TelegramClient
-        from telethon.sessions import StringSession
-        async def _check():
-            c = TelegramClient(StringSession(TELEGRAM_SESSION), int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
-            await c.connect()
-            ok = await c.is_user_authorized()
-            me = (await c.get_me()) if ok else None
-            await c.disconnect()
-            return ok, getattr(me, "username", None) or getattr(me, "first_name", None) or "?"
-        loop = asyncio.new_event_loop()
-        try:
-            ok, name = loop.run_until_complete(_check())
-        finally:
-            loop.close()
-        return jsonify({"active": ok, "username": name if ok else None})
-    except Exception as ex:
-        return jsonify({"active": False, "reason": str(ex)})
-
-
-# ── Cookie management routes ─────────────────────────────────────────────────
-@app.route("/api/cookies", methods=["GET"])
-def cookies_status():
-    if _cookies_active():
-        size = os.path.getsize(COOKIES_FILE)
-        return jsonify({"active": True, "size": size})
-    return jsonify({"active": False})
-
-
-@app.route("/api/cookies", methods=["POST"])
-def upload_cookies():
-    """Accept either a file upload (multipart) or a plain-text body."""
-    # Multipart file upload
-    if "file" in request.files:
-        f = request.files["file"]
-        if not f.filename:
-            return jsonify({"error": "No file selected"}), 400
-        content = f.read().decode("utf-8", errors="replace")
-    else:
-        # Raw text body (paste)
-        content = request.get_data(as_text=True).strip()
-
-    if not content:
-        return jsonify({"error": "Empty cookies content"}), 400
-
-    with open(COOKIES_FILE, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    # Persist to DB so cookies survive Railway restarts / redeployments
-    try:
-        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        setting = AppSetting.query.get("yt_cookies")
-        if setting:
-            setting.value = encoded
-        else:
-            db.session.add(AppSetting(key="yt_cookies", value=encoded))
-        db.session.commit()
-    except Exception as _e:
-        print(f"[cookies] Could not persist cookies to DB: {_e}")
-
-    return jsonify({"ok": True, "size": len(content)})
-
-
-@app.route("/api/cookies", methods=["DELETE"])
-def clear_cookies():
-    try:
-        os.remove(COOKIES_FILE)
-    except FileNotFoundError:
-        pass
-    # Remove from DB too
-    try:
-        setting = AppSetting.query.get("yt_cookies")
-        if setting:
-            db.session.delete(setting)
-            db.session.commit()
-    except Exception:
-        pass
-    return jsonify({"ok": True})
-
-
 # ── (Google Drive and OneDrive integration removed) ─────────────────────────
 
 
@@ -2138,9 +1863,11 @@ def change_password():
             error = "Passwords do not match."
         else:
             try:
-                fb_auth.update_user(current_user.uid, password=new_pw)
+                current_user.password = generate_password_hash(new_pw)
+                db.session.commit()
                 success = "Password changed successfully!"
             except Exception as _e:
+                db.session.rollback()
                 error = f"Could not update password: {_e}"
     return render_template("change_password.html", error=error, success=success,
                            username=current_user.username, avatar=current_user.avatar)
@@ -2157,11 +1884,11 @@ def change_email():
             error = "Please enter a valid email address."
         else:
             try:
-                fb_auth.update_user(current_user.uid, email=new_email)
-                if _firestore_db:
-                    _firestore_db.collection("users").document(current_user.uid).update({"email": new_email})
+                current_user.email = new_email
+                db.session.commit()
                 success = "Email updated successfully!"
             except Exception as _e:
+                db.session.rollback()
                 error = f"Could not update email: {_e}"
     return render_template("change_email.html", error=error, success=success,
                            username=current_user.username, avatar=current_user.avatar,

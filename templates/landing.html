@@ -107,7 +107,7 @@ nav {
 .nav-mobile .nav-link { font-size: 13px; padding: 10px 14px; border-radius: 9px; }
 .nav-mobile .nav-link:hover { background: rgba(229,57,53,0.08); }
 .nav-mobile-divider { height: 1px; background: rgba(229,57,53,0.10); margin: 6px 0; }
-.nav-mobile .btn-nav { width: 100%; justify-content: center; padding: 10px 18px; border-radius: 9px; font-size: 13px; }
+.nav-mobile .btn-nav { padding: 9px 16px; border-radius: 9px; font-size: 12.5px; }
 
 /* ─── HERO ─────────────────────────────────────────────────── */
 .hero {
@@ -546,8 +546,10 @@ footer a:hover { color: var(--red); }
   <a href="#how-it-works" class="nav-link" onclick="closeMobileNav()"><i class="ri-question-line"></i> How It Works</a>
   <a href="/pricing"      class="nav-link" onclick="closeMobileNav()"><i class="ri-price-tag-3-line"></i> Pricing</a>
   <div class="nav-mobile-divider"></div>
-  <a href="/login"  class="btn-nav btn-outline" onclick="closeMobileNav()"><i class="ri-login-box-line"></i> Sign In</a>
-  <a href="/signup" class="btn-nav btn-filled"  onclick="closeMobileNav()"><i class="ri-user-add-line"></i> Get Started Free</a>
+  <div style="display:flex;gap:8px;padding:4px 2px;">
+    <a href="/login"  class="btn-nav btn-outline" onclick="closeMobileNav()"><i class="ri-login-box-line"></i> Sign In</a>
+    <a href="/signup" class="btn-nav btn-filled"  onclick="closeMobileNav()"><i class="ri-user-add-line"></i> Get Started</a>
+  </div>
 </div>
 
 <!-- HERO -->
