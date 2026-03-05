@@ -1842,18 +1842,106 @@ def web_search_route():
 @app.route("/api/prefetch", methods=["POST"])
 @limiter.limit("30 per minute")
 def prefetch():
+    import urllib.parse as _uparse, re as _pre
     data = request.get_json(force=True) or {}
     url  = (data.get("url") or "").strip()
     err = _validate_url(url)
     if err:
         return jsonify({"error": err}), 400
 
-    # ── YouTube Data API v3 fast-path ─────────────────────────────────────────
+    parsed = _uparse.urlparse(url)
+    host   = parsed.netloc.lower()
+    path   = parsed.path.lower().rstrip("/")
+    _, ext = os.path.splitext(path)
+    ext    = ext.lower()
+
+    # ── 1. Twitter / X fast-path (fxtwitter JSON API) ────────────────────────
+    if any(d in host for d in ("twitter.com", "x.com", "fxtwitter.com")):
+        m = _pre.search(r'(?:status|i/status)[/\\]+(\d+)', url)
+        if m:
+            try:
+                tweet_id = m.group(1)
+                api_resp = _requests.get(
+                    f"https://api.fxtwitter.com/status/{tweet_id}",
+                    timeout=10,
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; BRAINIAC/1.0)"}
+                )
+                api_resp.raise_for_status()
+                td = api_resp.json()
+                tweet   = td.get("tweet") or {}
+                media   = tweet.get("media") or {}
+                photos  = media.get("photos") or []
+                videos  = media.get("videos") or []
+                # Best thumbnail: first video's thumbnail, else first photo
+                thumb = ""
+                if videos:
+                    thumb = videos[0].get("thumbnail_url") or ""
+                if not thumb and photos:
+                    thumb = photos[0].get("url") or ""
+                if not thumb:
+                    thumb = tweet.get("thumbnail_url") or ""
+                author = (tweet.get("author") or {}).get("name") or ""
+                return jsonify({
+                    "type":        "twitter",
+                    "title":       tweet.get("text") or (f"Tweet by {author}" if author else "Tweet"),
+                    "uploader":    author,
+                    "thumbnail":   thumb,
+                    "count":       len(photos) + len(videos),
+                    "media_types": {"photos": len(photos), "videos": len(videos)},
+                })
+            except Exception:
+                pass  # fall through to yt-dlp
+
+    # ── 2. Direct image URL fast-path ────────────────────────────────────────
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif",
+                   ".bmp", ".tiff", ".tif", ".heic", ".heif", ".svg"}
+    qs_map = _uparse.parse_qs(parsed.query)
+    fmt    = (qs_map.get("format") or qs_map.get("fmt") or [""])[0].lower()
+    is_img = (ext in _IMAGE_EXTS or "twimg.com" in host or
+              fmt in ("jpg", "jpeg", "png", "gif", "webp", "avif"))
+    if is_img:
+        filesize = 0
+        try:
+            hr = _requests.head(url, timeout=8, allow_redirects=True,
+                                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            filesize = int(hr.headers.get("Content-Length") or 0)
+        except Exception:
+            pass
+        fname = os.path.basename(_uparse.unquote(path)) or url.split("/")[-1].split("?")[0] or "image"
+        return jsonify({
+            "type":      "image",
+            "title":     fname,
+            "thumbnail": url,
+            "filesize":  filesize,
+            "uploader":  host,
+        })
+
+    # ── 3. Known file extension fast-path (HEAD probe for size) ──────────────
+    _FILE_ONLY_EXTS = _DIRECT_EXTS - _IMAGE_EXTS
+    if ext in _FILE_ONLY_EXTS:
+        filesize = 0
+        try:
+            hr = _requests.head(url, timeout=8, allow_redirects=True,
+                                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            filesize = int(hr.headers.get("Content-Length") or 0)
+        except Exception:
+            pass
+        fname = os.path.basename(_uparse.unquote(path)) or "file"
+        return jsonify({
+            "type":     "file",
+            "title":    fname,
+            "ext":      ext.lstrip("."),
+            "filesize": filesize,
+            "uploader": host,
+        })
+
+    # ── 4. YouTube Data API v3 fast-path ─────────────────────────────────────
     if YOUTUBE_API_KEY and ("youtube.com" in url or "youtu.be" in url):
         api_info = _yt_api_prefetch(url)
         if api_info:
             return jsonify(api_info)
 
+    # ── 5. yt-dlp generic (Instagram, TikTok, Reddit, SoundCloud, etc.) ──────
     try:
         prefetch_opts = {"quiet": True, "no_warnings": True,
                          "extract_flat": True, "skip_download": True,
@@ -1869,16 +1957,23 @@ def prefetch():
         entries = info.get("entries") or []
         total_dur  = sum(e.get("duration") or 0 for e in entries if e)
         total_size = sum((e.get("filesize") or e.get("filesize_approx") or 0) for e in entries if e)
-        # For single videos (not playlists)
         if not entries:
             total_dur  = info.get("duration") or 0
             total_size = info.get("filesize") or info.get("filesize_approx") or 0
+        # Extract best thumbnail
+        thumb = info.get("thumbnail") or ""
+        if not thumb:
+            thumbs = info.get("thumbnails") or []
+            if thumbs:
+                thumb = thumbs[-1].get("url") or ""
         return jsonify({
-            "title":    info.get("title", url),
-            "count":    len(entries) if entries else 1,
-            "uploader": info.get("uploader") or info.get("channel") or "",
-            "duration": total_dur,
-            "filesize": total_size,
+            "type":      "generic",
+            "title":     info.get("title", url),
+            "count":     len(entries) if entries else 1,
+            "uploader":  info.get("uploader") or info.get("channel") or "",
+            "duration":  total_dur,
+            "filesize":  total_size,
+            "thumbnail": thumb,
         })
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
