@@ -685,6 +685,18 @@ def _http_fallback_download(task_id: str, url: str, task_dir: str, extra_headers
     if extra_headers:
         headers.update(extra_headers)
 
+    # Twitter / X image+video CDN needs specific headers to avoid HTML redirect
+    import urllib.parse as _urlp
+    _dl_host = _urlp.urlparse(url).netloc.lower()
+    if "twimg.com" in _dl_host:
+        headers.update({
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            "Referer": "https://twitter.com/",
+            "Sec-Fetch-Dest": "image",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site",
+        })
+
     session = _requests.Session()
     session.max_redirects = 15
     resp = session.get(url, headers=headers, stream=True, timeout=90,
@@ -844,6 +856,15 @@ def _normalize_direct_url(url: str) -> str:
         if m:
             url = f"https://raw.githubusercontent.com/{m.group(1)}/{m.group(2)}/{m.group(3)}"
 
+    # ── Twitter image/video CDN ───────────────────────────────────────────
+    # pbs.twimg.com/media/<id>?format=jpg&name=large  (image CDN)
+    # Use ?name=orig to get highest quality
+    elif "twimg.com" in host:
+        qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        qs["name"] = ["orig"]
+        new_query = urllib.parse.urlencode({k: v[0] for k, v in qs.items()})
+        url = urllib.parse.urlunparse(parsed._replace(query=new_query))
+
     return url
 
 
@@ -877,11 +898,24 @@ _DIRECT_EXTS = {
 
 
 def _looks_like_direct_file(url: str) -> bool:
-    """Return True if the URL path ends with a known file extension."""
+    """Return True if the URL path ends with a known file extension,
+    OR if the query string contains format=<image/media> (e.g. Twitter CDN)."""
     import urllib.parse
-    path = urllib.parse.urlparse(url).path.lower().rstrip("/")
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.lower().rstrip("/")
     _, ext = os.path.splitext(path)
-    return ext in _DIRECT_EXTS
+    if ext in _DIRECT_EXTS:
+        return True
+    # Twitter CDN: ?format=jpg  / ?format=png / ?format=gif / ?format=webp
+    qs = urllib.parse.parse_qs(parsed.query)
+    fmt = (qs.get("format") or qs.get("fmt") or [""])[0].lower()
+    if fmt in ("jpg", "jpeg", "png", "gif", "webp", "avif", "bmp",
+               "mp4", "webm", "mkv", "mov", "m4v"):
+        return True
+    # twimg.com CDN is always a direct media file
+    if "twimg.com" in parsed.netloc.lower():
+        return True
+    return False
 
 
 # Domains that only serve HTML pages — HTTP fallback will never yield a media file
