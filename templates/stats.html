@@ -183,8 +183,8 @@ nav {
 }
 .chart-wrap {
   position: relative;
-  /* explicit height so Chart.js can render */
-  height: 220px; width: 100%;
+  width: 100%;
+  /* let Chart.js control height via aspectRatio option */
 }
 
 /* ─── MILESTONE LIST ───────────────────────────────────────── */
@@ -239,7 +239,7 @@ nav {
   .stat-card .val { font-size: 22px; }
   .stat-card .stat-label { font-size: 10px; }
   .chart-card { padding: 16px 14px; }
-  .chart-wrap { height: 180px; }
+  .chart-wrap { /* let Chart.js handle height naturally */ }
   .maint-card { padding: 24px 16px 22px; border-radius: 16px; }
   .maint-headline { font-size: 15px; }
   .maint-body { font-size: 12px; }
@@ -663,7 +663,7 @@ nav {
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
       <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs) <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="growthChart" style="display:block;width:100%;height:100%"></canvas>
+        <canvas id="growthChart"></canvas>
       </div>
     </div>
 
@@ -672,7 +672,7 @@ nav {
       <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
       <div class="chart-sub">New users each hour <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="hourlyChart" style="display:block;width:100%;height:100%"></canvas>
+        <canvas id="hourlyChart"></canvas>
       </div>
     </div>
 
@@ -806,8 +806,11 @@ const cumulative = newPerHour.reduce((acc, v) => {
 }, []);
 
 /* ─── GRADIENT HELPER ──────────────────────────────────────── */
-function redGrad(ctx) {
-  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.offsetHeight || 220);
+/* gradient built after chart renders so canvas has real dimensions */
+function redGrad(chart) {
+  const { ctx, chartArea } = chart;
+  if (!chartArea) return 'rgba(229,57,53,0.25)';
+  const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
   g.addColorStop(0, 'rgba(229,57,53,0.35)');
   g.addColorStop(1, 'rgba(229,57,53,0.01)');
   return g;
@@ -817,7 +820,7 @@ function redGrad(ctx) {
 window.addEventListener('DOMContentLoaded', function initCharts() {
 
 const growthCtx = document.getElementById('growthChart').getContext('2d');
-new Chart(growthCtx, {
+const growthChart = new Chart(growthCtx, {
   type: 'line',
   data: {
     labels: hours,
@@ -830,13 +833,14 @@ new Chart(growthCtx, {
       pointHoverRadius: 6,
       pointBackgroundColor: '#e53935',
       fill: true,
-      backgroundColor: redGrad(growthCtx),
+      backgroundColor: 'rgba(229,57,53,0.15)',
       tension: 0.42,
     }]
   },
   options: {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: true,
+    aspectRatio: 2,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
@@ -898,7 +902,8 @@ new Chart(hourlyCtx, {
   },
   options: {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: true,
+    aspectRatio: 1.8,
     plugins: {
       legend: { display: false },
       tooltip: {
