@@ -388,26 +388,36 @@ _SCRAPE_HEADERS = {
 
 def _trendybeatz_search(query: str, limit: int = 20) -> list:
     """Search TrendyBeatz and return track results."""
+    import re as _re
     try:
         url = f"https://trendybeatz.com/?s={_requests.utils.quote(query)}"
         r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
         soup = _BS(r.text, "html.parser")
         results = []
-        # Articles / post cards
-        for art in soup.select("article, .post, .td-ss-main-content .td-block-span6")[:limit * 2]:
-            title_el = art.select_one("h3 a, h2 a, .entry-title a, .td-module-title a")
-            img_el   = art.select_one("img[src], img[data-src]")
-            if not title_el:
+        _skip_kw = ['song-of-the-day', 'songs-of-the-week', 'musics', 'djmix',
+                    'albums', 'artists', 'category', 'page/', '#']
+        seen = set()
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            if '/download-mp3/' not in href:
                 continue
-            page_url = title_el.get("href", "")
-            if not page_url or "trendybeatz.com" not in page_url:
+            if href in seen or any(k in href for k in _skip_kw):
                 continue
-            thumb = ""
-            if img_el:
-                thumb = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src") or ""
+            seen.add(href)
+            txt = a.get_text(separator=' ', strip=True)
+            for junk in ['Rating:', 'Download', 'Stream', 'Featuring:']:
+                txt = txt.replace(junk, '')
+            txt = _re.sub(r'\s{2,}', ' ', txt).strip()
+            if not txt:
+                continue
+            parent = a.find_parent(['div', 'li', 'article'])
+            img = parent.find('img') if parent else None
+            thumb = ''
+            if img:
+                thumb = img.get('src') or img.get('data-src') or img.get('data-lazy-src') or ''
             results.append({
-                "url":       page_url,
-                "title":     title_el.get_text(strip=True),
+                "url":       href,
+                "title":     txt,
                 "duration":  "",
                 "uploader":  "TrendyBeatz",
                 "thumbnail": thumb,
@@ -421,88 +431,84 @@ def _trendybeatz_search(query: str, limit: int = 20) -> list:
 
 
 def _mdundo_search(query: str, limit: int = 20) -> list:
-    """Search Mdundo music platform and return track results."""
+    """Search Mdundo via Bing site-search (page is JS-rendered, no public API)."""
     try:
-        url = f"https://play.mdundo.com/search/{_requests.utils.quote(query)}"
-        r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
+        bing_url = ("https://www.bing.com/search?q=site%3Amdundo.com+"
+                    + _requests.utils.quote(query))
+        hdrs = dict(_SCRAPE_HEADERS)
+        hdrs['Accept'] = 'text/html,application/xhtml+xml'
+        r = _requests.get(bing_url, headers=hdrs, timeout=15)
         soup = _BS(r.text, "html.parser")
         results = []
-        # Mdundo song cards
-        for card in soup.select(".song, .song-item, .track, .media-item, "
-                                "[class*='song'], [class*='track'], li.list-group-item")[:limit * 2]:
-            title_el = card.select_one("a[href*='/song/'], a[href*='/track/'], "
-                                       ".song-title, .track-title, h3 a, h4 a, .title a, a.title")
-            img_el   = card.select_one("img[src], img[data-src]")
-            if not title_el:
+        seen = set()
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            # Bing wraps results in /ck/a?... redirects — also catch direct links
+            target = href
+            if 'mdundo.com' not in target:
                 continue
-            page_url = title_el.get("href", "")
-            if not page_url:
+            # Skip Bing UI noise
+            if any(x in target for x in ['bing.com', 'microsoft.com', 'msn.com']):
                 continue
-            if not page_url.startswith("http"):
-                page_url = "https://play.mdundo.com" + page_url
-            thumb = ""
-            if img_el:
-                thumb = img_el.get("src") or img_el.get("data-src") or ""
-                if thumb and not thumb.startswith("http"):
-                    thumb = "https://play.mdundo.com" + thumb
+            # Only song pages
+            if not any(p in target for p in ['/song/', '/songs/', '/a/', '/music/']):
+                continue
+            if target in seen:
+                continue
+            seen.add(target)
+            title = a.get_text(separator=' ', strip=True)
+            if not title or len(title) < 2:
+                continue
             results.append({
-                "url":       page_url,
-                "title":     title_el.get_text(strip=True),
+                "url":       target,
+                "title":     title,
                 "duration":  "",
                 "uploader":  "Mdundo",
-                "thumbnail": thumb,
+                "thumbnail": "",
                 "filesize":  0,
             })
             if len(results) >= limit:
                 break
-        # Fallback: grab any links that look like song pages
-        if not results:
-            for a in soup.select("a[href*='/song/'], a[href*='/track/']")[:limit]:
-                href = a.get("href", "")
-                if not href.startswith("http"):
-                    href = "https://play.mdundo.com" + href
-                title = a.get_text(strip=True) or href
-                if title:
-                    results.append({"url": href, "title": title, "duration": "",
-                                    "uploader": "Mdundo", "thumbnail": "", "filesize": 0})
         return results
     except Exception:
         return []
 
 
 def _moviebox_search(query: str, limit: int = 20) -> list:
-    """Search MovieBox.ph and return movie results."""
+    """Search MovieBox via the h5-api.aoneroom.com JSON API (POST)."""
     try:
-        url = f"https://moviebox.ph/search?key={_requests.utils.quote(query)}"
-        r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
-        soup = _BS(r.text, "html.parser")
+        api_url = 'https://h5-api.aoneroom.com/wefeed-h5api-bff/subject/search'
+        hdrs = {
+            'User-Agent': _SCRAPE_HEADERS['User-Agent'],
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+            'Origin': 'https://moviebox.ph',
+            'Referer': 'https://moviebox.ph/',
+        }
+        r = _requests.post(
+            api_url,
+            json={'keyword': query, 'pageNo': 1, 'pageSize': limit},
+            headers=hdrs,
+            timeout=15,
+        )
+        data = r.json()
+        items = data.get('data', {}).get('items') or []
         results = []
-        # MovieBox movie cards
-        for card in soup.select(".movie-item, .film-item, .item, "
-                                "[class*='movie'], [class*='film'], article")[:limit * 2]:
-            title_el = card.select_one("a[href*='/movies/'], a[href*='/watch/'], "
-                                       ".movie-title, .film-title, h3 a, h2 a, .title a, a.title")
-            img_el   = card.select_one("img[src], img[data-src], img[data-lazy-src]")
-            if not title_el:
-                continue
-            page_url = title_el.get("href", "")
-            if not page_url:
-                parent_a = card.find("a", href=True)
-                page_url = parent_a["href"] if parent_a else ""
-            if not page_url:
-                continue
-            if not page_url.startswith("http"):
-                page_url = "https://moviebox.ph" + page_url
-            thumb = ""
-            if img_el:
-                thumb = (img_el.get("src") or img_el.get("data-src") or
-                         img_el.get("data-lazy-src") or "")
+        for item in items:
+            detail_path = item.get('detailPath') or f"/movies/detail/{item.get('subjectId', '')}"
+            page_url = 'https://moviebox.ph' + detail_path
+            dur_sec = item.get('duration') or 0
+            if dur_sec:
+                m, s = divmod(int(dur_sec) // 60, 60)
+                dur_str = f"{m}:{s:02d}"
+            else:
+                dur_str = ''
             results.append({
                 "url":       page_url,
-                "title":     title_el.get_text(strip=True),
-                "duration":  "",
+                "title":     item.get('title', ''),
+                "duration":  dur_str,
                 "uploader":  "MovieBox",
-                "thumbnail": thumb,
+                "thumbnail": item.get('cover', ''),
                 "filesize":  0,
             })
             if len(results) >= limit:
