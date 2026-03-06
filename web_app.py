@@ -639,7 +639,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
 
     if quality == "Audio Only (MP3)":
-        opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best"
+        # m4a first — android_vr pre-signed streams are m4a
+        opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[ext=m4a]/best"
         opts["postprocessors"] = [{
             "key":              "FFmpegExtractAudio",
             "preferredcodec":   "mp3",
@@ -648,14 +649,16 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     elif quality == "Best Quality":
         opts["format"] = (
             "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo[ext=mp4]+bestaudio"
             "/bestvideo[ext=webm]+bestaudio[ext=webm]"
             "/bestvideo+bestaudio"
-            "/best[ext=mp4]/best/mp4"
+            "/best[ext=mp4]/best"
         )
     elif quality in ("1080p", "720p", "480p", "360p"):
         h = quality.replace("p", "")
         opts["format"] = (
             f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+            f"/bestvideo[height<={h}][ext=mp4]+bestaudio"
             f"/bestvideo[height<={h}][ext=webm]+bestaudio[ext=webm]"
             f"/bestvideo[height<={h}]+bestaudio"
             f"/best[height<={h}][ext=mp4]"
@@ -665,6 +668,7 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
     else:
         opts["format"] = (
             "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
+            "/bestvideo[ext=mp4]+bestaudio"
             "/bestvideo[ext=webm]+bestaudio[ext=webm]"
             "/bestvideo+bestaudio"
             "/best[ext=mp4]/best"
@@ -2248,7 +2252,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
+                             "player_client": ["android_vr", "web_creator", "tv", "android"],
                          }}}
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
