@@ -170,14 +170,22 @@ nav {
   border-radius: 18px;
   padding: 24px 22px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  /* prevent card from collapsing on mobile */
+  min-width: 0; overflow: hidden;
 }
 .chart-card h3 {
   font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 4px;
 }
 .chart-card .chart-sub {
   font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 18px;
+  /* allow live badge to wrap */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
 }
-.chart-wrap { position: relative; }
+.chart-wrap {
+  position: relative;
+  /* explicit height so Chart.js can render */
+  height: 220px; width: 100%;
+}
 
 /* ─── MILESTONE LIST ───────────────────────────────────────── */
 .milestones-card {
@@ -219,9 +227,34 @@ nav {
 
 /* ─── RESPONSIVE ───────────────────────────────────────────── */
 @media (max-width: 500px) {
-  nav { padding: 0 16px; }
-  .page { padding: 28px 14px 60px; }
-  .counter-hero { padding: 32px 20px; }
+  nav { padding: 0 14px; height: 54px; }
+  .nav-logo-text { font-size: 13px; }
+  .nav-logo img { height: 26px; }
+  .page { padding: 20px 12px 60px; }
+  .counter-hero { padding: 28px 16px; border-radius: 16px; }
+  .counter-hero .label { font-size: 10px; letter-spacing: 1.2px; }
+  .counter-hero .since { font-size: 11px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { padding: 16px 12px; gap: 6px; }
+  .stat-card .val { font-size: 22px; }
+  .stat-card .stat-label { font-size: 10px; }
+  .chart-card { padding: 16px 14px; }
+  .chart-wrap { height: 180px; }
+  .maint-card { padding: 24px 16px 22px; border-radius: 16px; }
+  .maint-headline { font-size: 15px; }
+  .maint-body { font-size: 12px; }
+  .maint-dev-note { padding: 14px 14px; }
+  .maint-dev-note li { font-size: 11.5px; }
+  .maint-deadline { font-size: 11px; padding: 8px 14px; }
+  .maint-icon-wrap { width: 54px; height: 54px; font-size: 24px; margin-bottom: 14px; }
+  .page-header h1 { font-size: 24px; }
+  .page-header p { font-size: 12px; }
+  .milestones-card { padding: 18px 14px; }
+  .milestone-item { gap: 10px; padding: 11px 0; }
+  .m-dot { width: 28px; height: 28px; font-size: 12px; }
+  .m-info .m-title { font-size: 12px; }
+  .m-info .m-time { font-size: 10px; }
+  .m-badge { font-size: 9.5px; padding: 2px 7px; }
 }
 
 /* ─── MAINTENANCE BANNER ──────────────────────────────────── */
@@ -559,7 +592,7 @@ nav {
 
     <div class="maint-icon-wrap">🔧</div>
     <div class="maint-status-pill"><span class="live-dot"></span> Under Maintenance</div>
-    <h2 class="maint-headline">The <span>BRAINIAC Downloader</span> Web App is currently<br>under maintenance &amp; fixes for final rollout.</h2>
+    <h2 class="maint-headline">The <span>BRAINIAC Downloader</span> Web App is currently under maintenance &amp; fixes for final rollout.</h2>
     <p class="maint-body">We are polishing every detail to make sure your experience is flawless on all devices before the official launch.</p>
     <div class="maint-dev-note">
       <div class="dev-title"><i class="ri-code-s-slash-line"></i> Developer <strong style="color:#fff">FRANCIS KUSI</strong> is currently adding:</div>
@@ -628,7 +661,7 @@ nav {
     <div class="chart-card">
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
       <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs) <span class="live-badge"><span class="live-dot"></span>Live</span></div>
-      <div class="chart-wrap" style="position:relative;height:240px;">
+      <div class="chart-wrap">
         <canvas id="growthChart"></canvas>
       </div>
     </div>
@@ -637,7 +670,7 @@ nav {
     <div class="chart-card">
       <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
       <div class="chart-sub">New users each hour <span class="live-badge"><span class="live-dot"></span>Live</span></div>
-      <div class="chart-wrap" style="position:relative;height:240px;">
+      <div class="chart-wrap">
         <canvas id="hourlyChart"></canvas>
       </div>
     </div>
