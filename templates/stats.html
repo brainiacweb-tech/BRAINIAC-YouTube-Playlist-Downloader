@@ -662,7 +662,50 @@ nav {
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
       <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs) <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="growthChart"></canvas>
+        <svg viewBox="0 0 560 195" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+          <defs>
+            <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e53935" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#e53935" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <!-- gridlines -->
+          <line x1="44" y1="8" x2="554" y2="8" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="44" y1="38" x2="554" y2="38" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="44" y1="82" x2="554" y2="82" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="44" y1="125" x2="554" y2="125" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="44" y1="168" x2="554" y2="168" stroke="#f0f0f0" stroke-width="1"/>
+          <!-- y labels -->
+          <text x="40" y="11" text-anchor="end" font-size="9" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">3.7K</text>
+          <text x="40" y="41" text-anchor="end" font-size="9" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">3K</text>
+          <text x="40" y="85" text-anchor="end" font-size="9" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">2K</text>
+          <text x="40" y="128" text-anchor="end" font-size="9" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">1K</text>
+          <text x="40" y="171" text-anchor="end" font-size="9" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">0</text>
+          <!-- area fill -->
+          <polygon points="44,161.5 107.75,134.7 171.5,109.6 235.25,87.1 299,67.2 362.75,49.9 426.5,33.5 490.25,21.4 554,8 554,168 44,168" fill="url(#lineGrad)"/>
+          <!-- line -->
+          <polyline points="44,161.5 107.75,134.7 171.5,109.6 235.25,87.1 299,67.2 362.75,49.9 426.5,33.5 490.25,21.4 554,8" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- dots -->
+          <circle cx="44" cy="161.5" r="3.5" fill="#e53935"/>
+          <circle cx="107.75" cy="134.7" r="3.5" fill="#e53935"/>
+          <circle cx="171.5" cy="109.6" r="3.5" fill="#e53935"/>
+          <circle cx="235.25" cy="87.1" r="3.5" fill="#e53935"/>
+          <circle cx="299" cy="67.2" r="3.5" fill="#e53935"/>
+          <circle cx="362.75" cy="49.9" r="3.5" fill="#e53935"/>
+          <circle cx="426.5" cy="33.5" r="3.5" fill="#e53935"/>
+          <circle cx="490.25" cy="21.4" r="3.5" fill="#e53935"/>
+          <circle cx="554" cy="8" r="3.5" fill="#e53935"/>
+          <!-- x labels -->
+          <text x="44" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">7:32PM</text>
+          <text x="107.75" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">8PM</text>
+          <text x="171.5" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">9PM</text>
+          <text x="235.25" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">10PM</text>
+          <text x="299" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">11PM</text>
+          <text x="362.75" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">12AM</text>
+          <text x="426.5" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">1AM</text>
+          <text x="490.25" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">2AM</text>
+          <text x="554" y="183" text-anchor="middle" font-size="8.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">2:49AM</text>
+        </svg>
       </div>
     </div>
 
@@ -671,7 +714,38 @@ nav {
       <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
       <div class="chart-sub">New users each hour <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="hourlyChart"></canvas>
+        <svg viewBox="0 0 320 195" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+          <!-- gridlines -->
+          <line x1="30" y1="13" x2="314" y2="13" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="30" y1="65" x2="314" y2="65" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="30" y1="116" x2="314" y2="116" stroke="#f0f0f0" stroke-width="1"/>
+          <line x1="30" y1="168" x2="314" y2="168" stroke="#f0f0f0" stroke-width="1"/>
+          <!-- y labels -->
+          <text x="26" y="16" text-anchor="end" font-size="8" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">600</text>
+          <text x="26" y="68" text-anchor="end" font-size="8" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">400</text>
+          <text x="26" y="119" text-anchor="end" font-size="8" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">200</text>
+          <text x="26" y="171" text-anchor="end" font-size="8" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">0</text>
+          <!-- bars: slot=31.6, bar w=23, offset=4.3, h=val/620*160, y=168-h -->
+          <rect x="34" y="129" width="23" height="39" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="66" y="8" width="23" height="160" fill="#e53935" rx="3"/>
+          <rect x="97" y="18" width="23" height="150" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="129" y="34" width="23" height="134" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="160" y="49" width="23" height="119" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="192" y="65" width="23" height="103" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="223" y="70" width="23" height="98" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="255" y="96" width="23" height="72" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <rect x="286" y="88" width="23" height="80" fill="rgba(229,57,53,0.25)" rx="3"/>
+          <!-- x labels -->
+          <text x="45" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">7:32P</text>
+          <text x="77" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">8PM</text>
+          <text x="108" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">9PM</text>
+          <text x="140" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">10PM</text>
+          <text x="171" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">11PM</text>
+          <text x="203" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">12AM</text>
+          <text x="234" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">1AM</text>
+          <text x="266" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">2AM</text>
+          <text x="297" y="183" text-anchor="middle" font-size="7.5" fill="#bbb" font-family="Montserrat,sans-serif" font-weight="600">2:49A</text>
+        </svg>
       </div>
     </div>
 
@@ -746,7 +820,6 @@ nav {
 
 </div><!-- /page -->
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 /* ─── ANIMATED COUNTERS ────────────────────────────────────── */
 let liveCount = 3700;
@@ -797,110 +870,7 @@ window.addEventListener('DOMContentLoaded', () => {
   animateCount(document.getElementById('c2'), 508, 2200, '', false);
 });
 
-/* ─── CHARTS (inline at bottom of body — DOM is already ready) ── */
-(function initCharts() {
-  var hours = ['7:32PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM','2:49AM'];
-  var newPerHour = [150, 620, 580, 520, 460, 400, 380, 280, 310];
-  var cumulative = newPerHour.reduce(function(acc, v) {
-    acc.push((acc.length ? acc[acc.length-1] : 0) + v);
-    return acc;
-  }, []);
-
-  /* ── GROWTH LINE CHART ── */
-  var gCanvas = document.getElementById('growthChart');
-  if (gCanvas) {
-    new Chart(gCanvas.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: hours,
-        datasets: [{
-          label: 'Total Users',
-          data: cumulative,
-          borderColor: '#e53935',
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#e53935',
-          fill: true,
-          backgroundColor: 'rgba(229,57,53,0.15)',
-          tension: 0.42,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
-            borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
-            titleFont: { weight: '800', family: 'Montserrat', size: 12 },
-            bodyFont:  { weight: '700', family: 'Montserrat', size: 12 },
-            callbacks: { label: function(c) { return '  ' + c.parsed.y.toLocaleString() + ' users'; } }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 8 }
-          },
-          y: {
-            grid: { color: 'rgba(0,0,0,0.05)' },
-            ticks: {
-              font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa',
-              callback: function(v) { return v >= 1000 ? (v/1000).toFixed(1)+'K' : v; }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  /* ── HOURLY BAR CHART ── */
-  var hCanvas = document.getElementById('hourlyChart');
-  if (hCanvas) {
-    var maxVal = Math.max.apply(null, newPerHour);
-    new Chart(hCanvas.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: hours,
-        datasets: [{
-          label: 'New Signups',
-          data: newPerHour,
-          backgroundColor: newPerHour.map(function(v) { return v === maxVal ? '#e53935' : 'rgba(229,57,53,0.22)'; }),
-          borderRadius: 6,
-          borderSkipped: false,
-          hoverBackgroundColor: '#e53935',
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
-            borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
-            titleFont: { weight: '800', family: 'Montserrat', size: 12 },
-            bodyFont:  { weight: '700', family: 'Montserrat', size: 11 },
-            callbacks: { label: function(c) { return '  +' + c.parsed.y + ' users'; } }
-          }
-        },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 6 }
-          },
-          y: {
-            grid: { color: 'rgba(0,0,0,0.05)' },
-            ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa' }
-          }
-        }
-      }
-    });
-  }
-})();
+/* charts are pure inline SVG — no Chart.js needed */
 </script>
 </body>
 </html>
