@@ -245,14 +245,14 @@ nav {
       Live Stats
     </div>
     <h1>Growing <span>Fast</span> 🚀</h1>
-    <p>Real-time signup metrics since launch on March 5th, 2026</p>
+    <p>Signup snapshot across the first <strong>8 hours</strong> · 7:32 PM Mar 5 &ndash; 2:49 AM Mar 6, 2026</p>
   </div>
 
   <!-- BIG COUNTER -->
   <div class="counter-hero">
     <div class="label">Total Users Signed Up</div>
     <div class="counter-number" id="mainCounter">0<span class="k">K</span></div>
-    <div class="since">Since <strong>7:32 PM on 5th March, 2026</strong> — that's <strong id="hoursAgo">~24 hrs ago</strong></div>
+    <div class="since">From <strong>7:32 PM · 5th March</strong> to <strong>2:49 AM · 6th March, 2026</strong> &nbsp;·&nbsp; first 8 hours</div>
     <div class="confetti-row">
       <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
     </div>
@@ -270,19 +270,13 @@ nav {
       <div class="stat-icon"><i class="ri-time-line"></i></div>
       <div class="val" id="c2">0</div>
       <div class="stat-label">Avg per Hour</div>
-      <div class="stat-sub">Across the first 24 hrs</div>
+      <div class="stat-sub">Across the first 8 hrs</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon"><i class="ri-fire-line"></i></div>
-      <div class="val">480</div>
+      <div class="val">620</div>
       <div class="stat-label">Peak Hour</div>
       <div class="stat-sub">8 PM – 9 PM on launch night</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon"><i class="ri-google-line"></i></div>
-      <div class="val">61%</div>
-      <div class="stat-label">Google Sign-Ins</div>
-      <div class="stat-sub">vs. 39% email/password</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon"><i class="ri-smartphone-line"></i></div>
@@ -298,7 +292,7 @@ nav {
     <!-- Cumulative Growth -->
     <div class="chart-card">
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
-      <div class="chart-sub">Total users over the first 24 hours after launch</div>
+      <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs)</div>
       <div class="chart-wrap">
         <canvas id="growthChart" height="200"></canvas>
       </div>
@@ -331,7 +325,7 @@ nav {
         <div class="m-dot achieved">✓</div>
         <div class="m-info">
           <div class="m-title">500 Users</div>
-          <div class="m-time">Reached ~9:05 PM · March 5, 2026</div>
+          <div class="m-time">Reached ~8:34 PM · March 5, 2026</div>
         </div>
         <span class="m-badge done">Achieved</span>
       </div>
@@ -339,7 +333,7 @@ nav {
         <div class="m-dot achieved">✓</div>
         <div class="m-info">
           <div class="m-title">1,000 Users</div>
-          <div class="m-time">Reached ~10:30 PM · March 5, 2026</div>
+          <div class="m-time">Reached ~9:24 PM · March 5, 2026</div>
         </div>
         <span class="m-badge done">Achieved</span>
       </div>
@@ -347,7 +341,7 @@ nav {
         <div class="m-dot achieved">✓</div>
         <div class="m-info">
           <div class="m-title">2,500 Users</div>
-          <div class="m-time">Reached ~2:10 AM · March 6, 2026</div>
+          <div class="m-time">Reached ~12:26 AM · March 6, 2026</div>
         </div>
         <span class="m-badge done">Achieved</span>
       </div>
@@ -355,7 +349,7 @@ nav {
         <div class="m-dot achieved">✓</div>
         <div class="m-info">
           <div class="m-title">3,700 Users</div>
-          <div class="m-time">Reached ~7:18 PM · March 6, 2026</div>
+          <div class="m-time">Reached ~2:49 AM · March 6, 2026 (8 hr mark)</div>
         </div>
         <span class="m-badge done">Achieved</span>
       </div>
@@ -418,25 +412,12 @@ window.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(animMain);
 
   animateCount(document.getElementById('c1'), TARGET, 2200, '', false);
-  animateCount(document.getElementById('c2'), 154, 2200, '', false);
-
-  /* hours since launch */
-  const launchTs = new Date('2026-03-05T19:32:00').getTime();
-  const hrs = Math.floor((Date.now() - launchTs) / 3600000);
-  document.getElementById('hoursAgo').textContent = '~' + hrs + ' hrs ago';
+  animateCount(document.getElementById('c2'), 508, 2200, '', false);
 });
 
 /* ─── CHART DATA ───────────────────────────────────────────── */
-const hours = [
-  '7PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM',
-  '3AM','4AM','5AM','6AM','7AM','8AM','9AM','10AM','11AM',
-  '12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM'
-];
-const newPerHour = [
-  85, 480, 460, 410, 340, 265, 185, 125,
-  90,  68,  58,  70, 130, 195, 268, 315, 198,
-  160, 142, 128, 118, 105,  92,  80,  34
-];
+const hours = ['7:32PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM','2:49AM'];
+const newPerHour = [150, 620, 580, 520, 460, 400, 380, 280, 310];
 const cumulative = newPerHour.reduce((acc, v) => {
   acc.push((acc.length ? acc[acc.length-1] : 0) + v);
   return acc;
