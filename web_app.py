@@ -615,12 +615,13 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # ios + mweb clients: bypass bot-check without cookies (2025/2026 safe).
-        # android_* clients were blacklisted by YouTube for bot detection;
-        # android_creator/android_embedded also triggered UNPLAYABLE format warnings.
+        # Best no-cookie clients for yt-dlp 2026:
+        # android_vr  — pre-signed URLs, no PO token needed, no DRM
+        # web_creator — YT Studio API, JS challenge solved by yt-dlp-ejs
+        # web         — standard web, universal fallback
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "mweb", "tv"],
+                "player_client": ["android_vr", "web_creator", "web"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -1890,7 +1891,7 @@ def search():
                        "socket_timeout": 10,
                        "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                        "extractor_args": {"youtube": {
-                           "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
+                           "player_client": ["android_vr", "web_creator", "web"],
                        }}}
         with yt_dlp.YoutubeDL(search_opts) as ydl:
             info = ydl.extract_info(f"{prefix}{query}", download=False)
@@ -2027,7 +2028,7 @@ def playlist_items_route():
             "socket_timeout": 10,
             "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
             "extractor_args": {"youtube": {
-                "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
+                "player_client": ["android_vr", "web_creator", "web"],
             }},
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -2252,7 +2253,7 @@ def prefetch():
                          "socket_timeout": 10,
                          "http_headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"},
                          "extractor_args": {"youtube": {
-                             "player_client": ["android_vr", "web_creator", "tv", "android"],
+                             "player_client": ["android_vr", "web_creator", "web"],
                          }}}
         with yt_dlp.YoutubeDL(prefetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
