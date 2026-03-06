@@ -399,24 +399,8 @@ select:focus { border-color: var(--red); }
 .pbar-stats span:first-child { color: var(--red); font-size: 13px; font-weight: 800; }
 .dl-btn-row { display: none; padding: 14px 20px 18px; gap: 10px; flex-wrap: wrap; }
 
-/* ── Log ─────────────────────────────────────────────────────── */
-.log-card { margin-bottom: 16px; }
-.log-header {
-  padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1.5px solid var(--border);
-}
-.log-title { font-size: 11px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; }
-.log-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
 @keyframes spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-.log-body {
-  padding: 14px 18px; max-height: 160px; overflow-y: auto;
-  font-size: 12px; font-weight: 500; line-height: 1.7;
-}
-.log-info { color: var(--fg2); }
-.log-ok   { color: var(--green); }
-.log-warn { color: var(--orange); }
-.log-err  { color: var(--red); }
 
 /* ── Hint ─── */
 .hint { font-size: 12px; color: var(--muted); line-height: 1.6; font-weight: 400; margin-bottom: 14px; }
@@ -479,8 +463,7 @@ select:focus { border-color: var(--red); }
   .playlist-info-icon { font-size: 22px; }
   .playlist-info-title { font-size: 13px; }
 
-  .log-header { padding: 10px 14px; }
-  .log-body { padding: 10px 14px; font-size: 11.5px; }
+
 
   .sec-label { font-size: 9px; letter-spacing: 1.5px; }
 
@@ -1095,17 +1078,6 @@ select:focus { border-color: var(--red); }
     </div>
   </div>
 
-  <!-- LOG -->
-  <div class="card log-card">
-    <div class="log-header">
-      <div class="log-title"><div class="log-dot"></div> Activity Log</div>
-      <button class="btn btn-ghost btn-sm" onclick="clearLog()"><i class="ri-delete-bin-5-line"></i> Clear</button>
-    </div>
-    <div class="log-body" id="log-body">
-      <p class="log-info">Ready. Paste a URL or search above.</p>
-    </div>
-  </div>
-
   <!-- FOOTER -->
   <div class="footer">
     <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px;">
@@ -1339,23 +1311,9 @@ function setSrc(group, btn, src) {
   btn.classList.add('active');
 }
 
-function log(msg, level = 'info') {
-  const body = document.getElementById('log-body');
-  const p = document.createElement('p');
-  p.className = 'log-' + level;
-  p.textContent = msg;
-  body.appendChild(p);
-  body.scrollTop = body.scrollHeight;
-}
-function logHtml(html, level = 'info') {
-  const body = document.getElementById('log-body');
-  const p = document.createElement('p');
-  p.className = 'log-' + level;
-  p.innerHTML = html;
-  body.appendChild(p);
-  body.scrollTop = body.scrollHeight;
-}
-function clearLog() { document.getElementById('log-body').innerHTML = ''; }
+function log() {}
+function logHtml() {}
+function clearLog() {}
 
 let _autoDismissTimer = null;
 let _autoDismissInterval = null;
