@@ -1905,10 +1905,8 @@ def api_admin_set_plan():
 
 @app.route("/")
 def landing():
-    if current_user.is_authenticated:
-        return redirect("/app")
-    resp = render_template("landing.html")
-    return resp, 200, {"Cache-Control": "public, max-age=300"}
+    # App is under maintenance — show stats/maintenance page to everyone
+    return redirect("/stats", 302)
 
 # Google Search Console domain verification
 _GSITE_TOKEN = os.environ.get("GOOGLE_SITE_VERIFY", "gFXOPMcc20rPxHnQwiIZHtrRALzPJdNO_-em6L0nD2M")
@@ -1972,29 +1970,9 @@ function setDevice(d){
     return html
 
 @app.route("/app")
-@login_required
-@limiter.limit("120 per minute")
 def index():
-    from datetime import datetime as _dt
-    plan   = _get_user_plan(current_user)
-    today  = _dt.utcnow().strftime("%Y-%m-%d")
-    row    = DailyDownload.query.filter_by(user_id=current_user.id, date_str=today).first()
-    used   = row.count if row else 0
-    limits = PLAN_LIMITS[plan]
-    resp = make_response(render_template(
-        "index.html",
-        username=current_user.username,
-        avatar=current_user.avatar,
-        email=current_user.email,
-        user_plan=plan,
-        plan_used=used,
-        plan_limit=limits["daily"],
-        plan_max_quality=limits["quality"],
-    ))
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp.headers["Pragma"] = "no-cache"
-    resp.headers["Expires"] = "0"
-    return resp
+    # App is under maintenance — redirect all users to the maintenance/stats page
+    return redirect("/stats", 302)
 
 
 @app.route("/api/search", methods=["POST"])

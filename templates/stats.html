@@ -224,6 +224,92 @@ nav {
   .counter-hero { padding: 32px 20px; }
 }
 
+/* ─── MAINTENANCE BANNER ──────────────────────────────────── */
+.maint-card {
+  background: linear-gradient(135deg, #180808 0%, #2d1010 100%);
+  border: 1.5px solid rgba(229,57,53,0.45);
+  border-radius: 20px;
+  padding: 36px 32px 32px;
+  margin-bottom: 36px;
+  text-align: center;
+  position: relative; overflow: hidden;
+  box-shadow: 0 10px 50px rgba(229,57,53,0.22);
+}
+.maint-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 55% at 50% 0%, rgba(229,57,53,0.14) 0%, transparent 65%);
+  pointer-events: none;
+}
+.maint-icon-wrap {
+  width: 68px; height: 68px; border-radius: 50%;
+  background: rgba(229,57,53,0.12); border: 2px solid rgba(229,57,53,0.35);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px; font-size: 30px;
+  animation: wrenchRock 2.2s ease-in-out infinite;
+}
+@keyframes wrenchRock {
+  0%,100% { transform: rotate(-8deg); }
+  50%      { transform: rotate(8deg); }
+}
+.maint-status-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(229,57,53,0.12); border: 1px solid rgba(229,57,53,0.35);
+  border-radius: 999px; padding: 5px 16px; margin-bottom: 16px;
+  font-size: 10.5px; font-weight: 800; color: #e53935;
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.maint-headline {
+  font-size: clamp(18px,4vw,26px); font-weight: 900;
+  color: #fff; letter-spacing: -.5px; line-height: 1.25; margin-bottom: 10px;
+}
+.maint-headline span { color: #e53935; }
+.maint-body {
+  font-size: 13.5px; color: rgba(255,255,255,0.72); font-weight: 500;
+  line-height: 1.65; margin-bottom: 22px; max-width: 540px; margin-left: auto; margin-right: auto;
+}
+.maint-dev-note {
+  background: rgba(229,57,53,0.09); border: 1px solid rgba(229,57,53,0.28);
+  border-radius: 14px; padding: 18px 22px;
+  margin: 0 auto 22px; max-width: 520px; text-align: left;
+}
+.maint-dev-note .dev-title {
+  font-size: 10.5px; font-weight: 800; color: rgba(229,57,53,0.85);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 7px;
+}
+.maint-dev-note ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
+.maint-dev-note li {
+  font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.82);
+  display: flex; align-items: center; gap: 9px;
+}
+.maint-dev-note li::before { content: '→'; color: #e53935; font-weight: 900; flex-shrink: 0; }
+.maint-deadline {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px; padding: 9px 22px;
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.82);
+}
+.maint-deadline strong { color: #fff; }
+.maint-thank { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 14px; font-weight: 500; }
+
+/* ─── LIVE BADGE ───────────────────────────────────────────── */
+.live-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(229,57,53,0.10); border: 1px solid rgba(229,57,53,0.28);
+  border-radius: 999px; padding: 3px 11px;
+  font-size: 10px; font-weight: 800; color: var(--red);
+  letter-spacing: 1px; text-transform: uppercase; margin-left: 8px; vertical-align: middle;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #e53935;
+  animation: livePulse 1s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.65); }
+}
+
 /* ─── DOODLE BG ─────────────────────────────────────────────── */
 .doodle-bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
@@ -376,10 +462,28 @@ nav {
     <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC">
     <span class="nav-logo-text">BRAINIAC Downloader</span>
   </a>
-  <a href="/" class="nav-back"><i class="ri-arrow-left-line"></i> Back to App</a>
+  <span style="display:inline-flex;align-items:center;gap:7px;background:rgba(229,57,53,0.10);border:1.5px solid rgba(229,57,53,0.30);border-radius:999px;padding:6px 16px;font-size:11.5px;font-weight:800;color:#e53935;"><span class="live-dot"></span>Under Maintenance</span>
 </nav>
 
 <div class="page">
+
+  <!-- MAINTENANCE BANNER -->
+  <div class="maint-card">
+    <div class="maint-icon-wrap">🔧</div>
+    <div class="maint-status-pill"><span class="live-dot"></span> Under Maintenance</div>
+    <h2 class="maint-headline">The <span>BRAINIAC Downloader</span> Web App is currently<br>under maintenance &amp; fixes for final rollout.</h2>
+    <p class="maint-body">We are polishing every detail to make sure your experience is flawless on all devices before the official launch.</p>
+    <div class="maint-dev-note">
+      <div class="dev-title"><i class="ri-code-s-slash-line"></i> Developer <strong style="color:#fff">FRANCIS KUSI</strong> is currently adding:</div>
+      <ul>
+        <li>Google Sign-Up Integration</li>
+        <li>Pricing &amp; Subscription System</li>
+        <li>iOS Users Navigation Bug Fix</li>
+      </ul>
+    </div>
+    <div class="maint-deadline">⏳ &nbsp;App will be fully live before <strong>25th March, 2026</strong></div>
+    <div class="maint-thank">Thank you for your patience and support — it means everything to us 🙏</div>
+  </div>
 
   <!-- HEADER -->
   <div class="page-header">
@@ -435,18 +539,18 @@ nav {
     <!-- Cumulative Growth -->
     <div class="chart-card">
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
-      <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs)</div>
-      <div class="chart-wrap">
-        <canvas id="growthChart" height="200"></canvas>
+      <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs) <span class="live-badge"><span class="live-dot"></span>Live</span></div>
+      <div class="chart-wrap" style="position:relative;height:240px;">
+        <canvas id="growthChart"></canvas>
       </div>
     </div>
 
     <!-- Hourly bar -->
     <div class="chart-card">
       <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
-      <div class="chart-sub">New users each hour</div>
-      <div class="chart-wrap">
-        <canvas id="hourlyChart" height="200"></canvas>
+      <div class="chart-sub">New users each hour <span class="live-badge"><span class="live-dot"></span>Live</span></div>
+      <div class="chart-wrap" style="position:relative;height:240px;">
+        <canvas id="hourlyChart"></canvas>
       </div>
     </div>
 
@@ -523,7 +627,7 @@ nav {
 
 <script>
 /* ─── ANIMATED COUNTERS ────────────────────────────────────── */
-const TARGET = 3700;
+let liveCount = 3700;
 
 function animateCount(el, target, duration, suffix, decimals) {
   let start = null;
@@ -539,8 +643,20 @@ function animateCount(el, target, duration, suffix, decimals) {
   requestAnimationFrame(step);
 }
 
+function updateLiveCounters() {
+  const k = (liveCount / 1000).toFixed(1);
+  document.getElementById('mainCounter').innerHTML = k + '<span class="k">K</span>';
+  document.getElementById('c1').textContent = liveCount.toLocaleString();
+}
+
+function tickLive() {
+  liveCount += Math.floor(Math.random() * 3) + 1;
+  updateLiveCounters();
+  setTimeout(tickLive, 8000 + Math.random() * 12000); /* every 8–20 s */
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  /* big counter */
+  /* big counter — animate in */
   const mainEl = document.getElementById('mainCounter');
   let start = null;
   const dur = 2200;
@@ -551,10 +667,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const val = ease * 3.7;
     mainEl.innerHTML = val.toFixed(1) + '<span class="k">K</span>';
     if (p < 1) requestAnimationFrame(animMain);
+    else setTimeout(tickLive, 5000); /* start live ticking after 5 s */
   };
   requestAnimationFrame(animMain);
 
-  animateCount(document.getElementById('c1'), TARGET, 2200, '', false);
+  animateCount(document.getElementById('c1'), liveCount, 2200, '', false);
   animateCount(document.getElementById('c2'), 508, 2200, '', false);
 });
 
@@ -595,6 +712,7 @@ new Chart(growthCtx, {
   },
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
@@ -656,6 +774,7 @@ new Chart(hourlyCtx, {
   },
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
