@@ -2,6 +2,7 @@ import os, sys, uuid, threading, queue, json, time, zipfile, shutil, re, ipaddre
 from datetime import timedelta
 from functools import lru_cache
 import requests as _requests
+from bs4 import BeautifulSoup as _BS
 # Suppress InsecureRequestWarning from verify=False in direct HTTP downloads
 import urllib3 as _urllib3
 _urllib3.disable_warnings(_urllib3.exceptions.InsecureRequestWarning)
@@ -375,6 +376,140 @@ def _yt_api_search(query: str, mode: str) -> list | None:
         return results
     except Exception:
         return None
+
+
+# ── Third-party site scrapers ────────────────────────────────────────────────
+_SCRAPE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/122.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+def _trendybeatz_search(query: str, limit: int = 20) -> list:
+    """Search TrendyBeatz and return track results."""
+    try:
+        url = f"https://trendybeatz.com/?s={_requests.utils.quote(query)}"
+        r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
+        soup = _BS(r.text, "html.parser")
+        results = []
+        # Articles / post cards
+        for art in soup.select("article, .post, .td-ss-main-content .td-block-span6")[:limit * 2]:
+            title_el = art.select_one("h3 a, h2 a, .entry-title a, .td-module-title a")
+            img_el   = art.select_one("img[src], img[data-src]")
+            if not title_el:
+                continue
+            page_url = title_el.get("href", "")
+            if not page_url or "trendybeatz.com" not in page_url:
+                continue
+            thumb = ""
+            if img_el:
+                thumb = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src") or ""
+            results.append({
+                "url":       page_url,
+                "title":     title_el.get_text(strip=True),
+                "duration":  "",
+                "uploader":  "TrendyBeatz",
+                "thumbnail": thumb,
+                "filesize":  0,
+            })
+            if len(results) >= limit:
+                break
+        return results
+    except Exception:
+        return []
+
+
+def _mdundo_search(query: str, limit: int = 20) -> list:
+    """Search Mdundo music platform and return track results."""
+    try:
+        url = f"https://play.mdundo.com/search/{_requests.utils.quote(query)}"
+        r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
+        soup = _BS(r.text, "html.parser")
+        results = []
+        # Mdundo song cards
+        for card in soup.select(".song, .song-item, .track, .media-item, "
+                                "[class*='song'], [class*='track'], li.list-group-item")[:limit * 2]:
+            title_el = card.select_one("a[href*='/song/'], a[href*='/track/'], "
+                                       ".song-title, .track-title, h3 a, h4 a, .title a, a.title")
+            img_el   = card.select_one("img[src], img[data-src]")
+            if not title_el:
+                continue
+            page_url = title_el.get("href", "")
+            if not page_url:
+                continue
+            if not page_url.startswith("http"):
+                page_url = "https://play.mdundo.com" + page_url
+            thumb = ""
+            if img_el:
+                thumb = img_el.get("src") or img_el.get("data-src") or ""
+                if thumb and not thumb.startswith("http"):
+                    thumb = "https://play.mdundo.com" + thumb
+            results.append({
+                "url":       page_url,
+                "title":     title_el.get_text(strip=True),
+                "duration":  "",
+                "uploader":  "Mdundo",
+                "thumbnail": thumb,
+                "filesize":  0,
+            })
+            if len(results) >= limit:
+                break
+        # Fallback: grab any links that look like song pages
+        if not results:
+            for a in soup.select("a[href*='/song/'], a[href*='/track/']")[:limit]:
+                href = a.get("href", "")
+                if not href.startswith("http"):
+                    href = "https://play.mdundo.com" + href
+                title = a.get_text(strip=True) or href
+                if title:
+                    results.append({"url": href, "title": title, "duration": "",
+                                    "uploader": "Mdundo", "thumbnail": "", "filesize": 0})
+        return results
+    except Exception:
+        return []
+
+
+def _moviebox_search(query: str, limit: int = 20) -> list:
+    """Search MovieBox.ph and return movie results."""
+    try:
+        url = f"https://moviebox.ph/search?key={_requests.utils.quote(query)}"
+        r   = _requests.get(url, headers=_SCRAPE_HEADERS, timeout=15)
+        soup = _BS(r.text, "html.parser")
+        results = []
+        # MovieBox movie cards
+        for card in soup.select(".movie-item, .film-item, .item, "
+                                "[class*='movie'], [class*='film'], article")[:limit * 2]:
+            title_el = card.select_one("a[href*='/movies/'], a[href*='/watch/'], "
+                                       ".movie-title, .film-title, h3 a, h2 a, .title a, a.title")
+            img_el   = card.select_one("img[src], img[data-src], img[data-lazy-src]")
+            if not title_el:
+                continue
+            page_url = title_el.get("href", "")
+            if not page_url:
+                parent_a = card.find("a", href=True)
+                page_url = parent_a["href"] if parent_a else ""
+            if not page_url:
+                continue
+            if not page_url.startswith("http"):
+                page_url = "https://moviebox.ph" + page_url
+            thumb = ""
+            if img_el:
+                thumb = (img_el.get("src") or img_el.get("data-src") or
+                         img_el.get("data-lazy-src") or "")
+            results.append({
+                "url":       page_url,
+                "title":     title_el.get_text(strip=True),
+                "duration":  "",
+                "uploader":  "MovieBox",
+                "thumbnail": thumb,
+                "filesize":  0,
+            })
+            if len(results) >= limit:
+                break
+        return results
+    except Exception:
+        return []
 
 
 def _yt_api_prefetch(url: str) -> dict | None:
@@ -1864,8 +1999,24 @@ def search():
     if err:
         return jsonify({"error": err}), 400
 
-    if source not in ("YouTube", "SoundCloud", "Dailymotion", "Audiomack"):
+    if source not in ("YouTube", "SoundCloud", "Dailymotion", "Audiomack",
+                      "TrendyBeatz", "Mdundo", "MovieBox"):
         source = "YouTube"
+
+    # ── Scraped sources — no yt-dlp needed for search ────────────────────────
+    scraper_map = {
+        "TrendyBeatz": _trendybeatz_search,
+        "Mdundo":      _mdundo_search,
+        "MovieBox":    _moviebox_search,
+    }
+    if source in scraper_map:
+        cache_key = (query, source, mode)
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return jsonify({"results": cached, "cached": True})
+        results = scraper_map[source](query)
+        _cache_set(cache_key, results)
+        return jsonify({"results": results})
 
     prefix = {"YouTube": "ytsearch200:", "SoundCloud": "scsearch200:",
               "Dailymotion": "dmsearch200:", "Audiomack": "audiomack:search20:"}.get(source, "ytsearch200:")
