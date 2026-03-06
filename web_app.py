@@ -230,7 +230,7 @@ limiter = Limiter(
 @app.after_request
 def set_security_headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["X-Frame-Options"]        = "DENY"
+    resp.headers["X-Frame-Options"]        = "SAMEORIGIN"
     resp.headers["X-XSS-Protection"]       = "1; mode=block"
     resp.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
     resp.headers["Permissions-Policy"]     = "geolocation=(), microphone=(), camera=()"
@@ -242,7 +242,7 @@ def set_security_headers(resp):
         "img-src 'self' data: https:; "
         "connect-src 'self' https://accounts.google.com; "
         "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com; "
-        "frame-ancestors 'none';"
+        "frame-ancestors 'self' http://127.0.0.1:* http://localhost:*;"
     )
     # Remove fingerprinting headers
     resp.headers.pop("Server", None)
@@ -519,12 +519,35 @@ class _YtLogger:
         self._tid = task_id
         self.errors: list[str] = []
 
+    # Developer/internal messages we never want to surface to end users
+    _SUPPRESS_WARNINGS = (
+        "UNPLAYABLE",          # android_creator/embedded dev-only notice
+        "unplayable",
+        "Unsupported client",
+        "unsupported client",
+        "tv_embedded",
+        "No title found in player",
+        "Sleeping",
+        "Skipping",
+    )
+    _SUPPRESS_DEBUG = (
+        "[debug]",
+        "Sleeping",
+        "retrying in",          # internal retry countdown noise
+        "YouTube bot",
+        "bot-check",
+    )
+
     def debug(self, msg: str):
-        if msg.startswith("[debug]"):
-            return  # too noisy
+        for skip in self._SUPPRESS_DEBUG:
+            if skip in msg:
+                return
         _push(self._tid, {"type": "log", "msg": msg, "level": "info"})
 
     def warning(self, msg: str):
+        for skip in self._SUPPRESS_WARNINGS:
+            if skip in msg:
+                return  # hide developer-only / internal notices from users
         _push(self._tid, {"type": "log", "msg": f"⚠  {msg}", "level": "warn"})
 
     def error(self, msg: str):
@@ -592,10 +615,12 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         # ── TLS: ignore cert errors (some CDNs have odd certs) ────────────────
         "nocheckcertificate":      True,
 
-        # All android clients: pre-signed URLs, no PO tokens, no JS signing.
+        # ios + mweb clients: bypass bot-check without cookies (2025/2026 safe).
+        # android_* clients were blacklisted by YouTube for bot detection;
+        # android_creator/android_embedded also triggered UNPLAYABLE format warnings.
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "android_creator", "android_embedded", "android"],
+                "player_client": ["ios", "mweb", "tv"],
             },
             "twitter": {"api": ["syndication"]},
         },
@@ -607,8 +632,8 @@ def _build_opts(task_id: str, task_dir: str, quality: str, mode: str, yt_token: 
         "sleep_interval_requests": 1,
         "sleep_interval":          1,
 
-        # ── Let yt-dlp pick the best available format even if DASH fails ──────
-        "compat_opts": {"no-youtube-unavailable-videos"},
+        # ── Extra resilience ─────────────────────────────────────────────────
+        "extractor_retries": 3,
     }
     if _FFMPEG_LOCATION:
         opts["ffmpeg_location"] = os.path.dirname(_FFMPEG_LOCATION)
@@ -1742,6 +1767,59 @@ def google_site_verify(token):
     if token == _GSITE_TOKEN:
         return f"google-site-verification: google{token}.html", 200, {"Content-Type": "text/plain"}
     return "", 404
+
+@app.route("/mobile-preview")
+def mobile_preview():
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Preview</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif}
+h2{color:#aaa;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:18px}
+.device-bar{display:flex;gap:12px;margin-bottom:18px}
+.device-btn{background:#2a2a3e;color:#aaa;border:1px solid #444;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;transition:.2s}
+.device-btn.active,.device-btn:hover{background:#e53935;color:#fff;border-color:#e53935}
+.phone-wrap{position:relative;background:#000;border-radius:44px;padding:14px 12px;box-shadow:0 0 0 2px #333,0 0 0 4px #222,0 20px 60px rgba(0,0,0,.8)}
+.phone-wrap::before{content:'';position:absolute;top:14px;left:50%;transform:translateX(-50%);width:80px;height:6px;background:#222;border-radius:4px;z-index:10}
+.phone-wrap::after{content:'';position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:40px;height:5px;background:#333;border-radius:4px}
+iframe{display:block;border:none;border-radius:34px;background:#fff}
+.tablet-wrap{background:#000;border-radius:20px;padding:20px 14px;box-shadow:0 0 0 2px #333,0 20px 60px rgba(0,0,0,.8)}
+.tablet-wrap iframe{border-radius:10px}
+</style>
+</head>
+<body>
+<h2>Mobile Preview</h2>
+<div class="device-bar">
+  <button class="device-btn active" onclick="setDevice('iphone')">iPhone 15</button>
+  <button class="device-btn" onclick="setDevice('android')">Android</button>
+  <button class="device-btn" onclick="setDevice('tablet')">iPad</button>
+</div>
+<div id="wrap" class="phone-wrap">
+  <iframe id="frame" src="/app" width="390" height="844" scrolling="yes"></iframe>
+</div>
+<script>
+const devices={
+  iphone:{w:390,h:844,cls:'phone-wrap'},
+  android:{w:360,h:780,cls:'phone-wrap'},
+  tablet:{w:768,h:1024,cls:'tablet-wrap'}
+};
+function setDevice(d){
+  const f=document.getElementById('frame');
+  const wrap=document.getElementById('wrap');
+  const dev=devices[d];
+  f.width=dev.w; f.height=dev.h;
+  wrap.className=dev.cls;
+  document.querySelectorAll('.device-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>"""
+    return html
 
 @app.route("/app")
 @login_required
