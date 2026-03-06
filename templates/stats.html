@@ -315,12 +315,13 @@ nav {
 .maint-dev-note .dev-title {
   font-size: 10.5px; font-weight: 800; color: rgba(229,57,53,0.85);
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px; line-height: 1.5;
 }
+.maint-dev-note .dev-title strong { text-transform: none; letter-spacing: 0; font-size: 12px; }
 .maint-dev-note ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
 .maint-dev-note li {
   font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.82);
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: flex-start; gap: 9px;
 }
 .maint-dev-note li::before { content: '→'; color: #e53935; font-weight: 900; flex-shrink: 0; }
 .maint-deadline {
@@ -662,7 +663,7 @@ nav {
       <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
       <div class="chart-sub">Total users · 7:32 PM Mar 5 to 2:49 AM Mar 6 (first 8 hrs) <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="growthChart"></canvas>
+        <canvas id="growthChart" style="display:block;width:100%;height:100%"></canvas>
       </div>
     </div>
 
@@ -671,7 +672,7 @@ nav {
       <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
       <div class="chart-sub">New users each hour <span class="live-badge"><span class="live-dot"></span>Live</span></div>
       <div class="chart-wrap">
-        <canvas id="hourlyChart"></canvas>
+        <canvas id="hourlyChart" style="display:block;width:100%;height:100%"></canvas>
       </div>
     </div>
 
@@ -806,13 +807,15 @@ const cumulative = newPerHour.reduce((acc, v) => {
 
 /* ─── GRADIENT HELPER ──────────────────────────────────────── */
 function redGrad(ctx) {
-  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.offsetHeight || 260);
+  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.offsetHeight || 220);
   g.addColorStop(0, 'rgba(229,57,53,0.35)');
   g.addColorStop(1, 'rgba(229,57,53,0.01)');
   return g;
 }
 
-/* ─── GROWTH CHART ─────────────────────────────────────────── */
+/* ─── GROWTH CHART ───────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', function initCharts() {
+
 const growthCtx = document.getElementById('growthChart').getContext('2d');
 new Chart(growthCtx, {
   type: 'line',
@@ -933,6 +936,8 @@ new Chart(hourlyCtx, {
     }
   }
 });
+
+}); /* end initCharts DOMContentLoaded */
 </script>
 </body>
 </html>
