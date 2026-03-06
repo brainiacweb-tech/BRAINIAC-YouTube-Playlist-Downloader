@@ -281,6 +281,12 @@ select:focus { border-color: var(--red); }
 .src-btn:hover { border-color: var(--red-mid); color: var(--red); }
 .src-btn.active { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 2px 8px rgba(229,57,53,0.25); }
 .src-btn:active { transform: scale(0.93); transition: transform 0.06s ease; }
+/* iOS source visibility — toggled by JS on page load */
+.ios-src     { display: none; }   /* hidden until iOS detected */
+.non-ios-src { }                  /* visible by default */
+/* When iOS is detected, body gets class "is-ios" */
+body.is-ios .ios-src     { display: inline-flex; }
+body.is-ios .non-ios-src { display: none; }
 
 /* ── Results ─────────────────────────────────────────────────── */
 .results-area { display: none; border-top: 1.5px solid var(--border); }
@@ -321,6 +327,7 @@ select:focus { border-color: var(--red); }
 .source-badge { font-size: 10px; background: #e3f0ff; color: #1565c0; border-radius: 5px; padding: 2px 6px; font-weight: 700; flex-shrink: 0; border: 1px solid #90caf9; }
 .source-badge.sc { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
 .source-badge.dm { background: #fce4ec; color: #c62828; border-color: #f48fb1; }
+.source-badge.am { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
 .preview-btn { width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border2); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; color: var(--muted); flex-shrink: 0; transition: all 0.15s; }
 .preview-btn:hover { background: var(--red); border-color: var(--red); color: #fff; }
 /* ── Preview Modal ─────────────────────────────── */
@@ -774,10 +781,15 @@ select:focus { border-color: var(--red); }
       </div>
       <div class="src-row">
         <span class="src-label">Source</span>
-        <button class="src-btn active" data-src-group="music" onclick="setSrc('music',this,'YouTube')">YouTube</button>
-        <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'SoundCloud')">SoundCloud</button>
-        <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'Dailymotion')">Dailymotion</button>
-        <button class="src-btn" data-src-group="music" onclick="setSrc('music',this,'All')">All Sources</button>
+        <!-- Non-iOS sources (hidden on iOS) -->
+        <button id="music-src-youtube" class="src-btn active non-ios-src" data-src-group="music" onclick="setSrc('music',this,'YouTube')">YouTube</button>
+        <button id="music-src-soundcloud" class="src-btn non-ios-src" data-src-group="music" onclick="setSrc('music',this,'SoundCloud')">SoundCloud</button>
+        <button id="music-src-dailymotion" class="src-btn non-ios-src" data-src-group="music" onclick="setSrc('music',this,'Dailymotion')">Dailymotion</button>
+        <button id="music-src-all" class="src-btn non-ios-src" data-src-group="music" onclick="setSrc('music',this,'All')">All Sources</button>
+        <!-- iOS-only sources (hidden on non-iOS) -->
+        <button id="music-src-audiomack" class="src-btn ios-src" data-src-group="music" onclick="setSrc('music',this,'Audiomack')">Audiomack</button>
+        <button id="music-src-trendybeatz" class="src-btn ios-src" data-src-group="music" onclick="setSrc('music',this,'TrendyBeatz')">TrendyBeatz</button>
+        <button id="music-src-mdundo" class="src-btn ios-src" data-src-group="music" onclick="setSrc('music',this,'Mdundo')">Mdundo</button>
       </div>
       <div class="results-area" id="results-music">
         <div class="results-list" id="results-list-music"></div>
@@ -808,6 +820,12 @@ select:focus { border-color: var(--red); }
             <i class="ri-search-line"></i> Search
           </button>
         </div>
+      </div>
+      <!-- Source row — YouTube shown on non-iOS; MovieBox shown on iOS -->
+      <div class="src-row" id="movies-src-row">
+        <span class="src-label">Source</span>
+        <button id="movies-src-youtube" class="src-btn active non-ios-src" data-src-group="movies" onclick="setSrc('movies',this,'YouTube')">YouTube</button>
+        <button id="movies-src-moviebox" class="src-btn ios-src" data-src-group="movies" onclick="setSrc('movies',this,'MovieBox')">MovieBox</button>
       </div>
       <div class="quality-row">
         <i class="ri-hd-fill" style="color:var(--muted);font-size:18px"></i>
@@ -1254,6 +1272,28 @@ let   isDownloading  = false;
 let   _musicFormat   = 'mp3';   // 'mp3' | 'mp4' | 'both'
 let   _directUrlData = null;    // cached prefetch data for direct tab
 
+// ── iOS detection — runs immediately so src buttons are set correctly ─────
+const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream)
+           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS
+if (isIOS) {
+  document.body.classList.add('is-ios');
+  searchSources.music  = 'Audiomack';
+  searchSources.movies = 'MovieBox';
+  // Activate Audiomack button as default for music
+  setTimeout(() => {
+    const amBtn = document.getElementById('music-src-audiomack');
+    if (amBtn) {
+      document.querySelectorAll('[data-src-group="music"]').forEach(b => b.classList.remove('active'));
+      amBtn.classList.add('active');
+    }
+    const mbBtn = document.getElementById('movies-src-moviebox');
+    if (mbBtn) {
+      document.querySelectorAll('[data-src-group="movies"]').forEach(b => b.classList.remove('active'));
+      mbBtn.classList.add('active');
+    }
+  }, 0);
+}
+
 function setMusicFmt(fmt, btn) {
   _musicFormat = fmt;
   document.querySelectorAll('#music-fmt-mp3,#music-fmt-mp4,#music-fmt-both').forEach(b => b.classList.remove('active'));
@@ -1638,6 +1678,29 @@ async function doSearch(mode) {
   const q   = document.getElementById(mode + '-q').value.trim();
   const src = searchSources[mode];
   if (!q) { log('⚠  Enter a search term.', 'warn'); return; }
+
+  // ── External sources — open the site search in a new tab ─────────────────
+  const externalSearchUrls = {
+    TrendyBeatz: `https://trendybeatz.com/?s=${encodeURIComponent(q)}`,
+    Mdundo:      `https://play.mdundo.com/search/${encodeURIComponent(q)}`,
+    MovieBox:    `https://moviebox.ph/search?key=${encodeURIComponent(q)}`,
+  };
+  if (externalSearchUrls[src]) {
+    window.open(externalSearchUrls[src], '_blank', 'noopener,noreferrer');
+    // Show a toast-style hint below the search box
+    const hintId = mode + '-ext-hint';
+    let hint = document.getElementById(hintId);
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = hintId;
+      hint.style.cssText = 'margin:8px 12px 0;padding:8px 12px;background:rgba(229,57,53,0.08);border:1px solid rgba(229,57,53,0.25);border-radius:8px;font-size:11.5px;color:var(--fg2);line-height:1.5;';
+      const inputRow = document.getElementById(mode + '-q').closest('.input-row');
+      if (inputRow) inputRow.after(hint);
+    }
+    hint.innerHTML = `<i class="ri-external-link-line" style="color:var(--red)"></i> Opened <strong>${src}</strong> in a new tab &ndash; find your ${mode === 'movies' ? 'movie' : 'song'}, copy its URL, then paste it into the <strong>Direct URL</strong> tab to download.`;
+    return;
+  }
+
   if (src === 'All') {
     log(`🔍  Searching all sources for "${q}"…`, 'info');
     const sources = ['YouTube', 'SoundCloud', 'Dailymotion'];
@@ -1663,7 +1726,16 @@ async function doSearch(mode) {
     try {
       const res  = await fetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, source:src, mode}) });
       const data = await res.json();
-      if (data.error) { log('✘  ' + data.error, 'err'); return; }
+      if (data.error) {
+        // Audiomack search unavailable — open their site instead
+        if (src === 'Audiomack') {
+          window.open(`https://audiomack.com/search?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer');
+          log(`ℹ  In-app Audiomack search unavailable — opened audiomack.com in a new tab. Find your song, copy its URL, and paste it in the Direct URL tab.`, 'warn');
+        } else {
+          log('✘  ' + data.error, 'err');
+        }
+        return;
+      }
       const results = (data.results || []).map(r => ({...r, source: src}));
       searchResults[mode] = results;
       selectedItems[mode].clear();
@@ -1686,8 +1758,8 @@ function renderResults(mode, results) {
       ? `<img class="result-thumb" src="${r.thumbnail}" loading="lazy" onerror="imgError(this,'${fallbackIcon}')">`
       : `<div class="result-thumb-placeholder"><i class="${fallbackIcon}"></i></div>`;
     const sizeBadge = r.filesize > 0 ? `<span class="size-badge">~${fmtSize(r.filesize)}</span>` : '';
-    let srcCls = r.source === 'SoundCloud' ? ' sc' : r.source === 'Dailymotion' ? ' dm' : '';
-    const srcLabel = r.source === 'YouTube' ? 'YT' : r.source === 'SoundCloud' ? 'SC' : r.source === 'Dailymotion' ? 'DM' : '';
+    let srcCls = r.source === 'SoundCloud' ? ' sc' : r.source === 'Dailymotion' ? ' dm' : r.source === 'Audiomack' ? ' am' : '';
+    const srcLabel = r.source === 'YouTube' ? 'YT' : r.source === 'SoundCloud' ? 'SC' : r.source === 'Dailymotion' ? 'DM' : r.source === 'Audiomack' ? 'AM' : '';
     const srcBadge = srcLabel ? `<span class="source-badge${srcCls}">${srcLabel}</span>` : '';
     const ytMatch = (r.url || '').match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
     const safeTitle = escHtml(r.title).replace(/'/g, '&#39;');

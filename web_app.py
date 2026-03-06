@@ -1864,11 +1864,11 @@ def search():
     if err:
         return jsonify({"error": err}), 400
 
-    if source not in ("YouTube", "SoundCloud", "Dailymotion"):
+    if source not in ("YouTube", "SoundCloud", "Dailymotion", "Audiomack"):
         source = "YouTube"
 
     prefix = {"YouTube": "ytsearch200:", "SoundCloud": "scsearch200:",
-              "Dailymotion": "dmsearch200:"}.get(source, "ytsearch200:")
+              "Dailymotion": "dmsearch200:", "Audiomack": "audiomack:search20:"}.get(source, "ytsearch200:")
 
     # ── Cache check ───────────────────────────────────────────────────────────
     cache_key = (query, source, mode)
