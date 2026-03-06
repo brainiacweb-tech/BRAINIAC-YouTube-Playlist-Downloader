@@ -77,6 +77,9 @@ body.dark-mode .src-btn { background: #2c2c2c; color: var(--muted); border-color
 body.dark-mode .quality-row,
 body.dark-mode .src-row,
 body.dark-mode .results-action { background: #202020 !important; }
+body.dark-mode #panel-direct .card-body p,
+body.dark-mode #panel-direct .quality-row p { color: var(--muted) !important; }
+body.dark-mode #panel-direct > div:nth-child(2) > div { background: #242424 !important; border-color: #3c3c3c !important; }
 
 /* ── Layout ─────────────────────────────────────────────────── */
 .wrapper { max-width: 660px; margin: 0 auto; padding: 18px 18px 60px; }
@@ -852,14 +855,63 @@ select:focus { border-color: var(--red); }
 
   <!-- DIRECT -->
   <div class="panel" id="panel-direct">
+
+    <!-- ── HERO INTRO ─────────────────────────────────────────── -->
+    <div style="background:linear-gradient(135deg,#e53935 0%,#b71c1c 100%);border-radius:var(--radius);padding:18px 18px 16px;margin-bottom:14px;color:#fff;box-shadow:0 4px 18px rgba(229,57,53,0.32);">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="ri-link-m" style="font-size:24px;color:#fff;"></i>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:900;letter-spacing:-0.3px;">Direct URL Downloader</div>
+          <div style="font-size:11px;font-weight:500;opacity:0.85;margin-top:2px;">Paste any link — we handle the rest</div>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:500;opacity:0.9;line-height:1.6;margin-bottom:12px;">
+        Works with <strong>1,000+ sites</strong>. Just copy a link from any platform below and paste it — BRAINIAC will detect the media, show you a preview, and download it straight to your files.
+      </div>
+      <!-- Supported platform chips -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-youtube-fill"></i> YouTube</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-twitter-x-fill"></i> X / Twitter</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-instagram-fill"></i> Instagram</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-tiktok-fill"></i> TikTok</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-facebook-fill"></i> Facebook</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-soundcloud-fill"></i> SoundCloud</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-vimeo-fill"></i> Vimeo</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;"><i class="ri-file-line"></i> Direct Files</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;opacity:0.8;"><i class="ri-add-line"></i> 1000+ more</span>
+      </div>
+    </div>
+
+    <!-- ── HOW IT WORKS STEPS ──────────────────────────────────── -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:11px 10px;text-align:center;box-shadow:var(--shadow2);">
+        <div style="width:30px;height:30px;border-radius:50%;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 7px;"><span style="font-size:13px;font-weight:900;color:var(--red);">1</span></div>
+        <div style="font-size:10px;font-weight:800;color:var(--fg);margin-bottom:3px;">Copy the link</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:500;line-height:1.4;">Go to any site &amp; copy the URL from the address bar or share button</div>
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:11px 10px;text-align:center;box-shadow:var(--shadow2);">
+        <div style="width:30px;height:30px;border-radius:50%;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 7px;"><span style="font-size:13px;font-weight:900;color:var(--red);">2</span></div>
+        <div style="font-size:10px;font-weight:800;color:var(--fg);margin-bottom:3px;">Paste &amp; Check</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:500;line-height:1.4;">Paste it below — we'll preview what's inside before you download</div>
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:11px 10px;text-align:center;box-shadow:var(--shadow2);">
+        <div style="width:30px;height:30px;border-radius:50%;background:rgba(229,57,53,0.12);border:1.5px solid rgba(229,57,53,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 7px;"><span style="font-size:13px;font-weight:900;color:var(--red);">3</span></div>
+        <div style="font-size:10px;font-weight:800;color:var(--fg);margin-bottom:3px;">Hit Download</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:500;line-height:1.4;">Tap Download and find your file in the Files tab instantly</div>
+      </div>
+    </div>
+
     <div class="card">
       <!-- SEARCH -->
       <div class="card-body">
-        <div class="sec-label"><i class="ri-search-2-line"></i> Find a Link</div>
+        <div class="sec-label"><i class="ri-search-2-line"></i> Step 0 — Don't have a link? Search first</div>
+        <p style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:10px;line-height:1.5;">Not sure of the exact URL? Search by title, username, or topic — click any result to auto-fill the download box below.</p>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-search-line"></i>
-            <input type="text" id="websearch-q" placeholder="Search anything — movies, songs, software, news, handles…" onkeydown="if(event.key==='Enter')doWebSearch()" onpaste="setTimeout(doWebSearch,350)">
+            <input type="text" id="websearch-q" placeholder="e.g. Travis Scott — SICKO MODE, @mrbeast, Avengers trailer…" onkeydown="if(event.key==='Enter')doWebSearch()" onpaste="setTimeout(doWebSearch,350)">
           </div>
           <button class="btn btn-ghost" id="websearch-btn" onclick="doWebSearch()">
             <i class="ri-search-line"></i> Search
@@ -870,11 +922,12 @@ select:focus { border-color: var(--red); }
       <div style="height:1px;background:var(--border);margin:0 18px;"></div>
       <!-- DOWNLOAD -->
       <div class="card-body">
-        <div class="sec-label"><i class="ri-download-cloud-2-line"></i> Download Any URL</div>
+        <div class="sec-label"><i class="ri-download-cloud-2-line"></i> Step 1 — Paste your URL here</div>
+        <p style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:10px;line-height:1.5;">Paste any link from YouTube, Instagram, TikTok, Twitter/X, Facebook, Vimeo, SoundCloud, Dailymotion, or even a raw <code style="background:var(--surface3);padding:1px 5px;border-radius:4px;font-size:10px;">.mp4</code> / <code style="background:var(--surface3);padding:1px 5px;border-radius:4px;font-size:10px;">.mp3</code> file URL. The app will instantly preview what it found.</p>
         <div class="input-row">
           <div class="input-wrap">
             <i class="ri-link"></i>
-            <input type="text" id="direct-url" placeholder="Paste any link — social media, video, audio, file…" onkeydown="if(event.key==='Enter')directFetch()" onpaste="setTimeout(directFetch,350)">
+            <input type="text" id="direct-url" placeholder="https://www.instagram.com/reel/…  or  https://x.com/user/status/…" onkeydown="if(event.key==='Enter')directFetch()" onpaste="setTimeout(directFetch,350)">
           </div>
           <button class="btn btn-ghost" id="direct-fetch-btn" onclick="directFetch()">
             <i class="ri-search-eye-line"></i> Check
@@ -908,10 +961,15 @@ select:focus { border-color: var(--red); }
           </div>
         </div>
       </div>
-      <div class="quality-row">
-        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="margin-left:auto;width:100%">
-          <i class="ri-download-cloud-fill"></i> Download
+      <div class="quality-row" style="flex-direction:column;gap:8px;align-items:stretch;">
+        <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;">
+          <i class="ri-download-cloud-2-fill" style="color:var(--red);font-size:14px;"></i> Step 2 — Download
+        </div>
+        <p style="font-size:11px;color:var(--muted);font-weight:500;line-height:1.5;margin:0;">Once the preview appears above, tap <strong style="color:var(--fg);">Download</strong>. The file will be saved to your <strong style="color:var(--fg);">Files</strong> tab — ready to stream or keep forever.</p>
+        <button class="btn btn-teal" id="direct-dl-btn" onclick="directDownload()" style="width:100%">
+          <i class="ri-download-cloud-fill"></i> Download Now
         </button>
+        <p style="font-size:10px;color:var(--muted);text-align:center;margin:0;font-weight:500;"><i class="ri-information-line" style="vertical-align:middle;"></i> Can't find a URL? Use the search box above to look it up first.</p>
       </div>
     </div>
   </div>
