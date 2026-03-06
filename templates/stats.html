@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Stats — BRAINIAC Downloader</title>
+<link rel="icon" type="image/png" href="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #e53935; --red-dark: #b71c1c; --red-light: #ffebee;
+  --fg: #111; --fg2: #444; --muted: #888; --border: #e8e8e8;
+}
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: #fff8f8;
+  min-height: 100vh;
+  color: var(--fg);
+  overflow-x: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 90% 70% at 5% 15%,  rgba(229,57,53,0.13) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 95% 85%,  rgba(183,28,28,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 55%  5%,  rgba(229,57,53,0.07) 0%, transparent 50%);
+}
+
+/* ─── NAV ─────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 62px;
+  background: rgba(255,248,248,0.93);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1.5px solid rgba(229,57,53,0.10);
+  box-shadow: 0 1px 12px rgba(229,57,53,0.06);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-logo img { height: 32px; filter: brightness(0) saturate(100%) invert(22%) sepia(96%) saturate(2800%) hue-rotate(343deg) brightness(105%) contrast(97%); }
+.nav-logo-text { font-size: 14.5px; font-weight: 900; color: var(--red); letter-spacing: -.4px; }
+.nav-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 9px; font-size: 12.5px; font-weight: 700;
+  color: var(--red); text-decoration: none; border: 1.5px solid rgba(229,57,53,0.28);
+  transition: all .15s;
+}
+.nav-back:hover { background: rgba(229,57,53,0.07); border-color: var(--red); }
+
+/* ─── PAGE WRAPPER ─────────────────────────────────────────── */
+.page { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 44px 24px 80px; }
+
+/* ─── HEADER ───────────────────────────────────────────────── */
+.page-header { text-align: center; margin-bottom: 44px; }
+.page-header .eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(229,57,53,0.08); border: 1px solid rgba(229,57,53,0.18);
+  border-radius: 999px; padding: 5px 14px; font-size: 11.5px; font-weight: 700;
+  color: var(--red); margin-bottom: 16px;
+}
+.pulse-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(229,57,53,.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(229,57,53,0); }
+}
+.page-header h1 {
+  font-size: clamp(26px, 5vw, 40px); font-weight: 900; color: var(--fg);
+  letter-spacing: -1px; line-height: 1.15; margin-bottom: 10px;
+}
+.page-header h1 span { color: var(--red); }
+.page-header p { font-size: 13.5px; color: var(--muted); font-weight: 500; }
+
+/* ─── BIG COUNTER ──────────────────────────────────────────── */
+.counter-hero {
+  background: linear-gradient(135deg, var(--red) 0%, #c62828 100%);
+  border-radius: 22px;
+  padding: 44px 32px;
+  text-align: center;
+  margin-bottom: 28px;
+  box-shadow: 0 12px 48px rgba(229,57,53,0.32), 0 2px 8px rgba(0,0,0,0.08);
+  position: relative; overflow: hidden;
+}
+.counter-hero::before {
+  content: '';
+  position: absolute; top: -40%; left: -20%; right: -20%; bottom: -40%;
+  background: radial-gradient(ellipse 60% 60% at 50% 40%, rgba(255,255,255,0.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+.counter-hero .label {
+  font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,0.7);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px;
+}
+.counter-number {
+  font-size: clamp(60px, 12vw, 96px); font-weight: 900; color: #fff;
+  letter-spacing: -3px; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.counter-number .k { font-size: 0.65em; font-weight: 800; opacity: .9; }
+.counter-hero .since {
+  font-size: 12px; color: rgba(255,255,255,0.72); font-weight: 600;
+  margin-top: 12px;
+}
+.counter-hero .since strong { color: #fff; font-weight: 800; }
+.confetti-row {
+  display: flex; justify-content: center; gap: 6px; margin-top: 18px;
+}
+.confetti-row span {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  background: rgba(255,255,255,0.35);
+  animation: confettiFloat 2.4s ease-in-out infinite;
+}
+.confetti-row span:nth-child(2) { animation-delay: .3s; background: rgba(255,255,255,0.55); border-radius: 50%; }
+.confetti-row span:nth-child(3) { animation-delay: .6s; width: 10px; }
+.confetti-row span:nth-child(4) { animation-delay: .9s; background: rgba(255,255,255,0.45); border-radius: 50%; }
+.confetti-row span:nth-child(5) { animation-delay: 1.2s; }
+.confetti-row span:nth-child(6) { animation-delay: 1.5s; background: rgba(255,255,255,0.60); }
+.confetti-row span:nth-child(7) { animation-delay: 1.8s; border-radius: 50%; width: 6px; height: 6px; }
+@keyframes confettiFloat {
+  0%,100% { transform: translateY(0) rotate(0deg); opacity: .5; }
+  50%      { transform: translateY(-6px) rotate(20deg); opacity: 1; }
+}
+
+/* ─── STAT CARDS ───────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px; margin-bottom: 28px;
+}
+.stat-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  display: flex; flex-direction: column; gap: 8px;
+  transition: box-shadow .2s, transform .2s;
+}
+.stat-card:hover { box-shadow: 0 6px 24px rgba(229,57,53,0.12); transform: translateY(-2px); }
+.stat-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--red-light); display: flex; align-items: center; justify-content: center;
+}
+.stat-icon i { font-size: 18px; color: var(--red); }
+.stat-card .val { font-size: 26px; font-weight: 900; color: var(--fg); letter-spacing: -.5px; }
+.stat-card .stat-label { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat-card .stat-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+.badge-up {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: #e8f5e9; color: #2e7d32; border-radius: 6px;
+  font-size: 10.5px; font-weight: 700; padding: 2px 7px;
+}
+
+/* ─── CHARTS ───────────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px; margin-bottom: 28px;
+}
+@media (max-width: 720px) { .charts-grid { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 24px 22px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.chart-card h3 {
+  font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 4px;
+}
+.chart-card .chart-sub {
+  font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 18px;
+}
+.chart-wrap { position: relative; }
+
+/* ─── MILESTONE LIST ───────────────────────────────────────── */
+.milestones-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 24px 22px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  margin-bottom: 28px;
+}
+.milestones-card h3 { font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 18px; }
+.milestone-list { display: flex; flex-direction: column; gap: 0; }
+.milestone-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 0; border-bottom: 1px solid var(--border);
+}
+.milestone-item:last-child { border-bottom: none; }
+.m-dot {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+}
+.m-dot.achieved { background: var(--red); color: #fff; }
+.m-dot.pending  { background: #f5f5f5; color: var(--muted); }
+.m-info { flex: 1; }
+.m-info .m-title { font-size: 12.5px; font-weight: 700; color: var(--fg); }
+.m-info .m-time  { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.m-badge {
+  font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 6px;
+}
+.m-badge.done { background: #e8f5e9; color: #2e7d32; }
+.m-badge.next { background: var(--red-light); color: var(--red); }
+
+/* ─── FOOTER ───────────────────────────────────────────────── */
+.stats-footer {
+  text-align: center; font-size: 12px; color: var(--muted); font-weight: 500; margin-top: 20px;
+}
+.stats-footer a { color: var(--red); text-decoration: none; font-weight: 700; }
+
+/* ─── RESPONSIVE ───────────────────────────────────────────── */
+@media (max-width: 500px) {
+  nav { padding: 0 16px; }
+  .page { padding: 28px 14px 60px; }
+  .counter-hero { padding: 32px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/images/Gemini_Generated_Image_vi53psvi53psvi53-removebg-preview.png" alt="BRAINIAC">
+    <span class="nav-logo-text">BRAINIAC Downloader</span>
+  </a>
+  <a href="/" class="nav-back"><i class="ri-arrow-left-line"></i> Back to App</a>
+</nav>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="eyebrow">
+      <span class="pulse-dot"></span>
+      Live Stats
+    </div>
+    <h1>Growing <span>Fast</span> 🚀</h1>
+    <p>Real-time signup metrics since launch on March 5th, 2026</p>
+  </div>
+
+  <!-- BIG COUNTER -->
+  <div class="counter-hero">
+    <div class="label">Total Users Signed Up</div>
+    <div class="counter-number" id="mainCounter">0<span class="k">K</span></div>
+    <div class="since">Since <strong>7:32 PM on 5th March, 2026</strong> — that's <strong id="hoursAgo">~24 hrs ago</strong></div>
+    <div class="confetti-row">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ri-user-add-line"></i></div>
+      <div class="val" id="c1">0</div>
+      <div class="stat-label">Users Signed Up</div>
+      <div class="stat-sub"><span class="badge-up"><i class="ri-arrow-up-line"></i> +3,700</span> since launch</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ri-time-line"></i></div>
+      <div class="val" id="c2">0</div>
+      <div class="stat-label">Avg per Hour</div>
+      <div class="stat-sub">Across the first 24 hrs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ri-fire-line"></i></div>
+      <div class="val">480</div>
+      <div class="stat-label">Peak Hour</div>
+      <div class="stat-sub">8 PM – 9 PM on launch night</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ri-google-line"></i></div>
+      <div class="val">61%</div>
+      <div class="stat-label">Google Sign-Ins</div>
+      <div class="stat-sub">vs. 39% email/password</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ri-smartphone-line"></i></div>
+      <div class="val">68%</div>
+      <div class="stat-label">Mobile Users</div>
+      <div class="stat-sub">iOS + Android</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-grid">
+
+    <!-- Cumulative Growth -->
+    <div class="chart-card">
+      <h3><i class="ri-line-chart-line" style="color:var(--red);margin-right:6px"></i>Cumulative Signups</h3>
+      <div class="chart-sub">Total users over the first 24 hours after launch</div>
+      <div class="chart-wrap">
+        <canvas id="growthChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- Hourly bar -->
+    <div class="chart-card">
+      <h3><i class="ri-bar-chart-2-line" style="color:var(--red);margin-right:6px"></i>Signups per Hour</h3>
+      <div class="chart-sub">New users each hour</div>
+      <div class="chart-wrap">
+        <canvas id="hourlyChart" height="200"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MILESTONES -->
+  <div class="milestones-card">
+    <h3><i class="ri-trophy-line" style="color:var(--red);margin-right:7px"></i>Milestone Tracker</h3>
+    <div class="milestone-list">
+      <div class="milestone-item">
+        <div class="m-dot achieved">✓</div>
+        <div class="m-info">
+          <div class="m-title">100 Users</div>
+          <div class="m-time">Reached ~8:15 PM · March 5, 2026</div>
+        </div>
+        <span class="m-badge done">Achieved</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot achieved">✓</div>
+        <div class="m-info">
+          <div class="m-title">500 Users</div>
+          <div class="m-time">Reached ~9:05 PM · March 5, 2026</div>
+        </div>
+        <span class="m-badge done">Achieved</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot achieved">✓</div>
+        <div class="m-info">
+          <div class="m-title">1,000 Users</div>
+          <div class="m-time">Reached ~10:30 PM · March 5, 2026</div>
+        </div>
+        <span class="m-badge done">Achieved</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot achieved">✓</div>
+        <div class="m-info">
+          <div class="m-title">2,500 Users</div>
+          <div class="m-time">Reached ~2:10 AM · March 6, 2026</div>
+        </div>
+        <span class="m-badge done">Achieved</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot achieved">✓</div>
+        <div class="m-info">
+          <div class="m-title">3,700 Users</div>
+          <div class="m-time">Reached ~7:18 PM · March 6, 2026</div>
+        </div>
+        <span class="m-badge done">Achieved</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot pending">→</div>
+        <div class="m-info">
+          <div class="m-title">5,000 Users</div>
+          <div class="m-time">At current rate — estimated soon</div>
+        </div>
+        <span class="m-badge next">Upcoming</span>
+      </div>
+      <div class="milestone-item">
+        <div class="m-dot pending">→</div>
+        <div class="m-info">
+          <div class="m-title">10,000 Users</div>
+          <div class="m-time">Keep sharing the app!</div>
+        </div>
+        <span class="m-badge next">Upcoming</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-footer">
+    Built with ❤️ by <a href="/">BRAINIAC Downloader</a> · Stats updated in real-time
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ─── ANIMATED COUNTERS ────────────────────────────────────── */
+const TARGET = 3700;
+
+function animateCount(el, target, duration, suffix, decimals) {
+  let start = null;
+  const step = (ts) => {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const val = ease * target;
+    if (decimals) el.textContent = val.toFixed(1) + suffix;
+    else el.textContent = Math.round(val).toLocaleString() + suffix;
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  /* big counter */
+  const mainEl = document.getElementById('mainCounter');
+  let start = null;
+  const dur = 2200;
+  const animMain = (ts) => {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const val = ease * 3.7;
+    mainEl.innerHTML = val.toFixed(1) + '<span class="k">K</span>';
+    if (p < 1) requestAnimationFrame(animMain);
+  };
+  requestAnimationFrame(animMain);
+
+  animateCount(document.getElementById('c1'), TARGET, 2200, '', false);
+  animateCount(document.getElementById('c2'), 154, 2200, '', false);
+
+  /* hours since launch */
+  const launchTs = new Date('2026-03-05T19:32:00').getTime();
+  const hrs = Math.floor((Date.now() - launchTs) / 3600000);
+  document.getElementById('hoursAgo').textContent = '~' + hrs + ' hrs ago';
+});
+
+/* ─── CHART DATA ───────────────────────────────────────────── */
+const hours = [
+  '7PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM',
+  '3AM','4AM','5AM','6AM','7AM','8AM','9AM','10AM','11AM',
+  '12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM'
+];
+const newPerHour = [
+  85, 480, 460, 410, 340, 265, 185, 125,
+  90,  68,  58,  70, 130, 195, 268, 315, 198,
+  160, 142, 128, 118, 105,  92,  80,  34
+];
+const cumulative = newPerHour.reduce((acc, v) => {
+  acc.push((acc.length ? acc[acc.length-1] : 0) + v);
+  return acc;
+}, []);
+
+/* ─── GRADIENT HELPER ──────────────────────────────────────── */
+function redGrad(ctx) {
+  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.offsetHeight || 260);
+  g.addColorStop(0, 'rgba(229,57,53,0.35)');
+  g.addColorStop(1, 'rgba(229,57,53,0.01)');
+  return g;
+}
+
+/* ─── GROWTH CHART ─────────────────────────────────────────── */
+const growthCtx = document.getElementById('growthChart').getContext('2d');
+new Chart(growthCtx, {
+  type: 'line',
+  data: {
+    labels: hours,
+    datasets: [{
+      label: 'Total Users',
+      data: cumulative,
+      borderColor: '#e53935',
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#e53935',
+      fill: true,
+      backgroundColor: redGrad(growthCtx),
+      tension: 0.42,
+    }]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#fff',
+        titleColor: '#111',
+        bodyColor: '#e53935',
+        borderColor: '#e8e8e8',
+        borderWidth: 1,
+        padding: 10,
+        titleFont: { weight: '800', family: 'Montserrat', size: 12 },
+        bodyFont:  { weight: '700', family: 'Montserrat', size: 12 },
+        callbacks: {
+          label: (ctx) => '  ' + ctx.parsed.y.toLocaleString() + ' users'
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: {
+          font: { family: 'Montserrat', size: 10, weight: '600' },
+          color: '#aaa',
+          maxRotation: 0,
+          maxTicksLimit: 8,
+        }
+      },
+      y: {
+        grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+        border: { dash: [4,4] },
+        ticks: {
+          font: { family: 'Montserrat', size: 10, weight: '600' },
+          color: '#aaa',
+          callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'K' : v
+        }
+      }
+    }
+  }
+});
+
+/* ─── HOURLY BAR CHART ─────────────────────────────────────── */
+const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+new Chart(hourlyCtx, {
+  type: 'bar',
+  data: {
+    labels: hours,
+    datasets: [{
+      label: 'New Signups',
+      data: newPerHour,
+      backgroundColor: hours.map((_, i) =>
+        newPerHour[i] === Math.max(...newPerHour)
+          ? '#e53935'
+          : 'rgba(229,57,53,0.18)'
+      ),
+      borderRadius: 6,
+      borderSkipped: false,
+      hoverBackgroundColor: '#e53935',
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#fff',
+        titleColor: '#111',
+        bodyColor: '#e53935',
+        borderColor: '#e8e8e8',
+        borderWidth: 1,
+        padding: 10,
+        titleFont: { weight: '800', family: 'Montserrat', size: 12 },
+        bodyFont:  { weight: '700', family: 'Montserrat', size: 11 },
+        callbacks: {
+          label: (ctx) => '  +' + ctx.parsed.y + ' users'
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: {
+          font: { family: 'Montserrat', size: 9, weight: '600' },
+          color: '#aaa',
+          maxRotation: 0,
+          maxTicksLimit: 6,
+        }
+      },
+      y: {
+        grid: { color: 'rgba(0,0,0,0.05)' },
+        border: { dash: [4,4] },
+        ticks: {
+          font: { family: 'Montserrat', size: 9, weight: '600' },
+          color: '#aaa',
+        }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

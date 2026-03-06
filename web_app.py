@@ -1851,6 +1851,10 @@ def pricing():
     resp = render_template("pricing.html")
     return resp, 200, {"Cache-Control": "public, max-age=3600"}
 
+@app.route("/stats")
+def stats():
+    return render_template("stats.html"), 200, {"Cache-Control": "no-cache"}
+
 # \u2500\u2500 Plan status API \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 @app.route("/api/plan-status")
 @login_required
