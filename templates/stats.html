@@ -170,8 +170,8 @@ nav {
   border-radius: 18px;
   padding: 24px 22px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-  /* prevent card from collapsing on mobile */
-  min-width: 0; overflow: hidden;
+  min-width: 0;
+  /* do NOT use overflow:hidden — it clips Chart.js canvas */
 }
 .chart-card h3 {
   font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 4px;
@@ -183,8 +183,8 @@ nav {
 }
 .chart-wrap {
   position: relative;
+  height: 240px;
   width: 100%;
-  /* let Chart.js control height via aspectRatio option */
 }
 
 /* ─── MILESTONE LIST ───────────────────────────────────────── */
@@ -239,7 +239,7 @@ nav {
   .stat-card .val { font-size: 22px; }
   .stat-card .stat-label { font-size: 10px; }
   .chart-card { padding: 16px 14px; }
-  .chart-wrap { /* let Chart.js handle height naturally */ }
+  .chart-wrap { height: 200px; }
   .maint-card { padding: 24px 16px 22px; border-radius: 16px; }
   .maint-headline { font-size: 15px; }
   .maint-body { font-size: 12px; }
@@ -819,8 +819,8 @@ function redGrad(chart) {
 /* ─── GROWTH CHART ───────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function initCharts() {
 
-const growthCtx = document.getElementById('growthChart').getContext('2d');
-const growthChart = new Chart(growthCtx, {
+const gCtx = document.getElementById('growthChart').getContext('2d');
+new Chart(gCtx, {
   type: 'line',
   data: {
     labels: hours,
@@ -839,42 +839,28 @@ const growthChart = new Chart(growthCtx, {
   },
   options: {
     responsive: true,
-    maintainAspectRatio: true,
-    aspectRatio: 2,
+    maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#fff',
-        titleColor: '#111',
-        bodyColor: '#e53935',
-        borderColor: '#e8e8e8',
-        borderWidth: 1,
-        padding: 10,
+        backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
+        borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
         titleFont: { weight: '800', family: 'Montserrat', size: 12 },
         bodyFont:  { weight: '700', family: 'Montserrat', size: 12 },
-        callbacks: {
-          label: (ctx) => '  ' + ctx.parsed.y.toLocaleString() + ' users'
-        }
+        callbacks: { label: (c) => '  ' + c.parsed.y.toLocaleString() + ' users' }
       }
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: {
-          font: { family: 'Montserrat', size: 10, weight: '600' },
-          color: '#aaa',
-          maxRotation: 0,
-          maxTicksLimit: 8,
-        }
+        ticks: { font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 8 }
       },
       y: {
-        grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
-        border: { dash: [4,4] },
+        grid: { color: 'rgba(0,0,0,0.05)' },
         ticks: {
-          font: { family: 'Montserrat', size: 10, weight: '600' },
-          color: '#aaa',
-          callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'K' : v
+          font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa',
+          callback: (v) => v >= 1000 ? (v/1000).toFixed(1)+'K' : v
         }
       }
     }
@@ -882,19 +868,15 @@ const growthChart = new Chart(growthCtx, {
 });
 
 /* ─── HOURLY BAR CHART ─────────────────────────────────────── */
-const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-new Chart(hourlyCtx, {
+const hCtx = document.getElementById('hourlyChart').getContext('2d');
+new Chart(hCtx, {
   type: 'bar',
   data: {
     labels: hours,
     datasets: [{
       label: 'New Signups',
       data: newPerHour,
-      backgroundColor: hours.map((_, i) =>
-        newPerHour[i] === Math.max(...newPerHour)
-          ? '#e53935'
-          : 'rgba(229,57,53,0.18)'
-      ),
+      backgroundColor: newPerHour.map(v => v === Math.max(...newPerHour) ? '#e53935' : 'rgba(229,57,53,0.22)'),
       borderRadius: 6,
       borderSkipped: false,
       hoverBackgroundColor: '#e53935',
@@ -902,47 +884,31 @@ new Chart(hourlyCtx, {
   },
   options: {
     responsive: true,
-    maintainAspectRatio: true,
-    aspectRatio: 1.8,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#fff',
-        titleColor: '#111',
-        bodyColor: '#e53935',
-        borderColor: '#e8e8e8',
-        borderWidth: 1,
-        padding: 10,
+        backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
+        borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
         titleFont: { weight: '800', family: 'Montserrat', size: 12 },
         bodyFont:  { weight: '700', family: 'Montserrat', size: 11 },
-        callbacks: {
-          label: (ctx) => '  +' + ctx.parsed.y + ' users'
-        }
+        callbacks: { label: (c) => '  +' + c.parsed.y + ' users' }
       }
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: {
-          font: { family: 'Montserrat', size: 9, weight: '600' },
-          color: '#aaa',
-          maxRotation: 0,
-          maxTicksLimit: 6,
-        }
+        ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 6 }
       },
       y: {
         grid: { color: 'rgba(0,0,0,0.05)' },
-        border: { dash: [4,4] },
-        ticks: {
-          font: { family: 'Montserrat', size: 9, weight: '600' },
-          color: '#aaa',
-        }
+        ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa' }
       }
     }
   }
 });
 
-}); /* end initCharts DOMContentLoaded */
+}); /* end initCharts */
 </script>
 </body>
 </html>
