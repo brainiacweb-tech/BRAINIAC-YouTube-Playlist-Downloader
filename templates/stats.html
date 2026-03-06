@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -747,6 +746,7 @@ nav {
 
 </div><!-- /page -->
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 /* ─── ANIMATED COUNTERS ────────────────────────────────────── */
 let liveCount = 3700;
@@ -797,118 +797,110 @@ window.addEventListener('DOMContentLoaded', () => {
   animateCount(document.getElementById('c2'), 508, 2200, '', false);
 });
 
-/* ─── CHART DATA ───────────────────────────────────────────── */
-const hours = ['7:32PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM','2:49AM'];
-const newPerHour = [150, 620, 580, 520, 460, 400, 380, 280, 310];
-const cumulative = newPerHour.reduce((acc, v) => {
-  acc.push((acc.length ? acc[acc.length-1] : 0) + v);
-  return acc;
-}, []);
+/* ─── CHARTS (inline at bottom of body — DOM is already ready) ── */
+(function initCharts() {
+  var hours = ['7:32PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM','2:49AM'];
+  var newPerHour = [150, 620, 580, 520, 460, 400, 380, 280, 310];
+  var cumulative = newPerHour.reduce(function(acc, v) {
+    acc.push((acc.length ? acc[acc.length-1] : 0) + v);
+    return acc;
+  }, []);
 
-/* ─── GRADIENT HELPER ──────────────────────────────────────── */
-/* gradient built after chart renders so canvas has real dimensions */
-function redGrad(chart) {
-  const { ctx, chartArea } = chart;
-  if (!chartArea) return 'rgba(229,57,53,0.25)';
-  const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-  g.addColorStop(0, 'rgba(229,57,53,0.35)');
-  g.addColorStop(1, 'rgba(229,57,53,0.01)');
-  return g;
-}
-
-/* ─── GROWTH CHART ───────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', function initCharts() {
-
-const gCtx = document.getElementById('growthChart').getContext('2d');
-new Chart(gCtx, {
-  type: 'line',
-  data: {
-    labels: hours,
-    datasets: [{
-      label: 'Total Users',
-      data: cumulative,
-      borderColor: '#e53935',
-      borderWidth: 2.5,
-      pointRadius: 3,
-      pointHoverRadius: 6,
-      pointBackgroundColor: '#e53935',
-      fill: true,
-      backgroundColor: 'rgba(229,57,53,0.15)',
-      tension: 0.42,
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
-        borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
-        titleFont: { weight: '800', family: 'Montserrat', size: 12 },
-        bodyFont:  { weight: '700', family: 'Montserrat', size: 12 },
-        callbacks: { label: (c) => '  ' + c.parsed.y.toLocaleString() + ' users' }
-      }
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 8 }
+  /* ── GROWTH LINE CHART ── */
+  var gCanvas = document.getElementById('growthChart');
+  if (gCanvas) {
+    new Chart(gCanvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: hours,
+        datasets: [{
+          label: 'Total Users',
+          data: cumulative,
+          borderColor: '#e53935',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#e53935',
+          fill: true,
+          backgroundColor: 'rgba(229,57,53,0.15)',
+          tension: 0.42,
+        }]
       },
-      y: {
-        grid: { color: 'rgba(0,0,0,0.05)' },
-        ticks: {
-          font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa',
-          callback: (v) => v >= 1000 ? (v/1000).toFixed(1)+'K' : v
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
+            borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
+            titleFont: { weight: '800', family: 'Montserrat', size: 12 },
+            bodyFont:  { weight: '700', family: 'Montserrat', size: 12 },
+            callbacks: { label: function(c) { return '  ' + c.parsed.y.toLocaleString() + ' users'; } }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 8 }
+          },
+          y: {
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: {
+              font: { family: 'Montserrat', size: 10, weight: '600' }, color: '#aaa',
+              callback: function(v) { return v >= 1000 ? (v/1000).toFixed(1)+'K' : v; }
+            }
+          }
         }
       }
-    }
+    });
   }
-});
 
-/* ─── HOURLY BAR CHART ─────────────────────────────────────── */
-const hCtx = document.getElementById('hourlyChart').getContext('2d');
-new Chart(hCtx, {
-  type: 'bar',
-  data: {
-    labels: hours,
-    datasets: [{
-      label: 'New Signups',
-      data: newPerHour,
-      backgroundColor: newPerHour.map(v => v === Math.max(...newPerHour) ? '#e53935' : 'rgba(229,57,53,0.22)'),
-      borderRadius: 6,
-      borderSkipped: false,
-      hoverBackgroundColor: '#e53935',
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
-        borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
-        titleFont: { weight: '800', family: 'Montserrat', size: 12 },
-        bodyFont:  { weight: '700', family: 'Montserrat', size: 11 },
-        callbacks: { label: (c) => '  +' + c.parsed.y + ' users' }
-      }
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 6 }
+  /* ── HOURLY BAR CHART ── */
+  var hCanvas = document.getElementById('hourlyChart');
+  if (hCanvas) {
+    var maxVal = Math.max.apply(null, newPerHour);
+    new Chart(hCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: hours,
+        datasets: [{
+          label: 'New Signups',
+          data: newPerHour,
+          backgroundColor: newPerHour.map(function(v) { return v === maxVal ? '#e53935' : 'rgba(229,57,53,0.22)'; }),
+          borderRadius: 6,
+          borderSkipped: false,
+          hoverBackgroundColor: '#e53935',
+        }]
       },
-      y: {
-        grid: { color: 'rgba(0,0,0,0.05)' },
-        ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa' }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff', titleColor: '#111', bodyColor: '#e53935',
+            borderColor: '#e8e8e8', borderWidth: 1, padding: 10,
+            titleFont: { weight: '800', family: 'Montserrat', size: 12 },
+            bodyFont:  { weight: '700', family: 'Montserrat', size: 11 },
+            callbacks: { label: function(c) { return '  +' + c.parsed.y + ' users'; } }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa', maxRotation: 0, maxTicksLimit: 6 }
+          },
+          y: {
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: { font: { family: 'Montserrat', size: 9, weight: '600' }, color: '#aaa' }
+          }
+        }
       }
-    }
+    });
   }
-});
-
-}); /* end initCharts */
+})();
 </script>
 </body>
 </html>
